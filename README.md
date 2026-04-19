@@ -1,5 +1,9 @@
 # Galaxy Book Setup
 
+<p align="center">
+  <img src="assets/galaxybook-setup.svg" alt="Ícone do Galaxy Book Setup" width="112">
+</p>
+
 `Galaxy Book Setup` é um auxiliar de instalação e diagnóstico para notebooks
 Samsung Galaxy Book no Fedora. A proposta do app é organizar fluxos de
 configuração que hoje normalmente acabam espalhados em terminal, logs, pacotes
