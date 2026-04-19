@@ -1,0 +1,8 @@
+[package]
+name = "galaxybook-setup"
+version = "1.0.0"
+edition = "2024"
+
+[dependencies]
+gtk = { package = "gtk4", version = "0.10", features = ["v4_10"] }
+libadwaita = { version = "0.8", features = ["v1_5"] }

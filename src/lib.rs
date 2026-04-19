@@ -1,0 +1,1228 @@
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+
+pub const APP_ID: &str = "com.caioregis.GalaxyBookSetup";
+pub const APP_NAME: &str = "Galaxy Book Setup";
+pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
+const CAMERA_APP_TUNING_FILE: &str =
+    "/usr/share/galaxybook-camera/libcamera/simple/ov02c10.yaml";
+pub const INSTALL_CAMERA_COMMAND: &str =
+    "dnf install -y galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-camera";
+pub const REPAIR_CAMERA_COMMAND: &str =
+    r#"akmods --force --akmod galaxybook-ov02c10 --kernels "$(uname -r)" && depmod -a"#;
+pub const ENABLE_CAMERA_MODULE_COMMAND: &str = r#"set -euo pipefail
+install -d /etc/modules-load.d /etc/modprobe.d
+cat > /etc/modules-load.d/galaxybook-ov02c10.conf <<'EOF'
+ov02c10
+EOF
+cat > /etc/modprobe.d/galaxybook-ov02c10.conf <<'EOF'
+softdep intel_ipu6_isys pre: ov02c10
+EOF
+modprobe ov02c10
+lsmod | grep '^ov02c10 '
+"#;
+pub const FORCE_CAMERA_DRIVER_COMMAND: &str = r#"set -euo pipefail
+kernel="$(uname -r)"
+workdir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$workdir"
+}
+trap cleanup EXIT
+
+akmods --force --akmod galaxybook-ov02c10 --kernels "$kernel"
+
+source_rpm="$(readlink -f /usr/src/akmods/galaxybook-ov02c10-kmod.latest)"
+if [ ! -f "$source_rpm" ]; then
+  echo "O source RPM do akmod não foi encontrado em /usr/src/akmods." >&2
+  exit 1
+fi
+
+if [ ! -d "/usr/src/kernels/$kernel" ]; then
+  echo "Os headers do kernel atual não estão instalados: /usr/src/kernels/$kernel" >&2
+  exit 1
+fi
+
+rpm2cpio "$source_rpm" | (cd "$workdir" && cpio -idm --quiet)
+archive="$(find "$workdir" -maxdepth 1 -name 'galaxybook-ov02c10-kmod-*.tar.gz' | head -n1)"
+if [ -z "$archive" ]; then
+  echo "Não foi possível localizar o tarball do driver dentro do source RPM." >&2
+  exit 1
+fi
+
+tar -C "$workdir" -xf "$archive"
+srcdir="$(find "$workdir" -maxdepth 1 -mindepth 1 -type d -name 'galaxybook-ov02c10-kmod-*' | head -n1)"
+if [ -z "$srcdir" ]; then
+  echo "Não foi possível extrair a árvore do driver corrigido." >&2
+  exit 1
+fi
+
+make -C "/usr/src/kernels/$kernel" M="$srcdir/module" modules
+install -d "/lib/modules/$kernel/updates"
+rm -f \
+  "/lib/modules/$kernel/updates/ov02c10.ko" \
+  "/lib/modules/$kernel/updates/ov02c10.ko.xz"
+
+secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
+if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
+  sign_file="/usr/src/kernels/$kernel/scripts/sign-file"
+  if [ ! -x "$sign_file" ]; then
+    sign_file="/lib/modules/$kernel/build/scripts/sign-file"
+  fi
+
+  if [ ! -x "$sign_file" ]; then
+    echo "O utilitário sign-file do kernel não foi encontrado para $kernel." >&2
+    exit 1
+  fi
+
+  if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
+    echo "Secure Boot está ativo, mas a chave do akmods não está disponível para assinar o módulo." >&2
+    exit 1
+  fi
+
+  "$sign_file" sha256 \
+    /etc/pki/akmods/private/private_key.priv \
+    /etc/pki/akmods/certs/public_key.der \
+    "$srcdir/module/ov02c10.ko"
+fi
+
+install -m 0644 "$srcdir/module/ov02c10.ko" "/lib/modules/$kernel/updates/ov02c10.ko"
+if command -v restorecon >/dev/null 2>&1; then
+  restorecon "/lib/modules/$kernel/updates/ov02c10.ko" || true
+fi
+depmod -a "$kernel"
+
+if lsmod | grep -q '^ov02c10 '; then
+  modprobe -r ov02c10 || true
+fi
+modprobe ov02c10 || true
+modinfo -n ov02c10
+modinfo -F signer "/lib/modules/$kernel/updates/ov02c10.ko" || true
+"#;
+pub const RESTORE_INTEL_CAMERA_COMMAND: &str = r#"set -euo pipefail
+kernel="$(uname -r)"
+
+dnf install -y \
+  akmod-intel-ipu6 \
+  ipu6-camera-bins \
+  ipu6-camera-hal \
+  gstreamer1-plugins-icamerasrc \
+  libcamera \
+  libcamera-ipa \
+  libcamera-v4l2 \
+  pipewire-plugin-libcamera
+
+rm -f \
+  "/lib/modules/$kernel/updates/ov02c10.ko" \
+  "/lib/modules/$kernel/updates/ov02c10.ko.xz"
+
+akmods --force --akmod intel-ipu6 --kernels "$kernel" || true
+depmod -a "$kernel"
+
+if lsmod | grep -q '^ov02c10 '; then
+  modprobe -r ov02c10 || true
+fi
+modprobe ov02c10 || true
+modinfo -n ov02c10
+"#;
+pub const ENABLE_BROWSER_CAMERA_COMMAND: &str = r#"set -euo pipefail
+dnf install -y \
+  v4l2-relayd \
+  v4l2loopback \
+  gstreamer1-plugins-icamerasrc \
+  v4l-utils
+
+install -d /etc/v4l2-relayd.d /etc/modprobe.d
+cat > /etc/v4l2-relayd.d/icamerasrc.conf <<'EOF'
+VIDEOSRC="icamerasrc"
+FORMAT=NV12
+WIDTH=1280
+HEIGHT=720
+FRAMERATE=30/1
+CARD_LABEL="Intel MIPI Camera"
+EOF
+
+cat > /etc/modprobe.d/galaxybook-v4l2loopback.conf <<'EOF'
+options v4l2loopback exclusive_caps=1 card_label="Intel MIPI Camera"
+EOF
+
+systemctl stop v4l2-relayd@icamerasrc.service || true
+modprobe -r v4l2loopback || true
+modprobe v4l2loopback || true
+udevadm settle || true
+
+systemctl enable --now v4l2-relayd.service
+systemctl enable --now v4l2-relayd@icamerasrc.service
+systemctl restart v4l2-relayd@icamerasrc.service
+
+device="$(grep -l -m1 -E '^Intel MIPI Camera$' /sys/devices/virtual/video4linux/*/name 2>/dev/null | xargs -r basename || true)"
+if [ -n "$device" ] && command -v v4l2-ctl >/dev/null 2>&1; then
+  v4l2-ctl -D -d "/dev/$device" || true
+fi
+"#;
+pub const REPAIR_NVIDIA_COMMAND: &str =
+    r#"dnf install -y akmod-nvidia && akmods --force --kernels "$(uname -r)" && depmod -a && dracut --force"#;
+pub const SET_BALANCED_PROFILE_COMMAND: &str = r#"if [ -w /sys/firmware/acpi/platform_profile ]; then printf 'balanced' > /sys/firmware/acpi/platform_profile; cat /sys/firmware/acpi/platform_profile; else echo 'O perfil da plataforma não está disponível neste sistema.' >&2; exit 1; fi"#;
+pub const REBOOT_COMMAND: &str = "systemctl reboot -i";
+
+const CLIPBOARD_EXTENSION_IDS: &[&str] = &[
+    "clipboard-indicator@tudmotu.com",
+    "clipboard-history@alexsaveau.dev",
+    "GPaste@gnome-shell-extensions.gnome.org",
+    "pano@elhan.io",
+];
+const GSCONNECT_EXTENSION_ID: &str = "gsconnect@andyholmes.github.io";
+const DESKTOP_ICONS_EXTENSION_ID: &str = "ding@rastersoft.com";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Health {
+    Good,
+    Warning,
+    Error,
+    Unknown,
+}
+
+impl Health {
+    pub fn icon_name(self) -> &'static str {
+        match self {
+            Self::Good => "object-select-symbolic",
+            Self::Warning => "dialog-warning-symbolic",
+            Self::Error => "dialog-error-symbolic",
+            Self::Unknown => "dialog-question-symbolic",
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Good => "OK",
+            Self::Warning => "Atenção",
+            Self::Error => "Erro",
+            Self::Unknown => "Indefinido",
+        }
+    }
+
+    pub fn css_class(self) -> &'static str {
+        match self {
+            Self::Good => "status-pill-good",
+            Self::Warning => "status-pill-warning",
+            Self::Error => "status-pill-error",
+            Self::Unknown => "status-pill-unknown",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ModuleOrigin {
+    Patched,
+    InTree,
+    Missing,
+    Unknown,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CheckItem {
+    pub title: &'static str,
+    pub detail: String,
+    pub health: Health,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SystemSummary {
+    pub notebook: String,
+    pub fedora: String,
+    pub kernel: String,
+    pub secure_boot: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SetupSnapshot {
+    pub system: SystemSummary,
+    pub packages: CheckItem,
+    pub akmods: CheckItem,
+    pub module: CheckItem,
+    pub libcamera: CheckItem,
+    pub browser_camera: CheckItem,
+    pub boot: CheckItem,
+    pub gpu: CheckItem,
+    pub platform_profile: CheckItem,
+    pub clipboard_extension: CheckItem,
+    pub gsconnect_extension: CheckItem,
+    pub desktop_icons_extension: CheckItem,
+    pub recommendation_title: String,
+    pub recommendation_body: String,
+    pub install_command: String,
+    pub repair_command: String,
+    pub enable_camera_module_command: String,
+    pub force_camera_command: String,
+    pub restore_intel_camera_command: String,
+    pub enable_browser_camera_command: String,
+    pub repair_nvidia_command: String,
+    pub set_balanced_profile_command: String,
+    pub reboot_command: String,
+    pub camera_app_installed: bool,
+}
+
+#[derive(Default)]
+struct PackagePresence {
+    installed: Vec<String>,
+    missing: Vec<String>,
+}
+
+pub fn collect_snapshot() -> SetupSnapshot {
+    let system = SystemSummary {
+        notebook: detect_notebook(),
+        fedora: detect_fedora_release(),
+        kernel: command_text("uname", &["-r"]).unwrap_or_else(|_| "Desconhecido".into()),
+        secure_boot: detect_secure_boot(),
+    };
+
+    let packages = package_presence(&[
+        "galaxybook-ov02c10-kmod-common",
+        "akmod-galaxybook-ov02c10",
+        "galaxybook-camera",
+    ]);
+    let camera_app_installed = packages.installed.iter().any(|pkg| pkg == "galaxybook-camera");
+
+    let package_check = if packages.missing.is_empty() {
+        CheckItem {
+            title: "Pacotes principais",
+            detail: format!("Instalados: {}", packages.installed.join(", ")),
+            health: Health::Good,
+        }
+    } else {
+        CheckItem {
+            title: "Pacotes principais",
+            detail: format!("Faltando: {}", packages.missing.join(", ")),
+            health: Health::Warning,
+        }
+    };
+
+    let akmods_log = command_text("journalctl", &["-b", "-u", "akmods", "--no-pager"])
+        .unwrap_or_default();
+    let akmods_failed = akmods_log.contains("Building and installing galaxybook-ov02c10-kmod [FAILED]")
+        || akmods_log.contains("Building rpms failed")
+        || akmods_log.contains("galaxybook-ov02c10/") && akmods_log.contains("failed.log");
+    let akmods_check = if packages
+        .installed
+        .iter()
+        .any(|pkg| pkg == "akmod-galaxybook-ov02c10")
+    {
+        if akmods_failed {
+            CheckItem {
+                title: "Akmods no boot",
+                detail: "Falhou ao gerar o módulo para o kernel atual.".into(),
+                health: Health::Error,
+            }
+        } else {
+            CheckItem {
+                title: "Akmods no boot",
+                detail: "Nenhuma falha do akmods encontrada no boot atual.".into(),
+                health: Health::Good,
+            }
+        }
+    } else {
+        CheckItem {
+            title: "Akmods no boot",
+            detail: "O driver ainda não foi instalado, então o akmods não executou esse fluxo.".into(),
+            health: Health::Unknown,
+        }
+    };
+
+    let module_path = command_text("modinfo", &["-n", "ov02c10"]).ok();
+    let module_origin = module_origin_from_path(module_path.as_deref());
+    let module_owner = module_path.as_deref().and_then(rpm_owner_for_file);
+    let packaged_camera_driver_installed = packages
+        .installed
+        .iter()
+        .any(|pkg| pkg == "akmod-galaxybook-ov02c10");
+    let module_loaded = read_trimmed("/proc/modules")
+        .map(|modules| modules.lines().any(|line| line.starts_with("ov02c10 ")))
+        .unwrap_or(false);
+    let manual_updates_override = module_path
+        .as_deref()
+        .map(|path| {
+            path.contains("/updates/") && module_owner.is_none() && !packaged_camera_driver_installed
+        })
+        .unwrap_or(false);
+    let kernel_log = command_text("journalctl", &["-b", "-k", "--no-pager"]).unwrap_or_default();
+    let clock_error = detect_clock_error(&kernel_log);
+    let module_check = match (module_origin, module_path.as_deref()) {
+        (ModuleOrigin::Patched, Some(path)) if !module_loaded => CheckItem {
+            title: "Módulo ativo",
+            detail: format!(
+                "O módulo corrigido existe em {path}, mas ainda não foi carregado no kernel. Habilite o carregamento automático e recarregue o driver pela seção de ações rápidas."
+            ),
+            health: Health::Error,
+        },
+        (ModuleOrigin::Patched, Some(path)) if manual_updates_override => CheckItem {
+            title: "Módulo ativo",
+            detail: format!(
+                "Usando um override manual em {path}. Como esse arquivo não pertence a um RPM, ele pode divergir do stack Intel IPU6 que o restante do sistema espera."
+            ),
+            health: Health::Warning,
+        },
+        (ModuleOrigin::Patched, Some(path)) => CheckItem {
+            title: "Módulo ativo",
+            detail: match module_owner {
+                Some(ref owner) => format!("Usando módulo externo em {path}, fornecido por {owner}."),
+                None => format!("Usando módulo externo: {path}"),
+            },
+            health: Health::Good,
+        },
+        (ModuleOrigin::Patched, None) => CheckItem {
+            title: "Módulo ativo",
+            detail: "O sistema indicou um módulo externo, mas o caminho não pôde ser lido.".into(),
+            health: Health::Warning,
+        },
+        (ModuleOrigin::InTree, Some(path)) => CheckItem {
+            title: "Módulo ativo",
+            detail: format!(
+                "O sistema está usando o módulo in-tree do kernel: {path}. Use a ação rápida para ajustar a prioridade do driver corrigido."
+            ),
+            health: if clock_error {
+                Health::Error
+            } else {
+                Health::Warning
+            },
+        },
+        (ModuleOrigin::InTree, None) => CheckItem {
+            title: "Módulo ativo",
+            detail: "O sistema parece ter caído para o módulo in-tree. Use a ação rápida para ajustar a prioridade do driver corrigido.".into(),
+            health: if clock_error {
+                Health::Error
+            } else {
+                Health::Warning
+            },
+        },
+        (ModuleOrigin::Missing, _) => CheckItem {
+            title: "Módulo ativo",
+            detail: "Não foi possível localizar o módulo ov02c10 via modinfo.".into(),
+            health: Health::Error,
+        },
+        (ModuleOrigin::Unknown, Some(path)) => CheckItem {
+            title: "Módulo ativo",
+            detail: format!("Módulo localizado, mas sem origem claramente classificada: {path}"),
+            health: Health::Warning,
+        },
+        (ModuleOrigin::Unknown, None) => CheckItem {
+            title: "Módulo ativo",
+            detail: "Origem do módulo ov02c10 não pôde ser determinada.".into(),
+            health: Health::Unknown,
+        },
+    };
+
+    let libcamera_output = direct_camera_command_text("cam", &["-l"]);
+    let libcamera_detected = libcamera_output
+        .as_ref()
+        .map(|output| libcamera_output_has_camera(output))
+        .unwrap_or(false);
+    let libcamera_check = match libcamera_output {
+        Ok(output) if libcamera_detected => CheckItem {
+            title: "Caminho direto do Galaxy Book Câmera",
+            detail: extract_first_matching_line(&output, &["Internal front camera", "'ov02c10'"])
+                .unwrap_or_else(|| {
+                    "A câmera interna apareceu no caminho direto usado pelo Galaxy Book Câmera."
+                        .into()
+                }),
+            health: Health::Good,
+        },
+        Ok(_) => CheckItem {
+            title: "Caminho direto do Galaxy Book Câmera",
+            detail: "A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book Câmera não listou a câmera interna. Isso não significa, por si só, que Snapshot, navegador ou o sistema também falharam.".into(),
+            health: Health::Warning,
+        },
+        Err(_) => CheckItem {
+            title: "Caminho direto do Galaxy Book Câmera",
+            detail: "A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera.".into(),
+            health: Health::Unknown,
+        },
+    };
+
+    let browser_packages = package_presence(&[
+        "v4l2-relayd",
+        "v4l2loopback",
+        "gstreamer1-plugins-icamerasrc",
+        "v4l-utils",
+    ]);
+    let camera_source_ready = detect_system_camera_source_ready();
+    let browser_camera = detect_browser_camera_check(
+        &browser_packages,
+        libcamera_detected,
+        camera_source_ready,
+    );
+
+    let boot_check = if clock_error {
+        CheckItem {
+            title: "Erros no boot",
+            detail: "O boot registrou que o driver in-tree não suporta o clock externo de 26 MHz nesta máquina.".into(),
+            health: Health::Error,
+        }
+    } else {
+        CheckItem {
+            title: "Erros no boot",
+            detail: "Nenhum erro de clock/probe do ov02c10 foi encontrado no boot atual.".into(),
+            health: Health::Good,
+        }
+    };
+
+    let gpu_check = detect_nvidia_check();
+    let platform_profile_check = detect_platform_profile_check();
+
+    let enabled_extensions = enabled_gnome_shell_extensions();
+    let installed_extensions = installed_gnome_shell_extensions();
+
+    let clipboard_check = extension_check(
+        "Histórico da área de transferência",
+        CLIPBOARD_EXTENSION_IDS,
+        &enabled_extensions,
+        &installed_extensions,
+        "Nenhuma extensão conhecida de histórico da área de transferência foi encontrada.",
+    );
+    let gsconnect_check = extension_check(
+        "GSConnect",
+        &[GSCONNECT_EXTENSION_ID],
+        &enabled_extensions,
+        &installed_extensions,
+        "O GSConnect não está instalado.",
+    );
+    let desktop_icons_check = extension_check(
+        "Ícones na área de trabalho",
+        &[DESKTOP_ICONS_EXTENSION_ID],
+        &enabled_extensions,
+        &installed_extensions,
+        "A extensão Desktop Icons NG não está instalada.",
+    );
+
+    let (recommendation_title, recommendation_body) = recommend_next_step(
+        &packages,
+        akmods_failed,
+        module_origin,
+        manual_updates_override,
+        clock_error,
+        module_loaded,
+        libcamera_detected,
+        camera_source_ready,
+        browser_camera.health == Health::Good,
+        camera_app_installed,
+    );
+
+    SetupSnapshot {
+        system,
+        packages: package_check,
+        akmods: akmods_check,
+        module: module_check,
+        libcamera: libcamera_check,
+        browser_camera,
+        boot: boot_check,
+        gpu: gpu_check,
+        platform_profile: platform_profile_check,
+        clipboard_extension: clipboard_check,
+        gsconnect_extension: gsconnect_check,
+        desktop_icons_extension: desktop_icons_check,
+        recommendation_title,
+        recommendation_body,
+        install_command: INSTALL_CAMERA_COMMAND.into(),
+        repair_command: REPAIR_CAMERA_COMMAND.into(),
+        enable_camera_module_command: ENABLE_CAMERA_MODULE_COMMAND.into(),
+        force_camera_command: FORCE_CAMERA_DRIVER_COMMAND.into(),
+        restore_intel_camera_command: RESTORE_INTEL_CAMERA_COMMAND.into(),
+        enable_browser_camera_command: ENABLE_BROWSER_CAMERA_COMMAND.into(),
+        repair_nvidia_command: REPAIR_NVIDIA_COMMAND.into(),
+        set_balanced_profile_command: SET_BALANCED_PROFILE_COMMAND.into(),
+        reboot_command: REBOOT_COMMAND.into(),
+        camera_app_installed,
+    }
+}
+
+pub fn run_smoke_test() -> Result<(), String> {
+    let snapshot = collect_snapshot();
+
+    println!("app_id={APP_ID}");
+    println!("app_name={APP_NAME}");
+    println!("notebook={}", snapshot.system.notebook);
+    println!("fedora={}", snapshot.system.fedora);
+    println!("kernel={}", snapshot.system.kernel);
+    println!("secure_boot={}", snapshot.system.secure_boot);
+    println!(
+        "checks={},{},{},{},{},{},{},{},{},{},{}",
+        snapshot.packages.health.icon_name(),
+        snapshot.akmods.health.icon_name(),
+        snapshot.module.health.icon_name(),
+        snapshot.libcamera.health.icon_name(),
+        snapshot.browser_camera.health.icon_name(),
+        snapshot.boot.health.icon_name(),
+        snapshot.gpu.health.icon_name(),
+        snapshot.platform_profile.health.icon_name(),
+        snapshot.clipboard_extension.health.icon_name(),
+        snapshot.gsconnect_extension.health.icon_name(),
+        snapshot.desktop_icons_extension.health.icon_name()
+    );
+    println!("recommendation_title={}", snapshot.recommendation_title);
+    println!("camera_app_installed={}", snapshot.camera_app_installed);
+
+    if snapshot.system.kernel.trim().is_empty() {
+        return Err("Kernel não pode estar vazio no smoke test.".into());
+    }
+
+    Ok(())
+}
+
+fn detect_notebook() -> String {
+    let vendor = read_trimmed("/sys/devices/virtual/dmi/id/sys_vendor");
+    let product = read_trimmed("/sys/devices/virtual/dmi/id/product_name");
+
+    match (vendor, product) {
+        (Some(vendor), Some(product)) => format!("{vendor} {product}"),
+        (None, Some(product)) => product,
+        (Some(vendor), None) => vendor,
+        (None, None) => "Galaxy Book (modelo não identificado)".into(),
+    }
+}
+
+fn detect_fedora_release() -> String {
+    read_trimmed("/etc/fedora-release").unwrap_or_else(|| "Fedora (versão não identificada)".into())
+}
+
+fn detect_secure_boot() -> String {
+    match command_text("mokutil", &["--sb-state"]) {
+        Ok(output) => parse_secure_boot(&output).into(),
+        Err(_) => "Não foi possível verificar".into(),
+    }
+}
+
+fn package_presence(packages: &[&str]) -> PackagePresence {
+    let mut status = PackagePresence::default();
+
+    for package in packages {
+        match Command::new("rpm").args(["-q", package]).output() {
+            Ok(output) if output.status.success() => status.installed.push((*package).into()),
+            _ => status.missing.push((*package).into()),
+        }
+    }
+
+    status
+}
+
+fn enabled_gnome_shell_extensions() -> Vec<String> {
+    command_text("gsettings", &["get", "org.gnome.shell", "enabled-extensions"])
+        .map(|output| parse_gsettings_string_array(&output))
+        .unwrap_or_default()
+}
+
+fn installed_gnome_shell_extensions() -> Vec<String> {
+    let mut installed = Vec::new();
+    let mut bases = vec!["/usr/share/gnome-shell/extensions".to_string()];
+    if let Some(home) = std::env::var_os("HOME") {
+        bases.push(format!(
+            "{}/.local/share/gnome-shell/extensions",
+            home.to_string_lossy()
+        ));
+    }
+    for base in bases {
+        if let Ok(entries) = fs::read_dir(base) {
+            for entry in entries.flatten() {
+                if let Ok(file_type) = entry.file_type() {
+                    if file_type.is_dir() {
+                        installed.push(entry.file_name().to_string_lossy().into_owned());
+                    }
+                }
+            }
+        }
+    }
+    installed.sort();
+    installed.dedup();
+    installed
+}
+
+fn parse_gsettings_string_array(output: &str) -> Vec<String> {
+    output
+        .split('\'')
+        .skip(1)
+        .step_by(2)
+        .filter(|item| !item.trim().is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn extension_check(
+    title: &'static str,
+    ids: &[&str],
+    enabled_extensions: &[String],
+    installed_extensions: &[String],
+    missing_detail: &str,
+) -> CheckItem {
+    let enabled: Vec<&str> = ids
+        .iter()
+        .copied()
+        .filter(|id| enabled_extensions.iter().any(|enabled| enabled == id))
+        .collect();
+    if !enabled.is_empty() {
+        return CheckItem {
+            title,
+            detail: format!("Ativa: {}", enabled.join(", ")),
+            health: Health::Good,
+        };
+    }
+
+    let installed: Vec<&str> = ids
+        .iter()
+        .copied()
+        .filter(|id| installed_extensions.iter().any(|installed| installed == id))
+        .collect();
+    if !installed.is_empty() {
+        return CheckItem {
+            title,
+            detail: format!("Instalada, mas desativada: {}", installed.join(", ")),
+            health: Health::Warning,
+        };
+    }
+
+    CheckItem {
+        title,
+        detail: missing_detail.into(),
+        health: Health::Unknown,
+    }
+}
+
+fn detect_nvidia_check() -> CheckItem {
+    let akmod_installed = rpm_installed("akmod-nvidia");
+    let modules_loaded = read_trimmed("/proc/modules")
+        .map(|modules| modules.lines().any(|line| line.starts_with("nvidia ")))
+        .unwrap_or(false);
+    let smi_installed = rpm_installed("xorg-x11-drv-nvidia-cuda");
+
+    if modules_loaded {
+        let detail = if smi_installed {
+            "Módulos NVIDIA carregados. O utilitário nvidia-smi também está instalado.".into()
+        } else {
+            "Módulos NVIDIA carregados. O utilitário nvidia-smi continua opcional e não está instalado.".into()
+        };
+        return CheckItem {
+            title: "Driver NVIDIA",
+            detail,
+            health: Health::Good,
+        };
+    }
+
+    if akmod_installed {
+        return CheckItem {
+            title: "Driver NVIDIA",
+            detail: "O pacote akmod-nvidia está instalado, mas os módulos não estão carregados para o kernel atual.".into(),
+            health: Health::Warning,
+        };
+    }
+
+    CheckItem {
+        title: "Driver NVIDIA",
+        detail: "O suporte NVIDIA ainda não foi instalado. O setup trata o akmod-nvidia como o pacote principal para esta etapa.".into(),
+        health: Health::Unknown,
+    }
+}
+
+fn detect_platform_profile_check() -> CheckItem {
+    let current = read_trimmed("/sys/firmware/acpi/platform_profile");
+    let choices = read_trimmed("/sys/firmware/acpi/platform_profile_choices");
+
+    match (current, choices) {
+        (Some(current), Some(choices)) if current == "balanced" => CheckItem {
+            title: "Perfil de uso",
+            detail: format!(
+                "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ruído da ventoinha, temperatura e desempenho. Opções disponíveis: {choices}"
+            ),
+            health: Health::Good,
+        },
+        (Some(current), Some(choices)) => CheckItem {
+            title: "Perfil de uso",
+            detail: format!(
+                "Ativo: {current}. Para uso geral, o perfil balanced costuma ser o ponto mais estável entre ventoinha, temperatura e desempenho. Opções disponíveis: {choices}"
+            ),
+            health: Health::Warning,
+        },
+        (Some(current), None) if current == "balanced" => CheckItem {
+            title: "Perfil de uso",
+            detail: "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ventoinha, temperatura e desempenho.".into(),
+            health: Health::Good,
+        },
+        (Some(current), None) => CheckItem {
+            title: "Perfil de uso",
+            detail: format!(
+                "Ativo: {current}. O perfil balanced é o recomendado para uso geral neste notebook."
+            ),
+            health: Health::Warning,
+        },
+        _ => CheckItem {
+            title: "Perfil de uso",
+            detail: "Este sistema não expôs a interface ACPI de platform_profile.".into(),
+            health: Health::Unknown,
+        },
+    }
+}
+
+fn detect_browser_camera_check(
+    packages: &PackagePresence,
+    libcamera_detected: bool,
+    camera_source_ready: bool,
+) -> CheckItem {
+    if !packages.missing.is_empty() {
+        return CheckItem {
+            title: "Navegador e comunicadores",
+            detail: format!(
+                "Faltando pacotes do bridge V4L2: {}",
+                packages.missing.join(", ")
+            ),
+            health: Health::Warning,
+        };
+    }
+
+    let relay_active = systemd_unit_is_active("v4l2-relayd@icamerasrc.service");
+    let relay_enabled = systemd_unit_enabled_state("v4l2-relayd@icamerasrc.service");
+    let loopback_device = find_virtual_video_device_by_name("Intel MIPI Camera");
+    let loopback_capture = loopback_device
+        .as_deref()
+        .map(v4l2_device_supports_capture)
+        .unwrap_or(false);
+
+    match (relay_active, relay_enabled.as_deref(), loopback_device.as_deref(), loopback_capture) {
+        (true, Some("enabled"), Some(device), true) => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: format!(
+                "Bridge V4L2 ativo em {device}. A webcam virtual já pode ser usada por Meet, Discord, Teams e outros apps."
+            ),
+            health: Health::Good,
+        },
+        (true, Some("enabled-runtime"), Some(device), true) => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: format!(
+                "Bridge ativo em {device}, mas só habilitado para a sessão atual. Ative novamente pela ação rápida para persistir após reboot."
+            ),
+            health: Health::Warning,
+        },
+        (true, _, Some(device), true) => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: format!(
+                "Bridge ativo em {device}, mas o serviço ainda não está habilitado de forma persistente. Ative a câmera para navegador pela seção de ações rápidas."
+            ),
+            health: Health::Warning,
+        },
+        (false, _, Some(device), true) => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: format!(
+                "A webcam virtual existe em {device}, mas o relay está parado. Ative a câmera para navegador para manter Meet, Discord e outros apps funcionando de forma previsível."
+            ),
+            health: Health::Warning,
+        },
+        (true, _, Some(device), false) => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: format!(
+                "O relay está ativo, mas {device} ainda não expôs um nó de captura utilizável. Reaplique a ação rápida da câmera para navegador."
+            ),
+            health: Health::Warning,
+        },
+        _ if camera_source_ready => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: "A câmera já aparece nas fontes do sistema, mas a webcam virtual ainda não foi ativada. Use a ação rápida para expor a câmera como dispositivo V4L2 para Meet, Discord, Teams e outros apps WebRTC.".into(),
+            health: Health::Warning,
+        },
+        _ if libcamera_detected => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: "A câmera base já está funcional no libcamera, mas o bridge V4L2 para navegador ainda não foi ativado.".into(),
+            health: Health::Warning,
+        },
+        _ => CheckItem {
+            title: "Navegador e comunicadores",
+            detail: "O bridge V4L2 para navegador ainda não foi ativado e a câmera também não apareceu nas fontes do sistema. Use a ação rápida para configurar a webcam virtual e reavalie o estado da câmera base se o problema persistir.".into(),
+            health: Health::Warning,
+        },
+    }
+}
+
+fn module_origin_from_path(path: Option<&str>) -> ModuleOrigin {
+    match path {
+        Some(path) if path.contains("/extra/") || path.contains("/updates/") => ModuleOrigin::Patched,
+        Some(path) if path.contains("/kernel/") => ModuleOrigin::InTree,
+        Some(_) => ModuleOrigin::Unknown,
+        None => ModuleOrigin::Missing,
+    }
+}
+
+fn detect_clock_error(kernel_log: &str) -> bool {
+    kernel_log.contains("external clock 26000000 is not supported")
+        || kernel_log.contains("probe with driver ov02c10 failed with error -22")
+}
+
+fn recommend_next_step(
+    packages: &PackagePresence,
+    akmods_failed: bool,
+    module_origin: ModuleOrigin,
+    manual_updates_override: bool,
+    clock_error: bool,
+    module_loaded: bool,
+    libcamera_detected: bool,
+    camera_source_ready: bool,
+    browser_camera_ready: bool,
+    camera_app_installed: bool,
+) -> (String, String) {
+    if !packages.missing.is_empty() {
+        return (
+            "Instalação pendente".into(),
+            "Instale os pacotes principais da câmera pela própria seção de ações rápidas, reinicie o sistema e atualize o diagnóstico.".into(),
+        );
+    }
+
+    if akmods_failed {
+        return (
+            "O driver não foi gerado no boot".into(),
+            "O akmods falhou ao construir o módulo para o kernel atual. Reexecute o reparo do driver, confira o log do akmods e reinicie antes de testar a câmera novamente.".into(),
+        );
+    }
+
+    if module_origin == ModuleOrigin::InTree && clock_error {
+        return (
+            "O sistema caiu para o driver in-tree".into(),
+            "O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela seção de ações rápidas e reinicie.".into(),
+        );
+    }
+
+    if module_origin == ModuleOrigin::Patched && !module_loaded {
+        return (
+            "O driver corrigido não foi carregado".into(),
+            "O módulo ov02c10 corrigido está instalado no sistema, mas não entrou no kernel. Habilite o carregamento automático do driver e reinicie para a câmera voltar a aparecer no grafo de mídia.".into(),
+        );
+    }
+
+    if manual_updates_override && !libcamera_detected {
+        return (
+            "O override manual da câmera está atrapalhando o libcamera".into(),
+            "A câmera do kernel parece estável, mas o caminho direto do Galaxy Book Câmera não encontrou o sensor enquanto um ov02c10 manual em /updates está ativo. O próximo passo é restaurar o stack Intel IPU6 pela seção de ações rápidas.".into(),
+        );
+    }
+
+    if !browser_camera_ready && (libcamera_detected || camera_source_ready) {
+        return (
+            "Compatibilidade com navegador pendente".into(),
+            "A câmera base já está pronta para uso no sistema, mas a webcam virtual para Meet, Discord, Teams e outros apps ainda não está ativa. Use a ação rápida para expor a câmera como dispositivo V4L2.".into(),
+        );
+    }
+
+    if !libcamera_detected && !camera_source_ready {
+        return (
+            "A câmera ainda não apareceu no caminho direto do app".into(),
+            "O driver e os pacotes principais parecem presentes, mas a câmera ainda não foi detectada nem no caminho direto do Galaxy Book Câmera nem nas fontes do sistema. O próximo passo é revisar os logs do boot e a pilha IPU6.".into(),
+        );
+    }
+
+    if !camera_app_installed {
+        return (
+            "Driver pronto, app da câmera ausente".into(),
+            "A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app para validar preview, foto e vídeo no fluxo final.".into(),
+        );
+    }
+
+    (
+        "Fluxo principal da câmera parece pronto".into(),
+        "O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já vê a câmera e o app final está instalado. O próximo passo é abrir o Galaxy Book Câmera e validar preview, foto e vídeo.".into(),
+    )
+}
+
+fn extract_first_matching_line(output: &str, patterns: &[&str]) -> Option<String> {
+    output
+        .lines()
+        .map(str::trim)
+        .find(|line| patterns.iter().any(|pattern| line.contains(pattern)))
+        .map(ToOwned::to_owned)
+}
+
+fn libcamera_output_has_camera(output: &str) -> bool {
+    output.contains("Internal front camera") || output.contains("'ov02c10'")
+}
+
+fn direct_camera_command_text(command: &str, args: &[&str]) -> Result<String, ()> {
+    let mut command = Command::new(command);
+    command.args(args);
+    if Path::new(CAMERA_APP_TUNING_FILE).is_file() {
+        command.env("LIBCAMERA_SIMPLE_TUNING_FILE", CAMERA_APP_TUNING_FILE);
+    }
+
+    let output = command.output().map_err(|_| ())?;
+    if !output.status.success() {
+        return Err(());
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+fn command_text(command: &str, args: &[&str]) -> Result<String, ()> {
+    let output = Command::new(command).args(args).output().map_err(|_| ())?;
+    if !output.status.success() {
+        return Err(());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if stdout.is_empty() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.is_empty() {
+            Err(())
+        } else {
+            Ok(stderr)
+        }
+    } else {
+        Ok(stdout)
+    }
+}
+
+fn systemd_unit_is_active(unit: &str) -> bool {
+    Command::new("systemctl")
+        .args(["is-active", "--quiet", unit])
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn detect_system_camera_source_ready() -> bool {
+    command_text("wpctl", &["status"])
+        .map(|output| {
+            output.contains("Intel MIPI Camera")
+                || output.contains("ov02c10 [libcamera]")
+                || output.contains("Câmera frontal interna")
+        })
+        .unwrap_or(false)
+}
+
+fn systemd_unit_enabled_state(unit: &str) -> Option<String> {
+    let output = Command::new("systemctl")
+        .args(["is-enabled", unit])
+        .output()
+        .ok()?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if !stdout.is_empty() {
+        Some(stdout)
+    } else {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        if stderr.is_empty() {
+            None
+        } else {
+            Some(stderr)
+        }
+    }
+}
+
+fn rpm_installed(package: &str) -> bool {
+    Command::new("rpm")
+        .args(["-q", package])
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+fn rpm_owner_for_file(path: &str) -> Option<String> {
+    let output = Command::new("rpm")
+        .args(["-qf", path, "--qf", "%{NAME}"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let owner = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if owner.is_empty() {
+        None
+    } else {
+        Some(owner)
+    }
+}
+
+fn read_trimmed(path: &str) -> Option<String> {
+    fs::read_to_string(path).ok().map(|text| text.trim().to_string())
+}
+
+fn find_virtual_video_device_by_name(card_label: &str) -> Option<String> {
+    let entries = fs::read_dir("/sys/devices/virtual/video4linux").ok()?;
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if let Ok(name) = fs::read_to_string(path.join("name")) {
+            if name.trim() == card_label {
+                return Some(format!("/dev/{}", entry.file_name().to_string_lossy()));
+            }
+        }
+    }
+    None
+}
+
+fn v4l2_device_supports_capture(device: &str) -> bool {
+    command_text("v4l2-ctl", &["-D", "-d", device])
+        .map(|output| output.contains("Video Capture"))
+        .unwrap_or(false)
+}
+
+fn parse_secure_boot(output: &str) -> &'static str {
+    if output.contains("SecureBoot enabled") {
+        "Ativado"
+    } else if output.contains("SecureBoot disabled") {
+        "Desativado"
+    } else {
+        "Não foi possível verificar"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn module_origin_detects_external_driver_paths() {
+        assert_eq!(
+            module_origin_from_path(Some(
+                "/lib/modules/6.19.10/extra/intel-ipu6/drivers/media/i2c/ov02c10.ko.xz"
+            )),
+            ModuleOrigin::Patched
+        );
+        assert_eq!(
+            module_origin_from_path(Some(
+                "/lib/modules/6.19.10/updates/ov02c10.ko"
+            )),
+            ModuleOrigin::Patched
+        );
+    }
+
+    #[test]
+    fn module_origin_detects_in_tree_driver_paths() {
+        assert_eq!(
+            module_origin_from_path(Some(
+                "/lib/modules/6.19.10/kernel/drivers/media/i2c/ov02c10.ko.xz"
+            )),
+            ModuleOrigin::InTree
+        );
+    }
+
+    #[test]
+    fn clock_error_detection_matches_known_boot_failure() {
+        let logs = "
+            ov02c10 i2c-OVTI02C1:00: error -EINVAL: external clock 26000000 is not supported
+            ov02c10 i2c-OVTI02C1:00: probe with driver ov02c10 failed with error -22
+        ";
+        assert!(detect_clock_error(logs));
+    }
+
+    #[test]
+    fn secure_boot_parser_understands_mokutil_output() {
+        assert_eq!(parse_secure_boot("SecureBoot enabled"), "Ativado");
+        assert_eq!(parse_secure_boot("SecureBoot disabled"), "Desativado");
+        assert_eq!(parse_secure_boot("whatever"), "Não foi possível verificar");
+    }
+
+    #[test]
+    fn recommendation_prefers_install_when_packages_are_missing() {
+        let packages = PackagePresence {
+            installed: vec![],
+            missing: vec!["akmod-galaxybook-ov02c10".into()],
+        };
+        let (title, _) = recommend_next_step(
+            &packages,
+            false,
+            ModuleOrigin::Missing,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        );
+        assert_eq!(title, "Instalação pendente");
+    }
+
+    #[test]
+    fn recommendation_detects_unloaded_patched_driver() {
+        let packages = PackagePresence {
+            installed: vec!["akmod-galaxybook-ov02c10".into()],
+            missing: vec![],
+        };
+        let (title, _) = recommend_next_step(
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            true,
+        );
+        assert_eq!(title, "O driver corrigido não foi carregado");
+    }
+
+    #[test]
+    fn parse_gsettings_array_extracts_extension_ids() {
+        let parsed = parse_gsettings_string_array(
+            "['ding@rastersoft.com', 'gsconnect@andyholmes.github.io']",
+        );
+        assert_eq!(
+            parsed,
+            vec![
+                "ding@rastersoft.com".to_string(),
+                "gsconnect@andyholmes.github.io".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn extension_check_marks_installed_but_disabled_as_warning() {
+        let item = extension_check(
+            "GSConnect",
+            &[GSCONNECT_EXTENSION_ID],
+            &[],
+            &[GSCONNECT_EXTENSION_ID.to_string()],
+            "missing",
+        );
+        assert_eq!(item.health, Health::Warning);
+    }
+
+    #[test]
+    fn browser_camera_check_warns_when_bridge_and_system_source_are_missing() {
+        let packages = PackagePresence {
+            installed: vec![],
+            missing: vec![],
+        };
+        let item = detect_browser_camera_check(&packages, false, false);
+        assert_eq!(item.health, Health::Warning);
+        assert!(item.detail.contains("fontes do sistema"));
+    }
+
+    #[test]
+    fn browser_camera_check_accepts_system_source_without_libcamera_direct() {
+        let packages = PackagePresence {
+            installed: vec![],
+            missing: vec![],
+        };
+        let item = detect_browser_camera_check(&packages, false, true);
+        assert_eq!(item.health, Health::Warning);
+        assert!(item.detail.contains("já aparece nas fontes do sistema"));
+    }
+
+    #[test]
+    fn browser_camera_recommendation_kicks_in_after_libcamera_is_ready() {
+        let packages = PackagePresence {
+            installed: vec!["akmod-galaxybook-ov02c10".into()],
+            missing: vec![],
+        };
+        let (title, _) = recommend_next_step(
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            true,
+            true,
+            true,
+            false,
+            true,
+        );
+        assert_eq!(title, "Compatibilidade com navegador pendente");
+    }
+
+    #[test]
+    fn libcamera_detection_accepts_sensor_name_output() {
+        let output = "Available cameras:\n1: 'ov02c10' (_SB_.PC00.LNK0)\n";
+        assert!(libcamera_output_has_camera(output));
+    }
+}

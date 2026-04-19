@@ -1,0 +1,19 @@
+[Desktop Entry]
+Name=Galaxy Book Setup
+Name[pt]=Galaxy Book Setup
+Name[pt_BR]=Galaxy Book Setup
+GenericName=Installation Assistant
+GenericName[pt]=Auxiliar de instalação
+GenericName[pt_BR]=Auxiliar de instalação
+Comment=Guide installation and diagnostics for Galaxy Book hardware on Fedora
+Comment[pt]=Organize a instalação e o diagnóstico do hardware do Galaxy Book no Fedora
+Comment[pt_BR]=Organiza a instalação e o diagnóstico do hardware do Galaxy Book no Fedora
+Exec=@EXEC@
+Icon=@ICON@
+Type=Application
+Terminal=false
+StartupNotify=true
+X-GNOME-UsesNotifications=true
+StartupWMClass=@STARTUP_WM_CLASS@
+Categories=Settings;
+Keywords=Galaxy Book;Fedora;Setup;Installer;Diagnostics;

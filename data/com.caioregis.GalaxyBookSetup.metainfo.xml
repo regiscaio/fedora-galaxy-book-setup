@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.caioregis.GalaxyBookSetup</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>NOASSERTION</project_license>
+  <name>Galaxy Book Setup</name>
+  <summary>Installation and diagnostics assistant for Galaxy Book notebooks on Fedora</summary>
+  <developer id="com.caioregis">
+    <name>Caio Régis</name>
+  </developer>
+  <launchable type="desktop-id">com.caioregis.GalaxyBookSetup.desktop</launchable>
+  <url type="homepage">https://caioregis.com</url>
+  <url type="bugtracker">https://github.com/regiscaio/fedora-galaxy-book-setup/issues</url>
+  <description>
+    <p>
+      Galaxy Book Setup is a native GTK4 and libadwaita helper for Fedora on
+      Samsung Galaxy Book notebooks. It organizes installation and diagnostic
+      flows for hardware support, starting with the internal camera stack.
+    </p>
+  </description>
+  <content_rating type="oars-1.1"/>
+</component>
