@@ -1,4 +1,15 @@
-# Galaxy Book Setup
+<p align="center">
+  <img src="assets/galaxybook-setup.svg" alt="Ícone do Galaxy Book Setup" width="112">
+</p>
+
+<h1 align="center">Galaxy Book Setup</h1>
+
+<p align="center">
+  <a href="README.md">🇧🇷 Português</a> ·
+  <a href="README.en.md">🇺🇸 English</a> ·
+  <a href="README.es.md">🇪🇸 Español</a> ·
+  <a href="README.it.md">🇮🇹 Italiano</a>
+</p>
 
 ## Instalação rápida
 
@@ -13,19 +24,15 @@ Com o repositório configurado, o próprio setup já consegue instalar o conjunt
 principal do notebook pela ação rápida `Instalar suporte principal`, puxando o
 app de câmera, o driver `OV02C10` e o suporte `MAX98390` dos alto-falantes.
 
-<p align="center">
-  <img src="assets/galaxybook-setup.svg" alt="Ícone do Galaxy Book Setup" width="112">
-</p>
-
 `Galaxy Book Setup` é um auxiliar de instalação e diagnóstico para notebooks
 Samsung Galaxy Book no Fedora. A proposta do app é organizar fluxos de
-configuração que hoje normalmente acabam espalhados em terminal, logs, pacotes
+configuração que normalmente acabam espalhados entre terminal, logs, pacotes
 RPM e validações manuais.
 
-O foco inicial é a **câmera interna** do Galaxy Book4 Ultra, mas o repositório
-foi estruturado para crescer para outros módulos. Nesta linha, o app também já
-acompanha o fluxo inicial dos **alto-falantes internos com MAX98390**,
-além de fingerprint e checagens gerais do sistema.
+O foco inicial é a **câmera interna** do Galaxy Book4 Ultra, mas o projeto já
+acompanha também o fluxo dos **alto-falantes internos com MAX98390**, além de
+GPU, perfil de plataforma e integrações gerais do sistema. O módulo de
+fingerprint continua planejado, mas ainda não é entregue por esta versão.
 
 ## Escopo
 
@@ -57,46 +64,57 @@ Responsabilidades:
 
 A versão atual do app já organiza a interface em áreas bem definidas:
 
-- `Sistema`: resumo do notebook, Fedora, kernel e Secure Boot já visível na tela inicial;
-- `Diagnósticos`: checklist geral com o estado da câmera, da webcam para navegador, da GPU e de integrações do desktop;
-- `Ações rápidas`: instalação, reparo e ajuste de prioridade do driver, ativação da webcam para navegador, ativação dos alto-falantes internos, fluxo NVIDIA, perfil balanceado, reboot e abertura do app da câmera;
-- `Próximos módulos`: espaço reservado para fingerprint e outros fluxos.
+- `Sistema`: resumo do notebook, Fedora, kernel e Secure Boot;
+- `Diagnósticos`: checklist geral com o estado da câmera, do bridge para
+  navegador, do áudio, da GPU e de integrações do desktop;
+- `Ações rápidas`: instalação, reparo e ajuste de prioridade do driver,
+  ativação da webcam para navegador, ativação dos alto-falantes internos,
+  fluxo NVIDIA, perfil balanceado, reboot e abertura do app da câmera;
+- `Módulos futuros`: espaço reservado para fingerprint e outros fluxos.
 
-Dentro de `Diagnósticos`, cada linha de checklist também leva para uma
-subseção de **ações sugeridas**. Isso permite abrir correções e validações mais
-relevantes para o item selecionado sem perder a página geral de `Ações rápidas`,
-que continua disponível sem filtragem.
+Dentro de `Diagnósticos`, cada linha leva para uma subseção de **ações
+sugeridas**. Isso permite abrir correções e validações mais relevantes para o
+item selecionado sem perder a página geral de `Ações rápidas`.
 
-O app também passa a expor um resumo de alertas e erros via notificações do
-desktop. Em docks e extensões que suportam contador no launcher, o ícone pode
-mostrar a quantidade total de itens com `Atenção` ou `Erro` nos diagnósticos.
+O app também expõe um resumo de alertas e erros via notificações do desktop. Em
+docks e extensões que suportam contador no launcher, o ícone pode mostrar a
+quantidade total de itens com `Atenção` ou `Erro` nos diagnósticos.
 
-O checklist de `Diagnósticos` cobre hoje:
+O checklist cobre hoje:
 
 - pacotes principais da câmera;
 - geração do driver no boot via `akmods`;
 - origem do módulo `ov02c10` ativo;
 - detecção da câmera no caminho direto do `libcamera` usado pelo `Galaxy Book Câmera`;
-- bridge V4L2 para navegadores e comunicadores, com foco em Meet, Discord, Teams e apps WebRTC;
+- bridge V4L2 para navegadores e comunicadores;
 - erros conhecidos do boot;
-- caminho MAX98390 dos alto-falantes internos, incluindo o caso em que o pacote entra no sistema, mas o kernel atual ainda não expõe `snd-hda-scodec-max98390` via `modinfo`;
+- caminho MAX98390 dos alto-falantes internos, inclusive quando o pacote está
+  instalado, mas o kernel atual ainda não expõe `snd-hda-scodec-max98390` via `modinfo`;
 - estado do driver NVIDIA e observação de que `nvidia-smi` é opcional;
-- perfil de uso da plataforma, com destaque para `balanced` como padrão recomendado de ventoinha, temperatura e desempenho;
-- extensões do GNOME como histórico da área de transferência, GSConnect e ícones na área de trabalho.
+- perfil de uso da plataforma, com destaque para `balanced`;
+- extensões do GNOME como histórico da área de transferência, GSConnect e
+  ícones na área de trabalho.
 
 As ações rápidas não apenas copiam comandos: elas executam os fluxos principais
 pela própria interface, usando privilégio administrativo quando necessário.
 
 Hoje, as ações disponíveis incluem:
 
-- instalar o suporte principal do notebook diretamente pelo setup, trazendo o app de câmera, o driver `OV02C10` e o suporte `MAX98390`;
+- instalar o suporte principal do notebook diretamente pelo setup, trazendo o
+  app de câmera, o driver `OV02C10` e o suporte `MAX98390`;
 - instalar o conjunto principal da câmera;
 - reconstruir o driver com `akmods`;
-- habilitar o carregamento do `ov02c10` no boot e carregar o módulo imediatamente;
-- forçar a prioridade do driver corrigido em `updates/`, com assinatura para Secure Boot quando necessário e sem compressão incompatível do módulo;
-- restaurar o stack Intel IPU6 empacotado quando o caminho direto do `Galaxy Book Câmera` deixa de enxergar o sensor, mesmo com a câmera exposta no sistema;
-- ativar a câmera para navegador via `icamerasrc`, `v4l2-relayd` e `v4l2loopback`, expondo uma webcam V4L2 compatível com apps WebRTC e ocultando os nós crus do IPU6 no `PipeWire` e no `WirePlumber`;
-- ativar o suporte aos alto-falantes internos via `MAX98390`, com reconstrução dos módulos, fallback manual de instalação no kernel atual e serviço de I2C no boot;
+- habilitar o carregamento do `ov02c10` no boot e carregar o módulo
+  imediatamente;
+- forçar a prioridade do driver corrigido em `updates/`, com assinatura para
+  Secure Boot quando necessário e sem compressão incompatível;
+- restaurar o stack Intel IPU6 empacotado quando o caminho direto do
+  `Galaxy Book Câmera` deixa de enxergar o sensor;
+- ativar a câmera para navegador via `icamerasrc`, `v4l2-relayd` e
+  `v4l2loopback`;
+- ativar o suporte aos alto-falantes internos via `MAX98390`, com reconstrução
+  dos módulos, fallback manual de instalação no kernel atual e serviço de I2C
+  no boot;
 - instalar ou reparar o suporte NVIDIA;
 - aplicar o perfil `balanced` da plataforma;
 - reiniciar o sistema;
@@ -104,9 +122,24 @@ Hoje, as ações disponíveis incluem:
 
 ## Instalação para usuários
 
-O formato alvo é **RPM**, preferencialmente distribuído via **COPR**.
+### Via repositório DNF público
 
-Enquanto isso, o projeto pode ser empacotado localmente:
+O caminho recomendado para usuários finais é:
+
+```bash
+sudo dnf config-manager addrepo --from-repofile=https://packages.caioregis.com/fedora/caioregis.repo
+sudo dnf install galaxybook-setup
+```
+
+Depois disso, dentro do próprio app:
+
+1. abra `Ações rápidas`;
+2. execute `Instalar suporte principal`;
+3. use as ações específicas se câmera, áudio ou NVIDIA ainda precisarem de ajuste.
+
+### Via RPM local
+
+O projeto também pode ser empacotado localmente:
 
 ```bash
 make rpm
@@ -169,3 +202,8 @@ Módulos planejados para próximas etapas:
 - fingerprint;
 - checagens gerais de compatibilidade do Galaxy Book com Fedora;
 - novos fluxos assistidos para integrações do ambiente GNOME e periféricos do notebook.
+
+## Licença
+
+Este projeto é distribuído sob a licença **GPL-2.0-only**. Veja o arquivo
+[LICENSE](LICENSE).

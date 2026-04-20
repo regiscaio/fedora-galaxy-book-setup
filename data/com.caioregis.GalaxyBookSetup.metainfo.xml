@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>com.caioregis.GalaxyBookSetup</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>NOASSERTION</project_license>
+  <project_license>GPL-2.0-only</project_license>
   <name>Galaxy Book Setup</name>
   <summary>Installation and diagnostics assistant for Galaxy Book notebooks on Fedora</summary>
   <developer id="com.caioregis">

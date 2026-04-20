@@ -2,10 +2,10 @@
 
 Name:           galaxybook-setup
 Version:        1.0.0
-Release:        5%{?dist}
+Release:        6%{?dist}
 Summary:        Installation and diagnostics assistant for Galaxy Book on Fedora
 
-License:        NOASSERTION
+License:        GPL-2.0-only
 URL:            https://github.com/regiscaio/fedora-galaxy-book-setup
 Source0:        %{name}-%{version}.tar.gz
 
@@ -51,12 +51,17 @@ desktop-file-validate %{app_id}.desktop
 cargo --offline test --locked --lib --bin galaxybook-setup
 
 %files
+%license LICENSE
 %{_bindir}/galaxybook-setup
 %{_datadir}/applications/%{app_id}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 
 %changelog
+* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-6
+- Add an explicit GPL-2.0-only license to the project and package metadata
+- Add multilingual README variants and language navigation links
+
 * Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-5
 - Add a one-click main install flow to bootstrap camera and speaker support from the setup
 - Update the README to document setup-first installation from the public DNF repository
