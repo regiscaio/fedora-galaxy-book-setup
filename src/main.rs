@@ -285,7 +285,7 @@ impl SetupWindow {
         diagnostics_group.add(&recommendation_body_row.row);
 
         let camera_group = adw::PreferencesGroup::builder()
-            .title("Checklist da câmera")
+            .title("Câmera")
             .description("Pacotes, driver, akmods, caminho direto do Galaxy Book Câmera, bridge para navegador e erros conhecidos do boot.")
             .build();
         let packages_row = StatusRow::new("Pacotes principais");
