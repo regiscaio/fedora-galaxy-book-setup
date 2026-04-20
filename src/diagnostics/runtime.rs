@@ -11,12 +11,13 @@ use libadwaita::prelude::*;
 
 use galaxybook_setup::{APP_ID, SetupSnapshot, collect_snapshot};
 
+use crate::actions::{ActionKey, dedupe_action_keys};
 use crate::diagnostics::{
-    DiagnosticAlertCounts, dedupe_action_keys, diagnostic_alert_counts,
+    DiagnosticAlertCounts, diagnostic_alert_counts,
     diagnostic_item, diagnostic_notification_body, diagnostic_notification_title,
     suggested_actions,
 };
-use crate::{ActionKey, DiagnosticKey, SetupWindow};
+use crate::{DiagnosticKey, SetupWindow};
 
 impl SetupWindow {
     pub(crate) fn refresh(&self) {

@@ -1,6 +1,7 @@
 pub(crate) mod runtime;
 
-use crate::{ActionKey, DiagnosticKey};
+use crate::actions::ActionKey;
+use crate::DiagnosticKey;
 use galaxybook_setup::{APP_NAME, CheckItem, Health, SetupSnapshot};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -180,14 +181,4 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             Vec::new()
         }
     }
-}
-
-pub(crate) fn dedupe_action_keys(actions: &[ActionKey]) -> Vec<ActionKey> {
-    let mut deduped = Vec::with_capacity(actions.len());
-    for action in actions {
-        if !deduped.contains(action) {
-            deduped.push(*action);
-        }
-    }
-    deduped
 }

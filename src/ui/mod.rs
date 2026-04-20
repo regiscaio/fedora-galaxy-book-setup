@@ -1,4 +1,5 @@
 pub(crate) mod about;
+pub(crate) mod rows;
 
 use std::rc::Rc;
 
@@ -7,6 +8,8 @@ use gtk::glib;
 use gtk::prelude::*;
 use libadwaita as adw;
 use libadwaita::prelude::*;
+
+pub(crate) use self::rows::{InfoRow, StatusRow};
 
 pub(crate) fn build_scrolled_navigation_page(
     page: &adw::PreferencesPage,

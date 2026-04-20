@@ -1,4 +1,5 @@
-use std::process::Command;
+pub(crate) mod catalog;
+
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -12,8 +13,22 @@ use galaxybook_setup::{
     CAMERA_APP_DESKTOP_ID, REBOOT_COMMAND, RESTORE_INTEL_CAMERA_COMMAND,
 };
 
+use crate::system::execute_privileged_shell_command;
 use crate::ui::{build_button_row, new_action_button};
-use crate::{ActionKey, CommandResult, SetupWindow};
+use crate::SetupWindow;
+
+pub(crate) use self::catalog::{
+    ActionKey, ActionMetadata, action_metadata, dedupe_action_keys,
+};
+
+#[derive(Clone)]
+struct CommandResult {
+    title: String,
+    success_message: String,
+    output: String,
+    success: bool,
+    refresh_after: bool,
+}
 
 impl SetupWindow {
     pub(super) fn bind_events(&self) {
@@ -87,8 +102,8 @@ impl SetupWindow {
         &self,
         key: ActionKey,
     ) -> adw::ActionRow {
-        let (title, subtitle) = action_metadata(key);
-        let button = new_action_button(title);
+        let metadata = action_metadata(key);
+        let button = new_action_button(metadata.title);
         button.set_sensitive(!*self.action_running.borrow());
 
         let this = self.clone();
@@ -96,7 +111,7 @@ impl SetupWindow {
             this.invoke_action(key);
         });
 
-        build_button_row(title, subtitle, &button)
+        build_button_row(metadata.title, metadata.subtitle, &button)
     }
 
     pub(super) fn set_action_buttons_sensitive(&self, sensitive: bool) {
@@ -311,44 +326,18 @@ impl SetupWindow {
         let success_message_owned = success_message.to_string();
         let (sender, receiver) = mpsc::channel();
         std::thread::spawn(move || {
-            let output = Command::new("pkexec")
-                .arg("/usr/bin/env")
-                .arg("PATH=/usr/sbin:/usr/bin:/sbin:/bin")
-                .arg("/usr/bin/bash")
-                .arg("-lc")
-                .arg(&command)
-                .output();
-
-            let result = match output {
-                Ok(output) => {
-                    let mut combined = String::new();
-                    let stdout =
-                        String::from_utf8_lossy(&output.stdout).trim().to_string();
-                    let stderr =
-                        String::from_utf8_lossy(&output.stderr).trim().to_string();
-                    if !stdout.is_empty() {
-                        combined.push_str(&stdout);
-                    }
-                    if !stderr.is_empty() {
-                        if !combined.is_empty() {
-                            combined.push_str("\n\n");
-                        }
-                        combined.push_str(&stderr);
-                    }
-                    CommandResult {
-                        title: title_owned,
-                        success_message: success_message_owned,
-                        output: combined,
-                        success: output.status.success(),
-                        refresh_after,
-                    }
-                }
+            let result = match execute_privileged_shell_command(&command) {
+                Ok(output) => CommandResult {
+                    title: title_owned,
+                    success_message: success_message_owned,
+                    output: output.output,
+                    success: output.success,
+                    refresh_after,
+                },
                 Err(error) => CommandResult {
                     title: title_owned,
                     success_message: success_message_owned,
-                    output: format!(
-                        "Falha ao iniciar a ação privilegiada: {error}"
-                    ),
+                    output: error,
                     success: false,
                     refresh_after,
                 },
@@ -435,55 +424,10 @@ impl SetupWindow {
     }
 }
 
-fn action_metadata(key: ActionKey) -> (&'static str, &'static str) {
-    match key {
-        ActionKey::InstallMainSupport => (
-            "Instalar suporte principal",
-            "Instala Galaxy Book Câmera, driver OV02C10 e suporte MAX98390 para começar pelo setup sem depender de instalação manual dos outros pacotes.",
-        ),
-        ActionKey::InstallCamera => (
-            "Instalar suporte da câmera",
-            "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
-        ),
-        ActionKey::RepairDriver => (
-            "Reparar o driver",
-            "Reconstrói o módulo com akmods para o kernel atual e atualiza a árvore de módulos.",
-        ),
-        ActionKey::EnableCameraModule => (
-            "Habilitar driver da câmera",
-            "Garante o carregamento do ov02c10 no boot, ajusta o softdep do IPU6 e carrega o módulo agora no kernel.",
-        ),
-        ActionKey::ForceDriverPriority => (
-            "Ajustar prioridade do driver",
-            "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o instala em /lib/modules/.../updates sem compressão incompatível.",
-        ),
-        ActionKey::RestoreIntelIpu6 => (
-            "Restaurar stack Intel IPU6",
-            "Remove o override manual em /updates, reinstala o stack Intel empacotado e volta ao caminho que já funcionava com a câmera do sistema.",
-        ),
-        ActionKey::EnableBrowserCamera => (
-            "Ativar câmera para navegador",
-            "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema e oculta os nós crus do IPU6 no PipeWire.",
-        ),
-        ActionKey::EnableSpeakers => (
-            "Ativar alto-falantes internos",
-            "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
-        ),
-        ActionKey::RepairNvidia => (
-            "Reparar suporte NVIDIA",
-            "Instala ou reconstrói o akmod-nvidia para o kernel atual. O nvidia-smi permanece opcional.",
-        ),
-        ActionKey::SetBalancedProfile => (
-            "Definir perfil balanceado",
-            "Aplica o perfil balanced da plataforma para uso geral, equilibrando ventoinha, temperatura e desempenho.",
-        ),
-        ActionKey::Reboot => (
-            "Reiniciar o sistema",
-            "Aplica mudanças pendentes do driver e reinicia a sessão inteira do notebook.",
-        ),
-        ActionKey::OpenCamera => (
-            "Abrir Galaxy Book Câmera",
-            "Abre o aplicativo final da câmera quando ele estiver instalado no sistema.",
-        ),
-    }
+pub(crate) fn build_action_row(
+    key: ActionKey,
+    button: &gtk::Button,
+) -> adw::ActionRow {
+    let ActionMetadata { title, subtitle } = action_metadata(key);
+    build_button_row(title, subtitle, button)
 }

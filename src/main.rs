@@ -1,5 +1,6 @@
 mod actions;
 mod diagnostics;
+mod system;
 mod ui;
 
 use std::cell::RefCell;
@@ -12,12 +13,13 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    APP_ID, APP_NAME, CheckItem, Health, SetupSnapshot, run_smoke_test,
+    APP_ID, APP_NAME, SetupSnapshot, run_smoke_test,
 };
+use actions::{ActionKey, build_action_row};
 use diagnostics::DiagnosticAlertCounts;
 use ui::{
-    apply_status_class, build_button_row, build_navigation_row,
-    build_scrolled_navigation_page, install_css, new_action_button,
+    InfoRow, StatusRow, build_navigation_row, build_scrolled_navigation_page,
+    install_css, new_action_button,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -34,119 +36,6 @@ enum DiagnosticKey {
     Clipboard,
     Gsconnect,
     DesktopIcons,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum ActionKey {
-    InstallMainSupport,
-    InstallCamera,
-    RepairDriver,
-    EnableCameraModule,
-    ForceDriverPriority,
-    RestoreIntelIpu6,
-    EnableBrowserCamera,
-    EnableSpeakers,
-    RepairNvidia,
-    SetBalancedProfile,
-    Reboot,
-    OpenCamera,
-}
-
-#[derive(Clone)]
-struct StatusRow {
-    row: adw::ActionRow,
-    icon: gtk::Image,
-    badge: gtk::Label,
-    next_button: gtk::Button,
-}
-
-impl StatusRow {
-    fn new(title: &'static str) -> Self {
-        let row = adw::ActionRow::builder().title(title).build();
-        row.set_subtitle("Aguardando diagnóstico");
-
-        let icon = gtk::Image::from_icon_name("dialog-question-symbolic");
-        icon.set_valign(gtk::Align::Center);
-        icon.add_css_class("status-icon");
-        icon.add_css_class("status-pill-unknown");
-        row.add_prefix(&icon);
-
-        let badge = gtk::Label::new(Some(Health::Unknown.label()));
-        badge.set_valign(gtk::Align::Center);
-        badge.add_css_class("status-pill");
-        badge.add_css_class("status-pill-unknown");
-        row.add_suffix(&badge);
-
-        let next_button = gtk::Button::builder()
-            .icon_name("go-next-symbolic")
-            .tooltip_text("Ver ações sugeridas")
-            .valign(gtk::Align::Center)
-            .build();
-        next_button.add_css_class("flat");
-        row.add_suffix(&next_button);
-
-        Self {
-            row,
-            icon,
-            badge,
-            next_button,
-        }
-    }
-
-    fn apply(&self, item: &CheckItem) {
-        self.row.set_subtitle(&item.detail);
-        self.icon.set_icon_name(Some(item.health.icon_name()));
-        apply_status_class(&self.icon, item.health);
-        self.badge.set_label(item.health.label());
-        apply_status_class(&self.badge, item.health);
-    }
-
-    fn connect_suggested_actions<F>(&self, on_activate: F)
-    where
-        F: Fn() + 'static,
-    {
-        let callback = Rc::new(on_activate);
-        {
-            let callback = callback.clone();
-            self.next_button.connect_clicked(move |_| {
-                callback();
-            });
-        }
-        {
-            let callback = callback.clone();
-            self.row.connect_activated(move |_| {
-                callback();
-            });
-        }
-        self.row.set_activatable(true);
-        self.row.set_activatable_widget(Some(&self.next_button));
-    }
-}
-
-#[derive(Clone)]
-struct InfoRow {
-    row: adw::ActionRow,
-}
-
-impl InfoRow {
-    fn new(title: &'static str) -> Self {
-        let row = adw::ActionRow::builder().title(title).build();
-        row.set_subtitle("Coletando…");
-        Self { row }
-    }
-
-    fn set_subtitle(&self, subtitle: &str) {
-        self.row.set_subtitle(subtitle);
-    }
-}
-
-#[derive(Clone)]
-struct CommandResult {
-    title: String,
-    success_message: String,
-    output: String,
-    success: bool,
-    refresh_after: bool,
 }
 
 #[derive(Clone)]
@@ -340,64 +229,43 @@ impl SetupWindow {
             .title("Ações rápidas")
             .description("Fluxos executáveis diretamente da interface, sem precisar digitar comandos.")
             .build();
-        actions_group.add(&build_button_row(
-            "Instalar suporte principal",
-            "Instala o conjunto principal do notebook a partir do próprio setup: Galaxy Book Câmera, driver OV02C10 e suporte MAX98390 dos alto-falantes internos.",
+        actions_group.add(&build_action_row(
+            ActionKey::InstallMainSupport,
             &install_main_button,
         ));
-        actions_group.add(&build_button_row(
-            "Instalar suporte da câmera",
-            "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
-            &install_button,
-        ));
-        actions_group.add(&build_button_row(
-            "Reparar o driver",
-            "Reconstrói o módulo com akmods para o kernel atual e atualiza a árvore de módulos.",
-            &repair_button,
-        ));
-        actions_group.add(&build_button_row(
-            "Habilitar driver da câmera",
-            "Garante o carregamento do ov02c10 no boot, ajusta o softdep do IPU6 e carrega o módulo agora no kernel.",
+        actions_group.add(&build_action_row(ActionKey::InstallCamera, &install_button));
+        actions_group.add(&build_action_row(ActionKey::RepairDriver, &repair_button));
+        actions_group.add(&build_action_row(
+            ActionKey::EnableCameraModule,
             &enable_camera_module_button,
         ));
-        actions_group.add(&build_button_row(
-            "Ajustar prioridade do driver",
-            "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o instala em /lib/modules/.../updates sem compressão incompatível.",
+        actions_group.add(&build_action_row(
+            ActionKey::ForceDriverPriority,
             &force_driver_button,
         ));
-        actions_group.add(&build_button_row(
-            "Restaurar stack Intel IPU6",
-            "Remove o override manual em /updates, reinstala o stack Intel empacotado e volta ao caminho que já funcionava com a câmera do sistema.",
+        actions_group.add(&build_action_row(
+            ActionKey::RestoreIntelIpu6,
             &restore_camera_button,
         ));
-        actions_group.add(&build_button_row(
-            "Ativar câmera para navegador",
-            "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC, usando icamerasrc, v4l2-relayd e v4l2loopback, além de ocultar os nós crus do IPU6.",
+        actions_group.add(&build_action_row(
+            ActionKey::EnableBrowserCamera,
             &enable_browser_camera_button,
         ));
-        actions_group.add(&build_button_row(
-            "Ativar alto-falantes internos",
-            "Instala o suporte MAX98390, reconstrói os módulos, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
+        actions_group.add(&build_action_row(
+            ActionKey::EnableSpeakers,
             &enable_speakers_button,
         ));
-        actions_group.add(&build_button_row(
-            "Reparar suporte NVIDIA",
-            "Instala ou reconstrói o akmod-nvidia para o kernel atual. O nvidia-smi permanece opcional.",
+        actions_group.add(&build_action_row(
+            ActionKey::RepairNvidia,
             &repair_nvidia_button,
         ));
-        actions_group.add(&build_button_row(
-            "Definir perfil balanceado",
-            "Aplica o perfil balanced da plataforma para uso geral, equilibrando ventoinha, temperatura e desempenho.",
+        actions_group.add(&build_action_row(
+            ActionKey::SetBalancedProfile,
             &balanced_profile_button,
         ));
-        actions_group.add(&build_button_row(
-            "Reiniciar o sistema",
-            "Aplica mudanças do driver e reinicia a sessão inteira do notebook.",
-            &reboot_button,
-        ));
-        actions_group.add(&build_button_row(
-            "Abrir Galaxy Book Câmera",
-            "Abre o aplicativo final da câmera quando ele estiver instalado no sistema.",
+        actions_group.add(&build_action_row(ActionKey::Reboot, &reboot_button));
+        actions_group.add(&build_action_row(
+            ActionKey::OpenCamera,
             &open_camera_button,
         ));
 
@@ -661,8 +529,9 @@ mod tests {
         diagnostic_alert_counts, diagnostic_counts_summary, suggested_actions,
     };
     use super::{
-        ActionKey, DiagnosticAlertCounts, DiagnosticKey,
+        DiagnosticAlertCounts, DiagnosticKey,
     };
+    use crate::actions::ActionKey;
     use galaxybook_setup::{
         CheckItem, Health, SetupSnapshot, SystemSummary,
     };
