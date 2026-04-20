@@ -1,74 +1,30 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gtk::gio;
-use gtk::prelude::*;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
-use galaxybook_setup::APP_NAME;
-
 use crate::actions::{ActionKey, build_action_row};
 use crate::ui::{
-    InfoRow, StatusRow, build_navigation_row, build_scrolled_navigation_page,
-    install_css, new_action_button,
+    InfoRow, StatusRow, install_css, new_action_button,
 };
 
 use super::SetupWindow;
+use super::pages::{
+    build_actions_page, build_flow_page, build_future_page, build_sections_page,
+    build_suggested_page,
+};
+use super::shell::build_window_shell;
 
 impl SetupWindow {
     pub(crate) fn new(app: &adw::Application) -> Self {
         install_css();
 
-        let window = adw::ApplicationWindow::builder()
-            .application(app)
-            .default_width(980)
-            .default_height(760)
-            .title(APP_NAME)
-            .build();
-
-        let toast_overlay = adw::ToastOverlay::new();
-        toast_overlay.set_hexpand(true);
-        toast_overlay.set_vexpand(true);
-
-        let header_title = adw::WindowTitle::new(APP_NAME, "");
-        let back_button = gtk::Button::builder()
-            .icon_name("go-previous-symbolic")
-            .tooltip_text("Voltar")
-            .visible(false)
-            .build();
-        back_button.add_css_class("flat");
-
-        let header = adw::HeaderBar::new();
-        header.set_title_widget(Some(&header_title));
-        header.pack_start(&back_button);
-
-        let refresh_button = gtk::Button::builder()
-            .icon_name("view-refresh-symbolic")
-            .tooltip_text("Atualizar diagnóstico")
-            .build();
-        header.pack_end(&refresh_button);
-
-        let menu = gio::Menu::new();
-        menu.append(Some("Sobre"), Some("app.about"));
-        let menu_button = gtk::MenuButton::builder()
-            .icon_name("open-menu-symbolic")
-            .menu_model(&menu)
-            .build();
-        header.pack_end(&menu_button);
-
-        let navigation_view = adw::NavigationView::new();
-        navigation_view.set_animate_transitions(true);
-        navigation_view.set_pop_on_escape(true);
-
-        let toolbar = adw::ToolbarView::new();
-        toolbar.add_top_bar(&header);
-        toolbar.set_content(Some(&navigation_view));
-        toast_overlay.set_child(Some(&toolbar));
-
-        let root = gtk::Box::new(gtk::Orientation::Vertical, 0);
-        root.append(&toast_overlay);
-        window.set_content(Some(&root));
+        let shell = build_window_shell(app);
+        let window = shell.window;
+        let toast_overlay = shell.toast_overlay;
+        let navigation_view = shell.navigation_view;
+        let refresh_button = shell.refresh_button;
 
         let system_group = adw::PreferencesGroup::builder()
             .title("Sistema")
@@ -221,135 +177,24 @@ impl SetupWindow {
             future_group.add(&row);
         }
 
-        let sections_page = adw::PreferencesPage::builder()
-            .name("sections")
-            .title(APP_NAME)
-            .build();
-        sections_page.add(&system_group);
-        let sections_group = adw::PreferencesGroup::builder()
-            .title("Áreas do assistente")
-            .description("Acesse as áreas operacionais do auxiliar de instalação e diagnóstico.")
-            .build();
-        sections_group.add(&build_navigation_row(
-            "Diagnósticos",
-            "Checklist geral da câmera, do áudio, da GPU e das integrações do desktop.",
-            {
-                let navigation_view = navigation_view.clone();
-                move || navigation_view.push_by_tag("flow")
-            },
-        ));
-        sections_group.add(&build_navigation_row(
-            "Ações rápidas",
-            "Execute instalação, reparo e reinício direto da interface.",
-            {
-                let navigation_view = navigation_view.clone();
-                move || navigation_view.push_by_tag("actions")
-            },
-        ));
-        sections_group.add(&build_navigation_row(
-            "Módulos futuros",
-            "Fingerprint e outras frentes planejadas.",
-            {
-                let navigation_view = navigation_view.clone();
-                move || navigation_view.push_by_tag("future")
-            },
-        ));
-        sections_page.add(&sections_group);
-
-        let root_page =
-            build_scrolled_navigation_page(&sections_page, APP_NAME, "home");
-
-        let flow_page_content = adw::PreferencesPage::builder()
-            .name("flow")
-            .title("Diagnósticos")
-            .build();
-        flow_page_content.add(&diagnostics_group);
-        flow_page_content.add(&camera_group);
-        flow_page_content.add(&audio_group);
-        flow_page_content.add(&gpu_group);
-        flow_page_content.add(&integrations_group);
-        let flow_page =
-            build_scrolled_navigation_page(&flow_page_content, "Diagnósticos", "flow");
-
-        let actions_page_content = adw::PreferencesPage::builder()
-            .name("actions")
-            .title("Ações rápidas")
-            .build();
-        actions_page_content.add(&actions_group);
-        let actions_page = build_scrolled_navigation_page(
-            &actions_page_content,
-            "Ações rápidas",
-            "actions",
+        let root_page = build_sections_page(&navigation_view, &system_group);
+        let flow_page = build_flow_page(
+            &diagnostics_group,
+            &camera_group,
+            &audio_group,
+            &gpu_group,
+            &integrations_group,
         );
-
-        let suggested_summary_group = adw::PreferencesGroup::builder()
-            .title("Diagnóstico selecionado")
-            .description("Leitura do item selecionado e ações rápidas relacionadas ao problema ou à validação atual.")
-            .build();
-        let suggested_title_row = InfoRow::new("Item");
-        let suggested_status_row = InfoRow::new("Status");
-        let suggested_detail_row = InfoRow::new("Leitura");
-        suggested_summary_group.add(&suggested_title_row.row);
-        suggested_summary_group.add(&suggested_status_row.row);
-        suggested_summary_group.add(&suggested_detail_row.row);
-
-        let suggested_actions_group = adw::PreferencesGroup::builder()
-            .title("Ações sugeridas")
-            .description("Ações rápidas filtradas para o diagnóstico selecionado.")
-            .build();
-
-        let suggested_page_content = adw::PreferencesPage::builder()
-            .name("suggested-actions")
-            .title("Ações sugeridas")
-            .build();
-        suggested_page_content.add(&suggested_summary_group);
-        suggested_page_content.add(&suggested_actions_group);
-        let suggested_page = build_scrolled_navigation_page(
-            &suggested_page_content,
-            "Ações sugeridas",
-            "suggested-actions",
-        );
-
-        let future_page_content = adw::PreferencesPage::builder()
-            .name("future")
-            .title("Módulos futuros")
-            .build();
-        future_page_content.add(&future_group);
-        let future_page = build_scrolled_navigation_page(
-            &future_page_content,
-            "Módulos futuros",
-            "future",
-        );
+        let actions_page = build_actions_page(&actions_group);
+        let suggested_page = build_suggested_page();
+        let future_page = build_future_page(&future_group);
 
         navigation_view.add(&root_page);
         navigation_view.add(&flow_page);
         navigation_view.add(&actions_page);
-        navigation_view.add(&suggested_page);
+        navigation_view.add(&suggested_page.page);
         navigation_view.add(&future_page);
         navigation_view.replace_with_tags(&["home"]);
-
-        back_button.connect_clicked({
-            let navigation_view = navigation_view.clone();
-            move |_| {
-                navigation_view.pop();
-            }
-        });
-
-        navigation_view.connect_visible_page_notify({
-            let header_title = header_title.clone();
-            let back_button = back_button.clone();
-            move |navigation_view| {
-                let Some(page) = navigation_view.visible_page() else {
-                    header_title.set_title(APP_NAME);
-                    back_button.set_visible(false);
-                    return;
-                };
-
-                header_title.set_title(page.title().as_str());
-                back_button
-                    .set_visible(navigation_view.previous_page(&page).is_some());
-            }
-        });
 
         let snapshot = Rc::new(RefCell::new(None));
         let action_running = Rc::new(RefCell::new(false));
@@ -381,10 +226,10 @@ impl SetupWindow {
             clipboard_row,
             gsconnect_row,
             desktop_icons_row,
-            suggested_title_row,
-            suggested_status_row,
-            suggested_detail_row,
-            suggested_actions_group,
+            suggested_title_row: suggested_page.title_row,
+            suggested_status_row: suggested_page.status_row,
+            suggested_detail_row: suggested_page.detail_row,
+            suggested_actions_group: suggested_page.actions_group,
             suggested_action_rows,
             install_main_button,
             install_button,

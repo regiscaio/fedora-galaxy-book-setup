@@ -1,4 +1,6 @@
 mod build;
+mod pages;
+mod shell;
 
 use std::cell::RefCell;
 use std::rc::Rc;
