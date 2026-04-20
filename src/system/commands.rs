@@ -1,5 +1,7 @@
 use std::process::Command;
 
+use galaxybook_setup::trf;
+
 pub(crate) struct PrivilegedCommandResult {
     pub(crate) output: String,
     pub(crate) success: bool,
@@ -15,7 +17,12 @@ pub(crate) fn execute_privileged_shell_command(
         .arg("-lc")
         .arg(command)
         .output()
-        .map_err(|error| format!("Falha ao iniciar a ação privilegiada: {error}"))?;
+        .map_err(|error| {
+            trf(
+                "Falha ao iniciar a ação privilegiada: {error}",
+                &[("error", error.to_string())],
+            )
+        })?;
 
     let mut combined = String::new();
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();

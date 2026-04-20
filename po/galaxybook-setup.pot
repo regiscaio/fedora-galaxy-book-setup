@@ -1,0 +1,977 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the galaxybook-setup package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: galaxybook-setup 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-04-20 18:36-0300\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: src/diagnostics/mod.rs:115
+msgid " e "
+msgstr ""
+
+#: src/actions/runtime.rs:302
+msgid "A ação falhou, mas não retornou saída textual."
+msgstr ""
+
+#: src/lib.rs:1250
+msgid "A câmera ainda não apareceu no caminho direto do app"
+msgstr ""
+
+#: src/lib.rs:1048
+msgid ""
+"A câmera base já está funcional no libcamera, mas o bridge V4L2 para "
+"navegador ainda não foi ativado."
+msgstr ""
+
+#: src/lib.rs:1244
+msgid ""
+"A câmera base já está pronta para uso no sistema, mas a webcam virtual para "
+"Meet, Discord, Teams e outros apps ainda não está ativa. Use a ação rápida "
+"para expor a câmera como dispositivo V4L2."
+msgstr ""
+
+#: src/lib.rs:1237
+msgid ""
+"A câmera do kernel parece estável, mas o caminho direto do Galaxy Book "
+"Câmera não encontrou o sensor enquanto um ov02c10 manual em /updates está "
+"ativo. O próximo passo é restaurar o stack Intel IPU6 pela seção de ações "
+"rápidas."
+msgstr ""
+
+#: src/lib.rs:592
+msgid ""
+"A câmera interna apareceu no caminho direto usado pelo Galaxy Book Câmera."
+msgstr ""
+
+#: src/lib.rs:1042
+msgid ""
+"A câmera já aparece nas fontes do sistema, mas a webcam virtual ainda não "
+"foi ativada. Use a ação rápida para expor a câmera como dispositivo V4L2 "
+"para Meet, Discord, Teams e outros apps WebRTC."
+msgstr ""
+
+#: src/lib.rs:1258
+msgid ""
+"A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app "
+"para validar preview, foto e vídeo no fluxo final."
+msgstr ""
+
+#: src/lib.rs:606
+msgid ""
+"A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup "
+"não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera."
+msgstr ""
+
+#: src/lib.rs:600
+msgid ""
+"A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book "
+"Câmera não listou a câmera interna. Isso não significa, por si só, que "
+"Snapshot, navegador ou o sistema também falharam."
+msgstr ""
+
+#: src/lib.rs:1265
+msgid ""
+"A máquina expõe amplificadores MAX98390, mas o pacote de speakers ainda não "
+"está pronto ou os módulos não foram carregados. Ative o suporte dos alto-"
+"falantes internos pela seção de ações rápidas e teste a saída Speaker "
+"novamente."
+msgstr ""
+
+#: src/lib.rs:1025
+#, rust-format
+msgid ""
+"A webcam virtual existe em {device}, mas o relay está parado. Ative a câmera "
+"para navegador para manter Meet, Discord e outros apps funcionando de forma "
+"previsível."
+msgstr ""
+
+#: src/actions/catalog.rs:96
+msgid ""
+"Abre o aplicativo final da câmera quando ele estiver instalado no sistema."
+msgstr ""
+
+#: src/actions/catalog.rs:94 src/ui/window/groups.rs:172
+msgid "Abrir Galaxy Book Câmera"
+msgstr ""
+
+#: src/ui/about.rs:63
+msgid "Abrir detalhes"
+msgstr ""
+
+#: src/ui/about.rs:121
+msgid "Abrir link"
+msgstr ""
+
+#: src/ui/mod.rs:126
+msgid "Abrir seção"
+msgstr ""
+
+#: src/ui/window/pages.rs:30
+msgid "Acesse as áreas operacionais do auxiliar de instalação e diagnóstico."
+msgstr ""
+
+#: src/ui/rows.rs:22
+msgid "Aguardando diagnóstico"
+msgstr ""
+
+#: src/diagnostics/runtime/suggested.rs:19
+msgid "Aguardando leitura"
+msgstr ""
+
+#: src/diagnostics/runtime/refresh.rs:19
+msgid ""
+"Aguarde enquanto o setup verifica pacotes, driver, akmods, câmera, GPU, "
+"plataforma e integrações do desktop."
+msgstr ""
+
+#: src/actions/catalog.rs:52 src/actions/runtime.rs:94
+#: src/ui/window/groups.rs:162
+msgid "Ajustar prioridade do driver"
+msgstr ""
+
+#: src/actions/runtime.rs:96
+msgid ""
+"Ajuste concluído. Se o módulo ainda estiver em uso, reinicie o sistema antes "
+"de validar a câmera."
+msgstr ""
+
+#: src/actions/catalog.rs:90
+msgid ""
+"Aplica mudanças pendentes do driver e reinicia a sessão inteira do notebook."
+msgstr ""
+
+#: src/actions/catalog.rs:84
+msgid ""
+"Aplica o perfil balanced da plataforma para uso geral, equilibrando "
+"ventoinha, temperatura e desempenho."
+msgstr ""
+
+#: src/ui/mod.rs:196
+msgid "Aplicativo"
+msgstr ""
+
+#: src/ui/mod.rs:203
+msgid "App ID"
+msgstr ""
+
+#: src/lib.rs:845
+#, rust-format
+msgid "Ativa: {extensions}"
+msgstr ""
+
+#: src/actions/catalog.rs:70 src/actions/runtime.rs:136
+#: src/ui/window/groups.rs:168
+msgid "Ativar alto-falantes internos"
+msgstr ""
+
+#: src/actions/catalog.rs:64 src/actions/runtime.rs:122
+#: src/ui/window/groups.rs:166
+msgid "Ativar câmera para navegador"
+msgstr ""
+
+#: src/lib.rs:928
+#, rust-format
+msgid ""
+"Ativo: balanced. Perfil recomendado para uso geral, equilibrando ruído da "
+"ventoinha, temperatura e desempenho. Opções disponíveis: {choices}"
+msgstr ""
+
+#: src/lib.rs:946
+msgid ""
+"Ativo: balanced. Perfil recomendado para uso geral, equilibrando ventoinha, "
+"temperatura e desempenho."
+msgstr ""
+
+#: src/lib.rs:954
+#, rust-format
+msgid ""
+"Ativo: {current}. O perfil balanced é o recomendado para uso geral neste "
+"notebook."
+msgstr ""
+
+#: src/lib.rs:937
+#, rust-format
+msgid ""
+"Ativo: {current}. Para uso geral, o perfil balanced costuma ser o ponto mais "
+"estável entre ventoinha, temperatura e desempenho. Opções disponíveis: "
+"{choices}"
+msgstr ""
+
+#: src/diagnostics/runtime/refresh.rs:17
+msgid "Atualizando diagnóstico…"
+msgstr ""
+
+#: src/ui/window/shell.rs:41
+msgid "Atualizar diagnóstico"
+msgstr ""
+
+#: src/diagnostics/runtime/suggested.rs:21
+msgid "Atualize o diagnóstico antes de abrir as ações sugeridas."
+msgstr ""
+
+#: src/ui/about.rs:39
+msgid "Auxiliar de instalação e diagnóstico para Galaxy Book no Fedora."
+msgstr ""
+
+#: src/ui/mod.rs:222
+msgid ""
+"Auxiliar de instalação e diagnóstico para notebooks Galaxy Book no Fedora."
+msgstr ""
+
+#: src/ui/window/groups.rs:175 src/ui/window/pages.rs:41
+#: src/ui/window/pages.rs:86 src/ui/window/pages.rs:92
+msgid "Ações rápidas"
+msgstr ""
+
+#: src/ui/window/pages.rs:111
+msgid "Ações rápidas filtradas para o diagnóstico selecionado."
+msgstr ""
+
+#: src/ui/window/pages.rs:110 src/ui/window/pages.rs:116
+#: src/ui/window/pages.rs:124
+msgid "Ações sugeridas"
+msgstr ""
+
+#: src/actions/runtime.rs:124
+msgid ""
+"Bridge V4L2 ativado. Se os nós crus do IPU6 ainda aparecerem na sessão "
+"atual, faça logout/login antes de validar Meet, Discord e outros apps."
+msgstr ""
+
+#: src/lib.rs:998
+#, rust-format
+msgid ""
+"Bridge V4L2 ativo em {device}. A webcam virtual já pode ser usada por Meet, "
+"Discord, Teams e outros apps."
+msgstr ""
+
+#: src/lib.rs:1016
+#, rust-format
+msgid ""
+"Bridge ativo em {device}, mas o serviço ainda não está habilitado de forma "
+"persistente. Ative a câmera para navegador pela seção de ações rápidas."
+msgstr ""
+
+#: src/lib.rs:1007
+#, rust-format
+msgid ""
+"Bridge ativo em {device}, mas só habilitado para a sessão atual. Ative "
+"novamente pela ação rápida para persistir após reboot."
+msgstr ""
+
+#: src/actions/runtime.rs:82
+msgid ""
+"Carregamento do ov02c10 ajustado. Se a câmera ainda não aparecer, reinicie o "
+"sistema para validar o boot completo."
+msgstr ""
+
+#: src/ui/window/pages.rs:34
+msgid ""
+"Checklist geral da câmera, do áudio, da GPU e das integrações do desktop."
+msgstr ""
+
+#: src/ui/window/groups.rs:123
+msgid "Checklist geral de extensões e integrações que o setup pode acompanhar."
+msgstr ""
+
+#: src/ui/rows.rs:90
+msgid "Coletando…"
+msgstr ""
+
+#: src/lib.rs:1243
+msgid "Compatibilidade com navegador pendente"
+msgstr ""
+
+#: src/actions/catalog.rs:54
+msgid ""
+"Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o "
+"instala em /lib/modules/.../updates sem compressão incompatível."
+msgstr ""
+
+#: src/ui/window/groups.rs:89
+msgid "Câmera"
+msgstr ""
+
+#: src/actions/catalog.rs:82 src/actions/runtime.rs:164
+#: src/ui/window/groups.rs:170
+msgid "Definir perfil balanceado"
+msgstr ""
+
+#: src/ui/mod.rs:204
+msgid "Desktop ID"
+msgstr ""
+
+#: src/ui/about.rs:60 src/ui/mod.rs:192 src/ui/mod.rs:245
+msgid "Detalhes"
+msgstr ""
+
+#: src/ui/window/groups.rs:80
+msgid "Diagnóstico atual"
+msgstr ""
+
+#: src/diagnostics/runtime/suggested.rs:17
+msgid "Diagnóstico indisponível"
+msgstr ""
+
+#: src/ui/window/pages.rs:99
+msgid "Diagnóstico selecionado"
+msgstr ""
+
+#: src/ui/window/pages.rs:33 src/ui/window/pages.rs:70
+#: src/ui/window/pages.rs:78
+msgid "Diagnósticos"
+msgstr ""
+
+#: src/lib.rs:1257
+msgid "Driver pronto, app da câmera ausente"
+msgstr ""
+
+#: src/ui/mod.rs:216
+msgid "Escopo atual"
+msgstr ""
+
+#: src/ui/window/groups.rs:114
+msgid "Estabilidade do driver NVIDIA e perfil de uso balanceado da plataforma."
+msgstr ""
+
+#: src/diagnostics/runtime/suggested.rs:54
+msgid ""
+"Este diagnóstico ainda não tem uma ação rápida dedicada no setup. O painel "
+"geral de ações continua disponível sem filtro."
+msgstr ""
+
+#: src/lib.rs:962
+msgid "Este sistema não expôs a interface ACPI de platform_profile."
+msgstr ""
+
+#: src/lib.rs:1066
+msgid ""
+"Este sistema não expôs amplificadores MAX98390 via ACPI ou I2C, então o "
+"setup não aplicou o fluxo específico dos alto-falantes Galaxy Book."
+msgstr ""
+
+#: src/ui/window/groups.rs:235
+msgid "Estrutura reservada para outros fluxos do Galaxy Book no Fedora."
+msgstr ""
+
+#: src/actions/runtime.rs:213
+#, rust-format
+msgid "Executando: {title}…"
+msgstr ""
+
+#: src/ui/window/pages.rs:42
+msgid "Execute instalação, reparo e reinício direto da interface."
+msgstr ""
+
+#: src/actions/catalog.rs:66
+msgid ""
+"Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros "
+"apps WebRTC usando o bridge do sistema e oculta os nós crus do IPU6 no "
+"PipeWire."
+msgstr ""
+
+#: src/actions/runtime.rs:184
+#, rust-format
+msgid "Falha ao abrir o app da câmera: {error}"
+msgstr ""
+
+#: src/ui/about.rs:131
+#, rust-format
+msgid "Falha ao abrir o link: {error}"
+msgstr ""
+
+#: src/actions/runtime.rs:269
+msgid "Falha ao acompanhar a ação solicitada."
+msgstr ""
+
+#: src/diagnostics/runtime/refresh.rs:41
+msgid "Falha ao atualizar o diagnóstico."
+msgstr ""
+
+#: src/system/commands.rs:22
+#, rust-format
+msgid "Falha ao iniciar a ação privilegiada: {error}"
+msgstr ""
+
+#: src/lib.rs:455
+msgid "Falhou ao gerar o módulo para o kernel atual."
+msgstr ""
+
+#: src/lib.rs:978
+#, rust-format
+msgid "Faltando pacotes do bridge V4L2: {packages}"
+msgstr ""
+
+#: src/lib.rs:434
+#, rust-format
+msgid "Faltando: {packages}"
+msgstr ""
+
+#: src/lib.rs:766
+msgid "Fedora (versão não identificada)"
+msgstr ""
+
+#: src/ui/window/groups.rs:239
+msgid "Fingerprint"
+msgstr ""
+
+#: src/ui/window/pages.rs:50
+msgid "Fingerprint e outras frentes planejadas."
+msgstr ""
+
+#: src/ui/mod.rs:230
+msgid "Fingerprint e outros fluxos de integração do notebook."
+msgstr ""
+
+#: src/actions/runtime.rs:152
+msgid ""
+"Fluxo NVIDIA concluído. Reinicie o sistema se os módulos ainda não "
+"aparecerem carregados."
+msgstr ""
+
+#: src/actions/runtime.rs:138
+msgid ""
+"Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no "
+"kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema "
+"continuar preso ao estado anterior."
+msgstr ""
+
+#: src/lib.rs:1270
+msgid "Fluxo principal da câmera parece pronto"
+msgstr ""
+
+#: src/ui/mod.rs:226
+msgid ""
+"Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para "
+"navegador, suporte inicial aos alto-falantes MAX98390, estabilidade básica "
+"da NVIDIA, perfil de uso balanceado e integrações do desktop."
+msgstr ""
+
+#: src/ui/window/groups.rs:176
+msgid ""
+"Fluxos executáveis diretamente da interface, sem precisar digitar comandos."
+msgstr ""
+
+#: src/ui/window/groups.rs:113
+msgid "GPU e plataforma"
+msgstr ""
+
+#: src/lib.rs:760
+msgid "Galaxy Book (modelo não identificado)"
+msgstr ""
+
+#: src/actions/catalog.rs:48
+msgid ""
+"Garante o carregamento do ov02c10 no boot, ajusta o softdep do IPU6 e "
+"carrega o módulo agora no kernel."
+msgstr ""
+
+#: src/actions/catalog.rs:46 src/actions/runtime.rs:80
+#: src/ui/window/groups.rs:160
+msgid "Habilitar driver da câmera"
+msgstr ""
+
+#: src/ui/mod.rs:197
+msgid "Identificação pública e técnica do Galaxy Book Setup."
+msgstr ""
+
+#: src/actions/catalog.rs:30
+msgid ""
+"Instala Galaxy Book Câmera, driver OV02C10 e suporte MAX98390 para começar "
+"pelo setup sem depender de instalação manual dos outros pacotes."
+msgstr ""
+
+#: src/actions/catalog.rs:36
+msgid ""
+"Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando "
+"privilégios administrativos."
+msgstr ""
+
+#: src/actions/catalog.rs:72
+msgid ""
+"Instala o suporte MAX98390, reconstrói os módulos dos amplificadores, "
+"instala manualmente o driver no kernel atual quando necessário e habilita o "
+"serviço de I2C usado pelos alto-falantes internos."
+msgstr ""
+
+#: src/actions/catalog.rs:78
+msgid ""
+"Instala ou reconstrói o akmod-nvidia para o kernel atual. O nvidia-smi "
+"permanece opcional."
+msgstr ""
+
+#: src/lib.rs:860
+#, rust-format
+msgid "Instalada, mas desativada: {extensions}"
+msgstr ""
+
+#: src/lib.rs:424
+#, rust-format
+msgid "Instalados: {packages}"
+msgstr ""
+
+#: src/actions/catalog.rs:34 src/actions/runtime.rs:52
+#: src/ui/window/groups.rs:157
+msgid "Instalar suporte da câmera"
+msgstr ""
+
+#: src/actions/catalog.rs:28 src/actions/runtime.rs:38
+#: src/ui/window/groups.rs:156
+msgid "Instalar suporte principal"
+msgstr ""
+
+#: src/actions/runtime.rs:54
+msgid "Instalação concluída. Reinicie o sistema para carregar o driver."
+msgstr ""
+
+#: src/lib.rs:1208
+msgid "Instalação pendente"
+msgstr ""
+
+#: src/lib.rs:1209
+msgid ""
+"Instale os pacotes principais da câmera pela própria seção de ações rápidas, "
+"reinicie o sistema e atualize o diagnóstico."
+msgstr ""
+
+#: src/ui/window/groups.rs:122
+msgid "Integrações do desktop"
+msgstr ""
+
+#: src/lib.rs:746
+msgid "Kernel não pode estar vazio no smoke test."
+msgstr ""
+
+#: src/ui/window/groups.rs:81
+msgid ""
+"Leitura consolidada do estado do notebook e do próximo passo recomendado."
+msgstr ""
+
+#: src/ui/window/pages.rs:100
+msgid ""
+"Leitura do item selecionado e ações rápidas relacionadas ao problema ou à "
+"validação atual."
+msgstr ""
+
+#: src/ui/mod.rs:225
+msgid "Módulo disponível"
+msgstr ""
+
+#: src/lib.rs:567
+#, rust-format
+msgid "Módulo localizado, mas sem origem claramente classificada: {path}"
+msgstr ""
+
+#: src/lib.rs:888
+msgid ""
+"Módulos NVIDIA carregados. O utilitário nvidia-smi continua opcional e não "
+"está instalado."
+msgstr ""
+
+#: src/lib.rs:885
+msgid ""
+"Módulos NVIDIA carregados. O utilitário nvidia-smi também está instalado."
+msgstr ""
+
+#: src/ui/window/groups.rs:234 src/ui/window/pages.rs:49
+#: src/ui/window/pages.rs:139 src/ui/window/pages.rs:143
+msgid "Módulos futuros"
+msgstr ""
+
+#: src/diagnostics/mod.rs:111
+msgid "Nenhum alerta nos diagnósticos."
+msgstr ""
+
+#: src/lib.rs:638
+msgid "Nenhum erro de clock/probe do ov02c10 foi encontrado no boot atual."
+msgstr ""
+
+#: src/lib.rs:462
+msgid "Nenhuma falha do akmods encontrada no boot atual."
+msgstr ""
+
+#: src/ui/mod.rs:201
+msgid "Nome"
+msgstr ""
+
+#: src/ui/window/groups.rs:58
+msgid "Notebook, Fedora, kernel e Secure Boot."
+msgstr ""
+
+#: src/lib.rs:560
+msgid "Não foi possível localizar o módulo ov02c10 via modinfo."
+msgstr ""
+
+#: src/lib.rs:772
+msgid "Não foi possível verificar"
+msgstr ""
+
+#: src/actions/runtime.rs:190
+msgid "O Galaxy Book Câmera não foi encontrado no sistema."
+msgstr ""
+
+#: src/lib.rs:1216
+msgid ""
+"O akmods falhou ao construir o módulo para o kernel atual. Reexecute o "
+"reparo do driver, confira o log do akmods e reinicie antes de testar a "
+"câmera novamente."
+msgstr ""
+
+#: src/lib.rs:630
+msgid ""
+"O boot registrou que o driver in-tree não suporta o clock externo de 26 MHz "
+"nesta máquina."
+msgstr ""
+
+#: src/lib.rs:1223
+msgid ""
+"O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o "
+"clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela "
+"seção de ações rápidas e reinicie."
+msgstr ""
+
+#: src/lib.rs:1054
+msgid ""
+"O bridge V4L2 para navegador ainda não foi ativado e a câmera também não "
+"apareceu nas fontes do sistema. Use a ação rápida para configurar a webcam "
+"virtual e reavalie o estado da câmera base se o problema persistir."
+msgstr ""
+
+#: src/lib.rs:471
+msgid ""
+"O driver ainda não foi instalado, então o akmods não executou esse fluxo."
+msgstr ""
+
+#: src/lib.rs:1229
+msgid "O driver corrigido não foi carregado"
+msgstr ""
+
+#: src/lib.rs:1251
+msgid ""
+"O driver e os pacotes principais parecem presentes, mas a câmera ainda não "
+"foi detectada nem no caminho direto do Galaxy Book Câmera nem nas fontes do "
+"sistema. O próximo passo é revisar os logs do boot e a pilha IPU6."
+msgstr ""
+
+#: src/lib.rs:1215
+msgid "O driver não foi gerado no boot"
+msgstr ""
+
+#: src/lib.rs:1097
+#, rust-format
+msgid ""
+"O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de "
+"speakers: {packages}"
+msgstr ""
+
+#: src/lib.rs:1139
+msgid ""
+"O hardware MAX98390 foi detectado, mas os módulos dos amplificadores ainda "
+"não estão carregados. Ative o suporte dos alto-falantes pela seção de ações "
+"rápidas."
+msgstr ""
+
+#: src/lib.rs:500
+#, rust-format
+msgid ""
+"O módulo corrigido existe em {path}, mas ainda não foi carregado no kernel. "
+"Habilite o carregamento automático e recarregue o driver pela seção de ações "
+"rápidas."
+msgstr ""
+
+#: src/lib.rs:1271
+msgid ""
+"O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já "
+"vê a câmera e o app final está instalado. O próximo passo é abrir o Galaxy "
+"Book Câmera e validar preview, foto e vídeo."
+msgstr ""
+
+#: src/lib.rs:1230
+msgid ""
+"O módulo ov02c10 corrigido está instalado no sistema, mas não entrou no "
+"kernel. Habilite o carregamento automático do driver e reinicie para a "
+"câmera voltar a aparecer no grafo de mídia."
+msgstr ""
+
+#: src/lib.rs:1236
+msgid "O override manual da câmera está atrapalhando o libcamera"
+msgstr ""
+
+#: src/lib.rs:903
+msgid ""
+"O pacote akmod-nvidia está instalado, mas os módulos não estão carregados "
+"para o kernel atual."
+msgstr ""
+
+#: src/lib.rs:1034
+#, rust-format
+msgid ""
+"O relay está ativo, mas {device} ainda não expôs um nó de captura "
+"utilizável. Reaplique a ação rápida da câmera para navegador."
+msgstr ""
+
+#: src/lib.rs:1222
+msgid "O sistema caiu para o driver in-tree"
+msgstr ""
+
+#: src/lib.rs:536
+#, rust-format
+msgid ""
+"O sistema está usando o módulo in-tree do kernel: {path}. Use a ação rápida "
+"para ajustar a prioridade do driver corrigido."
+msgstr ""
+
+#: src/lib.rs:529
+msgid "O sistema indicou um módulo externo, mas o caminho não pôde ser lido."
+msgstr ""
+
+#: src/lib.rs:549
+msgid ""
+"O sistema parece ter caído para o módulo in-tree. Use a ação rápida para "
+"ajustar a prioridade do driver corrigido."
+msgstr ""
+
+#: src/lib.rs:1122
+msgid ""
+"O suporte MAX98390 está instalado, os módulos dos amplificadores estão "
+"carregados e o serviço de I2C está pronto para o boot."
+msgstr ""
+
+#: src/lib.rs:1109
+msgid ""
+"O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os "
+"módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c via modinfo. "
+"Reconstrua e instale manualmente o driver pela seção de ações rápidas antes "
+"de testar a saída Speaker novamente."
+msgstr ""
+
+#: src/lib.rs:1107
+msgid ""
+"O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os "
+"módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c. O boot já "
+"registrou falha ao procurar esses módulos, então o próximo passo é "
+"reconstruir e instalar manualmente o driver pela seção de ações rápidas."
+msgstr ""
+
+#: src/lib.rs:913
+msgid ""
+"O suporte NVIDIA ainda não foi instalado. O setup trata o akmod-nvidia como "
+"o pacote principal para esta etapa."
+msgstr ""
+
+#: src/ui/mod.rs:221
+msgid "Objetivo"
+msgstr ""
+
+#: src/lib.rs:575
+msgid "Origem do módulo ov02c10 não pôde ser determinada."
+msgstr ""
+
+#: src/lib.rs:1131
+msgid ""
+"Os módulos MAX98390 estão carregados, mas o serviço que cria os dispositivos "
+"I2C no boot ainda não está ativo de forma persistente."
+msgstr ""
+
+#: src/actions/runtime.rs:40
+msgid ""
+"Pacotes principais instalados. Atualize o diagnóstico e use as ações "
+"específicas se câmera ou alto-falantes ainda precisarem de ajuste."
+msgstr ""
+
+#: src/ui/window/groups.rs:90
+msgid ""
+"Pacotes, driver, akmods, caminho direto do Galaxy Book Câmera, bridge para "
+"navegador e erros conhecidos do boot."
+msgstr ""
+
+#: src/actions/runtime.rs:166
+msgid "Perfil balanced aplicado com sucesso."
+msgstr ""
+
+#: src/ui/window/groups.rs:240 src/ui/window/groups.rs:242
+msgid "Planejado para uma etapa futura."
+msgstr ""
+
+#: src/ui/about.rs:49
+msgid "Projeto"
+msgstr ""
+
+#: src/ui/mod.rs:229
+msgid "Próximos módulos"
+msgstr ""
+
+#: src/ui/about.rs:50
+msgid "Página da web"
+msgstr ""
+
+#: src/actions/catalog.rs:42
+msgid ""
+"Reconstrói o módulo com akmods para o kernel atual e atualiza a árvore de "
+"módulos."
+msgstr ""
+
+#: src/actions/runtime.rs:174
+msgid "Reinicialização solicitada."
+msgstr ""
+
+#: src/actions/catalog.rs:88 src/actions/runtime.rs:172
+#: src/ui/window/groups.rs:171
+msgid "Reiniciar o sistema"
+msgstr ""
+
+#: src/ui/about.rs:56
+msgid "Relatar problema"
+msgstr ""
+
+#: src/actions/catalog.rs:60
+msgid ""
+"Remove o override manual em /updates, reinstala o stack Intel empacotado e "
+"volta ao caminho que já funcionava com a câmera do sistema."
+msgstr ""
+
+#: src/actions/catalog.rs:40 src/actions/runtime.rs:66
+#: src/ui/window/groups.rs:158
+msgid "Reparar o driver"
+msgstr ""
+
+#: src/actions/catalog.rs:76 src/actions/runtime.rs:150
+#: src/ui/window/groups.rs:169
+msgid "Reparar suporte NVIDIA"
+msgstr ""
+
+#: src/actions/runtime.rs:68
+msgid "Reparo concluído. Reinicie o sistema para aplicar o módulo atualizado."
+msgstr ""
+
+#: src/ui/about.rs:52
+msgid "Repositório do projeto"
+msgstr ""
+
+#: src/actions/catalog.rs:58 src/actions/runtime.rs:108
+#: src/ui/window/groups.rs:164
+msgid "Restaurar stack Intel IPU6"
+msgstr ""
+
+#: src/actions/runtime.rs:110
+msgid ""
+"Restauração concluída. Se a câmera continuar ausente no libcamera, reinicie "
+"o sistema antes de validar novamente."
+msgstr ""
+
+#: src/ui/mod.rs:217
+msgid "Resumo do que esta primeira entrega do assistente cobre hoje."
+msgstr ""
+
+#: src/actions/runtime.rs:285
+msgid "Saída da ação"
+msgstr ""
+
+#: src/diagnostics/runtime/suggested.rs:53
+msgid "Sem automação disponível"
+msgstr ""
+
+#: src/ui/window/groups.rs:57 src/ui/window/groups.rs:242
+msgid "Sistema"
+msgstr ""
+
+#: src/ui/about.rs:16 src/ui/about.rs:24 src/ui/about.rs:74 src/ui/about.rs:80
+#: src/ui/about.rs:104 src/ui/window/shell.rs:46
+msgid "Sobre"
+msgstr ""
+
+#: src/lib.rs:1264
+msgid "Suporte dos alto-falantes pendente"
+msgstr ""
+
+#: src/lib.rs:519
+#, rust-format
+msgid "Usando módulo externo em {path}, fornecido por {owner}."
+msgstr ""
+
+#: src/lib.rs:522
+#, rust-format
+msgid "Usando módulo externo: {path}"
+msgstr ""
+
+#: src/lib.rs:509
+#, rust-format
+msgid ""
+"Usando um override manual em {path}. Como esse arquivo não pertence a um "
+"RPM, ele pode divergir do stack Intel IPU6 que o restante do sistema espera."
+msgstr ""
+
+#: src/ui/window/groups.rs:107
+msgid "Validação do caminho MAX98390 usado pelos alto-falantes internos."
+msgstr ""
+
+#: src/ui/rows.rs:38
+msgid "Ver ações sugeridas"
+msgstr ""
+
+#: src/ui/mod.rs:202
+msgid "Versão"
+msgstr ""
+
+#: src/ui/mod.rs:165
+#, rust-format
+msgid "Versão {version}"
+msgstr ""
+
+#: src/ui/about.rs:61
+msgid "Versão, identificação do app e escopo atual do assistente."
+msgstr ""
+
+#: src/ui/about.rs:27 src/ui/window/shell.rs:30
+msgid "Voltar"
+msgstr ""
+
+#: src/diagnostics/mod.rs:114
+#, rust-format
+msgid "{alerts} nos diagnósticos."
+msgstr ""
+
+#: src/diagnostics/mod.rs:72
+#, rust-format
+msgid "{app_name}: {summary}"
+msgstr ""
+
+#: src/diagnostics/mod.rs:105
+#, rust-format
+msgid "{count} alerta"
+msgid_plural "{count} alertas"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/diagnostics/mod.rs:97
+#, rust-format
+msgid "{count} erro"
+msgid_plural "{count} erros"
+msgstr[0] ""
+msgstr[1] ""
+
+#: src/diagnostics/mod.rs:85
+#, rust-format
+msgid "{summary} Próximo passo: {next_step}"
+msgstr ""
+
+#: src/ui/window/pages.rs:29
+msgid "Áreas do assistente"
+msgstr ""
+
+#: src/ui/window/groups.rs:106
+msgid "Áudio"
+msgstr ""

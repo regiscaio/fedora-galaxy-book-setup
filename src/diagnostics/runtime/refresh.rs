@@ -5,7 +5,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use libadwaita as adw;
 
-use galaxybook_setup::{SetupSnapshot, collect_snapshot};
+use galaxybook_setup::{SetupSnapshot, collect_snapshot, tr};
 
 use crate::ui::SetupWindow;
 
@@ -14,9 +14,9 @@ impl SetupWindow {
         self.refresh_button.set_sensitive(false);
         self.set_action_buttons_sensitive(false);
         self.recommendation_title_row
-            .set_subtitle("Atualizando diagnóstico…");
+            .set_subtitle(&tr("Atualizando diagnóstico…"));
         self.recommendation_body_row.set_subtitle(
-            "Aguarde enquanto o setup verifica pacotes, driver, akmods, câmera, GPU, plataforma e integrações do desktop.",
+            &tr("Aguarde enquanto o setup verifica pacotes, driver, akmods, câmera, GPU, plataforma e integrações do desktop."),
         );
 
         let (sender, receiver) = mpsc::channel();
@@ -38,7 +38,7 @@ impl SetupWindow {
                     this.refresh_button.set_sensitive(true);
                     this.set_action_buttons_sensitive(true);
                     this.toast_overlay.add_toast(adw::Toast::new(
-                        "Falha ao atualizar o diagnóstico.",
+                        &tr("Falha ao atualizar o diagnóstico."),
                     ));
                     glib::ControlFlow::Break
                 }
@@ -67,9 +67,9 @@ impl SetupWindow {
             .apply(&snapshot.desktop_icons_extension);
 
         self.recommendation_title_row
-            .set_subtitle(&snapshot.recommendation_title);
+            .set_subtitle(&tr(&snapshot.recommendation_title));
         self.recommendation_body_row
-            .set_subtitle(&snapshot.recommendation_body);
+            .set_subtitle(&tr(&snapshot.recommendation_body));
 
         self.update_diagnostic_notifications(&snapshot);
 

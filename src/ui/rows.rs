@@ -4,7 +4,7 @@ use gtk::prelude::*;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
-use galaxybook_setup::{CheckItem, Health};
+use galaxybook_setup::{CheckItem, Health, tr};
 
 use super::apply_status_class;
 
@@ -18,8 +18,8 @@ pub(crate) struct StatusRow {
 
 impl StatusRow {
     pub(crate) fn new(title: &'static str) -> Self {
-        let row = adw::ActionRow::builder().title(title).build();
-        row.set_subtitle("Aguardando diagnóstico");
+        let row = adw::ActionRow::builder().title(tr(title)).build();
+        row.set_subtitle(&tr("Aguardando diagnóstico"));
 
         let icon = gtk::Image::from_icon_name("dialog-question-symbolic");
         icon.set_valign(gtk::Align::Center);
@@ -27,7 +27,7 @@ impl StatusRow {
         icon.add_css_class("status-pill-unknown");
         row.add_prefix(&icon);
 
-        let badge = gtk::Label::new(Some(Health::Unknown.label()));
+        let badge = gtk::Label::new(Some(&tr(Health::Unknown.label())));
         badge.set_valign(gtk::Align::Center);
         badge.add_css_class("status-pill");
         badge.add_css_class("status-pill-unknown");
@@ -35,7 +35,7 @@ impl StatusRow {
 
         let next_button = gtk::Button::builder()
             .icon_name("go-next-symbolic")
-            .tooltip_text("Ver ações sugeridas")
+            .tooltip_text(tr("Ver ações sugeridas"))
             .valign(gtk::Align::Center)
             .build();
         next_button.add_css_class("flat");
@@ -53,7 +53,7 @@ impl StatusRow {
         self.row.set_subtitle(&item.detail);
         self.icon.set_icon_name(Some(item.health.icon_name()));
         apply_status_class(&self.icon, item.health);
-        self.badge.set_label(item.health.label());
+        self.badge.set_label(&tr(item.health.label()));
         apply_status_class(&self.badge, item.health);
     }
 
@@ -86,8 +86,8 @@ pub(crate) struct InfoRow {
 
 impl InfoRow {
     pub(crate) fn new(title: &'static str) -> Self {
-        let row = adw::ActionRow::builder().title(title).build();
-        row.set_subtitle("Coletando…");
+        let row = adw::ActionRow::builder().title(tr(title)).build();
+        row.set_subtitle(&tr("Coletando…"));
         Self { row }
     }
 

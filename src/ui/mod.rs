@@ -4,7 +4,7 @@ pub(crate) mod window;
 
 use std::rc::Rc;
 
-use galaxybook_setup::{APP_ID, APP_NAME, Health};
+use galaxybook_setup::{APP_ID, APP_NAME, Health, tr, tr_mark, trf};
 use gtk::glib;
 use gtk::prelude::*;
 use libadwaita as adw;
@@ -123,7 +123,7 @@ pub(crate) fn build_navigation_row<F>(
 where
     F: Fn() + 'static,
 {
-    build_suffix_action_row(title, subtitle, "go-next-symbolic", "Abrir seção", on_activate)
+    build_suffix_action_row(title, subtitle, "go-next-symbolic", &tr("Abrir seção"), on_activate)
 }
 
 pub(crate) fn build_about_summary_row(
@@ -160,8 +160,10 @@ pub(crate) fn build_about_summary_row(
 
     let version_label = gtk::Label::new(None);
     version_label.set_markup(&format!(
-        "<span alpha='55%' size='small'>Versão {}</span>",
-        glib::markup_escape_text(env!("CARGO_PKG_VERSION"))
+        "<span alpha='55%' size='small'>{}</span>",
+        glib::markup_escape_text(
+            &trf("Versão {version}", &[("version", env!("CARGO_PKG_VERSION").to_string())]),
+        )
     ));
     version_label.set_xalign(0.0);
 
@@ -187,22 +189,22 @@ pub(crate) fn build_about_summary_row(
 pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
     let page = adw::PreferencesPage::builder()
         .name("details")
-        .title("Detalhes")
+        .title(tr("Detalhes"))
         .build();
 
     let app_group = adw::PreferencesGroup::builder()
-        .title("Aplicativo")
-        .description("Identificação pública e técnica do Galaxy Book Setup.")
+        .title(tr("Aplicativo"))
+        .description(tr("Identificação pública e técnica do Galaxy Book Setup."))
         .build();
 
     for (title, subtitle) in [
-        ("Nome", APP_NAME.to_string()),
-        ("Versão", env!("CARGO_PKG_VERSION").to_string()),
-        ("App ID", APP_ID.to_string()),
-        ("Desktop ID", format!("{APP_ID}.desktop")),
+        (tr_mark("Nome"), APP_NAME.to_string()),
+        (tr_mark("Versão"), env!("CARGO_PKG_VERSION").to_string()),
+        (tr_mark("App ID"), APP_ID.to_string()),
+        (tr_mark("Desktop ID"), format!("{APP_ID}.desktop")),
     ] {
         let row = adw::ActionRow::builder()
-            .title(title)
+            .title(tr(title))
             .subtitle(subtitle)
             .build();
         row.set_activatable(false);
@@ -211,28 +213,25 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
     }
 
     let scope_group = adw::PreferencesGroup::builder()
-        .title("Escopo atual")
-        .description("Resumo do que esta primeira entrega do assistente cobre hoje.")
+        .title(tr("Escopo atual"))
+        .description(tr("Resumo do que esta primeira entrega do assistente cobre hoje."))
         .build();
     for (title, subtitle) in [
         (
-            "Objetivo",
-            "Auxiliar de instalação e diagnóstico para notebooks Galaxy Book no Fedora."
-                .to_string(),
+            tr_mark("Objetivo"),
+            tr("Auxiliar de instalação e diagnóstico para notebooks Galaxy Book no Fedora."),
         ),
         (
-            "Módulo disponível",
-            "Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte inicial aos alto-falantes MAX98390, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."
-                .to_string(),
+            tr_mark("Módulo disponível"),
+            tr("Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte inicial aos alto-falantes MAX98390, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."),
         ),
         (
-            "Próximos módulos",
-            "Fingerprint e outros fluxos de integração do notebook."
-                .to_string(),
+            tr_mark("Próximos módulos"),
+            tr("Fingerprint e outros fluxos de integração do notebook."),
         ),
     ] {
         let row = adw::ActionRow::builder()
-            .title(title)
+            .title(tr(title))
             .subtitle(subtitle)
             .build();
         row.set_activatable(false);
@@ -243,7 +242,7 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
     page.add(&app_group);
     page.add(&scope_group);
 
-    build_scrolled_navigation_page(&page, "Detalhes", "details")
+    build_scrolled_navigation_page(&page, &tr("Detalhes"), "details")
 }
 
 pub(crate) fn apply_status_class(widget: &impl IsA<gtk::Widget>, health: Health) {

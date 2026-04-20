@@ -3,7 +3,7 @@ use gtk::prelude::*;
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
-use galaxybook_setup::APP_NAME;
+use galaxybook_setup::{APP_NAME, tr};
 
 pub(super) struct WindowShell {
     pub(super) window: adw::ApplicationWindow,
@@ -27,7 +27,7 @@ pub(super) fn build_window_shell(app: &adw::Application) -> WindowShell {
     let header_title = adw::WindowTitle::new(APP_NAME, "");
     let back_button = gtk::Button::builder()
         .icon_name("go-previous-symbolic")
-        .tooltip_text("Voltar")
+        .tooltip_text(tr("Voltar"))
         .visible(false)
         .build();
     back_button.add_css_class("flat");
@@ -38,12 +38,12 @@ pub(super) fn build_window_shell(app: &adw::Application) -> WindowShell {
 
     let refresh_button = gtk::Button::builder()
         .icon_name("view-refresh-symbolic")
-        .tooltip_text("Atualizar diagnóstico")
+        .tooltip_text(tr("Atualizar diagnóstico"))
         .build();
     header.pack_end(&refresh_button);
 
     let menu = gio::Menu::new();
-    menu.append(Some("Sobre"), Some("app.about"));
+    menu.append(Some(&tr("Sobre")), Some("app.about"));
     let menu_button = gtk::MenuButton::builder()
         .icon_name("open-menu-symbolic")
         .menu_model(&menu)

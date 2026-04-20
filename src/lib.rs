@@ -1,9 +1,12 @@
+mod i18n;
+
 use std::fs;
 use std::path::Path;
 use std::process::Command;
 
 pub const APP_ID: &str = "com.caioregis.GalaxyBookSetup";
 pub const APP_NAME: &str = "Galaxy Book Setup";
+pub use i18n::{init_i18n, tr, trf, tr_mark, trn};
 pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
 const CAMERA_APP_TUNING_FILE: &str =
     "/usr/share/galaxybook-camera/libcamera/simple/ov02c10.yaml";
@@ -351,6 +354,7 @@ pub struct CheckItem {
     pub title: &'static str,
     pub detail: String,
     pub health: Health,
+    pub code: &'static str,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -416,14 +420,22 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let package_check = if packages.missing.is_empty() {
         CheckItem {
             title: "Pacotes principais",
-            detail: format!("Instalados: {}", packages.installed.join(", ")),
+            detail: trf(
+                "Instalados: {packages}",
+                &[("packages", packages.installed.join(", "))],
+            ),
             health: Health::Good,
+            code: "packages-installed",
         }
     } else {
         CheckItem {
             title: "Pacotes principais",
-            detail: format!("Faltando: {}", packages.missing.join(", ")),
+            detail: trf(
+                "Faltando: {packages}",
+                &[("packages", packages.missing.join(", "))],
+            ),
             health: Health::Warning,
+            code: "packages-missing",
         }
     };
 
@@ -440,21 +452,26 @@ pub fn collect_snapshot() -> SetupSnapshot {
         if akmods_failed {
             CheckItem {
                 title: "Akmods no boot",
-                detail: "Falhou ao gerar o módulo para o kernel atual.".into(),
+                detail: tr("Falhou ao gerar o módulo para o kernel atual."),
                 health: Health::Error,
+                code: "akmods-failed",
             }
         } else {
             CheckItem {
                 title: "Akmods no boot",
-                detail: "Nenhuma falha do akmods encontrada no boot atual.".into(),
+                detail: tr("Nenhuma falha do akmods encontrada no boot atual."),
                 health: Health::Good,
+                code: "akmods-ok",
             }
         }
     } else {
         CheckItem {
             title: "Akmods no boot",
-            detail: "O driver ainda não foi instalado, então o akmods não executou esse fluxo.".into(),
+            detail: tr(
+                "O driver ainda não foi instalado, então o akmods não executou esse fluxo.",
+            ),
             health: Health::Unknown,
+            code: "akmods-unavailable",
         }
     };
 
@@ -479,65 +496,85 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let module_check = match (module_origin, module_path.as_deref()) {
         (ModuleOrigin::Patched, Some(path)) if !module_loaded => CheckItem {
             title: "Módulo ativo",
-            detail: format!(
-                "O módulo corrigido existe em {path}, mas ainda não foi carregado no kernel. Habilite o carregamento automático e recarregue o driver pela seção de ações rápidas."
+            detail: trf(
+                "O módulo corrigido existe em {path}, mas ainda não foi carregado no kernel. Habilite o carregamento automático e recarregue o driver pela seção de ações rápidas.",
+                &[("path", path.to_string())],
             ),
             health: Health::Error,
+            code: "module-not-loaded",
         },
         (ModuleOrigin::Patched, Some(path)) if manual_updates_override => CheckItem {
             title: "Módulo ativo",
-            detail: format!(
-                "Usando um override manual em {path}. Como esse arquivo não pertence a um RPM, ele pode divergir do stack Intel IPU6 que o restante do sistema espera."
+            detail: trf(
+                "Usando um override manual em {path}. Como esse arquivo não pertence a um RPM, ele pode divergir do stack Intel IPU6 que o restante do sistema espera.",
+                &[("path", path.to_string())],
             ),
             health: Health::Warning,
+            code: "module-manual-override",
         },
         (ModuleOrigin::Patched, Some(path)) => CheckItem {
             title: "Módulo ativo",
             detail: match module_owner {
-                Some(ref owner) => format!("Usando módulo externo em {path}, fornecido por {owner}."),
-                None => format!("Usando módulo externo: {path}"),
+                Some(ref owner) => trf(
+                    "Usando módulo externo em {path}, fornecido por {owner}.",
+                    &[("path", path.to_string()), ("owner", owner.to_string())],
+                ),
+                None => trf("Usando módulo externo: {path}", &[("path", path.to_string())]),
             },
             health: Health::Good,
+            code: "module-patched",
         },
         (ModuleOrigin::Patched, None) => CheckItem {
             title: "Módulo ativo",
-            detail: "O sistema indicou um módulo externo, mas o caminho não pôde ser lido.".into(),
+            detail: tr("O sistema indicou um módulo externo, mas o caminho não pôde ser lido."),
             health: Health::Warning,
+            code: "module-patched-path-missing",
         },
         (ModuleOrigin::InTree, Some(path)) => CheckItem {
             title: "Módulo ativo",
-            detail: format!(
-                "O sistema está usando o módulo in-tree do kernel: {path}. Use a ação rápida para ajustar a prioridade do driver corrigido."
+            detail: trf(
+                "O sistema está usando o módulo in-tree do kernel: {path}. Use a ação rápida para ajustar a prioridade do driver corrigido.",
+                &[("path", path.to_string())],
             ),
             health: if clock_error {
                 Health::Error
             } else {
                 Health::Warning
             },
+            code: "module-in-tree",
         },
         (ModuleOrigin::InTree, None) => CheckItem {
             title: "Módulo ativo",
-            detail: "O sistema parece ter caído para o módulo in-tree. Use a ação rápida para ajustar a prioridade do driver corrigido.".into(),
+            detail: tr(
+                "O sistema parece ter caído para o módulo in-tree. Use a ação rápida para ajustar a prioridade do driver corrigido.",
+            ),
             health: if clock_error {
                 Health::Error
             } else {
                 Health::Warning
             },
+            code: "module-in-tree",
         },
         (ModuleOrigin::Missing, _) => CheckItem {
             title: "Módulo ativo",
-            detail: "Não foi possível localizar o módulo ov02c10 via modinfo.".into(),
+            detail: tr("Não foi possível localizar o módulo ov02c10 via modinfo."),
             health: Health::Error,
+            code: "module-missing",
         },
         (ModuleOrigin::Unknown, Some(path)) => CheckItem {
             title: "Módulo ativo",
-            detail: format!("Módulo localizado, mas sem origem claramente classificada: {path}"),
+            detail: trf(
+                "Módulo localizado, mas sem origem claramente classificada: {path}",
+                &[("path", path.to_string())],
+            ),
             health: Health::Warning,
+            code: "module-unknown",
         },
         (ModuleOrigin::Unknown, None) => CheckItem {
             title: "Módulo ativo",
-            detail: "Origem do módulo ov02c10 não pôde ser determinada.".into(),
+            detail: tr("Origem do módulo ov02c10 não pôde ser determinada."),
             health: Health::Unknown,
+            code: "module-unknown",
         },
     };
 
@@ -551,20 +588,24 @@ pub fn collect_snapshot() -> SetupSnapshot {
             title: "Caminho direto do Galaxy Book Câmera",
             detail: extract_first_matching_line(&output, &["Internal front camera", "'ov02c10'"])
                 .unwrap_or_else(|| {
-                    "A câmera interna apareceu no caminho direto usado pelo Galaxy Book Câmera."
-                        .into()
+                    tr(
+                        "A câmera interna apareceu no caminho direto usado pelo Galaxy Book Câmera.",
+                    )
                 }),
             health: Health::Good,
+            code: "libcamera-ready",
         },
         Ok(_) => CheckItem {
             title: "Caminho direto do Galaxy Book Câmera",
-            detail: "A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book Câmera não listou a câmera interna. Isso não significa, por si só, que Snapshot, navegador ou o sistema também falharam.".into(),
+            detail: tr("A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book Câmera não listou a câmera interna. Isso não significa, por si só, que Snapshot, navegador ou o sistema também falharam."),
             health: Health::Warning,
+            code: "libcamera-missing",
         },
         Err(_) => CheckItem {
             title: "Caminho direto do Galaxy Book Câmera",
-            detail: "A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera.".into(),
+            detail: tr("A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera."),
             health: Health::Unknown,
+            code: "libcamera-unavailable",
         },
     };
 
@@ -585,14 +626,18 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let boot_check = if clock_error {
         CheckItem {
             title: "Erros no boot",
-            detail: "O boot registrou que o driver in-tree não suporta o clock externo de 26 MHz nesta máquina.".into(),
+            detail: tr(
+                "O boot registrou que o driver in-tree não suporta o clock externo de 26 MHz nesta máquina.",
+            ),
             health: Health::Error,
+            code: "boot-clock-error",
         }
     } else {
         CheckItem {
             title: "Erros no boot",
-            detail: "Nenhum erro de clock/probe do ov02c10 foi encontrado no boot atual.".into(),
+            detail: tr("Nenhum erro de clock/probe do ov02c10 foi encontrado no boot atual."),
             health: Health::Good,
+            code: "boot-ok",
         }
     };
 
@@ -698,7 +743,7 @@ pub fn run_smoke_test() -> Result<(), String> {
     println!("camera_app_installed={}", snapshot.camera_app_installed);
 
     if snapshot.system.kernel.trim().is_empty() {
-        return Err("Kernel não pode estar vazio no smoke test.".into());
+        return Err(tr("Kernel não pode estar vazio no smoke test."));
     }
 
     Ok(())
@@ -712,18 +757,19 @@ fn detect_notebook() -> String {
         (Some(vendor), Some(product)) => format!("{vendor} {product}"),
         (None, Some(product)) => product,
         (Some(vendor), None) => vendor,
-        (None, None) => "Galaxy Book (modelo não identificado)".into(),
+        (None, None) => tr("Galaxy Book (modelo não identificado)"),
     }
 }
 
 fn detect_fedora_release() -> String {
-    read_trimmed("/etc/fedora-release").unwrap_or_else(|| "Fedora (versão não identificada)".into())
+    read_trimmed("/etc/fedora-release")
+        .unwrap_or_else(|| tr("Fedora (versão não identificada)"))
 }
 
 fn detect_secure_boot() -> String {
     match command_text("mokutil", &["--sb-state"]) {
         Ok(output) => parse_secure_boot(&output).into(),
-        Err(_) => "Não foi possível verificar".into(),
+        Err(_) => tr("Não foi possível verificar"),
     }
 }
 
@@ -796,8 +842,9 @@ fn extension_check(
     if !enabled.is_empty() {
         return CheckItem {
             title,
-            detail: format!("Ativa: {}", enabled.join(", ")),
+            detail: trf("Ativa: {extensions}", &[("extensions", enabled.join(", "))]),
             health: Health::Good,
+            code: "extension-enabled",
         };
     }
 
@@ -809,15 +856,20 @@ fn extension_check(
     if !installed.is_empty() {
         return CheckItem {
             title,
-            detail: format!("Instalada, mas desativada: {}", installed.join(", ")),
+            detail: trf(
+                "Instalada, mas desativada: {extensions}",
+                &[("extensions", installed.join(", "))],
+            ),
             health: Health::Warning,
+            code: "extension-installed-disabled",
         };
     }
 
     CheckItem {
         title,
-        detail: missing_detail.into(),
+        detail: tr(missing_detail),
         health: Health::Unknown,
+        code: "extension-missing",
     }
 }
 
@@ -830,29 +882,38 @@ fn detect_nvidia_check() -> CheckItem {
 
     if modules_loaded {
         let detail = if smi_installed {
-            "Módulos NVIDIA carregados. O utilitário nvidia-smi também está instalado.".into()
+            tr("Módulos NVIDIA carregados. O utilitário nvidia-smi também está instalado.")
         } else {
-            "Módulos NVIDIA carregados. O utilitário nvidia-smi continua opcional e não está instalado.".into()
+            tr(
+                "Módulos NVIDIA carregados. O utilitário nvidia-smi continua opcional e não está instalado.",
+            )
         };
         return CheckItem {
             title: "Driver NVIDIA",
             detail,
             health: Health::Good,
+            code: "nvidia-ready",
         };
     }
 
     if akmod_installed {
         return CheckItem {
             title: "Driver NVIDIA",
-            detail: "O pacote akmod-nvidia está instalado, mas os módulos não estão carregados para o kernel atual.".into(),
+            detail: tr(
+                "O pacote akmod-nvidia está instalado, mas os módulos não estão carregados para o kernel atual.",
+            ),
             health: Health::Warning,
+            code: "nvidia-akmod-installed",
         };
     }
 
     CheckItem {
         title: "Driver NVIDIA",
-        detail: "O suporte NVIDIA ainda não foi instalado. O setup trata o akmod-nvidia como o pacote principal para esta etapa.".into(),
+        detail: tr(
+            "O suporte NVIDIA ainda não foi instalado. O setup trata o akmod-nvidia como o pacote principal para esta etapa.",
+        ),
         health: Health::Unknown,
+        code: "nvidia-missing",
     }
 }
 
@@ -863,34 +924,44 @@ fn detect_platform_profile_check() -> CheckItem {
     match (current, choices) {
         (Some(current), Some(choices)) if current == "balanced" => CheckItem {
             title: "Perfil de uso",
-            detail: format!(
-                "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ruído da ventoinha, temperatura e desempenho. Opções disponíveis: {choices}"
+            detail: trf(
+                "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ruído da ventoinha, temperatura e desempenho. Opções disponíveis: {choices}",
+                &[("choices", choices)],
             ),
             health: Health::Good,
+            code: "platform-balanced",
         },
         (Some(current), Some(choices)) => CheckItem {
             title: "Perfil de uso",
-            detail: format!(
-                "Ativo: {current}. Para uso geral, o perfil balanced costuma ser o ponto mais estável entre ventoinha, temperatura e desempenho. Opções disponíveis: {choices}"
+            detail: trf(
+                "Ativo: {current}. Para uso geral, o perfil balanced costuma ser o ponto mais estável entre ventoinha, temperatura e desempenho. Opções disponíveis: {choices}",
+                &[("current", current), ("choices", choices)],
             ),
             health: Health::Warning,
+            code: "platform-nonbalanced",
         },
         (Some(current), None) if current == "balanced" => CheckItem {
             title: "Perfil de uso",
-            detail: "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ventoinha, temperatura e desempenho.".into(),
+            detail: tr(
+                "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ventoinha, temperatura e desempenho.",
+            ),
             health: Health::Good,
+            code: "platform-balanced",
         },
         (Some(current), None) => CheckItem {
             title: "Perfil de uso",
-            detail: format!(
-                "Ativo: {current}. O perfil balanced é o recomendado para uso geral neste notebook."
+            detail: trf(
+                "Ativo: {current}. O perfil balanced é o recomendado para uso geral neste notebook.",
+                &[("current", current)],
             ),
             health: Health::Warning,
+            code: "platform-nonbalanced",
         },
         _ => CheckItem {
             title: "Perfil de uso",
-            detail: "Este sistema não expôs a interface ACPI de platform_profile.".into(),
+            detail: tr("Este sistema não expôs a interface ACPI de platform_profile."),
             health: Health::Unknown,
+            code: "platform-unavailable",
         },
     }
 }
@@ -903,11 +974,12 @@ fn detect_browser_camera_check(
     if !packages.missing.is_empty() {
         return CheckItem {
             title: "Navegador e comunicadores",
-            detail: format!(
-                "Faltando pacotes do bridge V4L2: {}",
-                packages.missing.join(", ")
+            detail: trf(
+                "Faltando pacotes do bridge V4L2: {packages}",
+                &[("packages", packages.missing.join(", "))],
             ),
             health: Health::Warning,
+            code: "browser-packages-missing",
         };
     }
 
@@ -922,53 +994,66 @@ fn detect_browser_camera_check(
     match (relay_active, relay_enabled.as_deref(), loopback_device.as_deref(), loopback_capture) {
         (true, Some("enabled"), Some(device), true) => CheckItem {
             title: "Navegador e comunicadores",
-            detail: format!(
-                "Bridge V4L2 ativo em {device}. A webcam virtual já pode ser usada por Meet, Discord, Teams e outros apps."
+            detail: trf(
+                "Bridge V4L2 ativo em {device}. A webcam virtual já pode ser usada por Meet, Discord, Teams e outros apps.",
+                &[("device", device.to_string())],
             ),
             health: Health::Good,
+            code: "browser-ready",
         },
         (true, Some("enabled-runtime"), Some(device), true) => CheckItem {
             title: "Navegador e comunicadores",
-            detail: format!(
-                "Bridge ativo em {device}, mas só habilitado para a sessão atual. Ative novamente pela ação rápida para persistir após reboot."
+            detail: trf(
+                "Bridge ativo em {device}, mas só habilitado para a sessão atual. Ative novamente pela ação rápida para persistir após reboot.",
+                &[("device", device.to_string())],
             ),
             health: Health::Warning,
+            code: "browser-runtime-only",
         },
         (true, _, Some(device), true) => CheckItem {
             title: "Navegador e comunicadores",
-            detail: format!(
-                "Bridge ativo em {device}, mas o serviço ainda não está habilitado de forma persistente. Ative a câmera para navegador pela seção de ações rápidas."
+            detail: trf(
+                "Bridge ativo em {device}, mas o serviço ainda não está habilitado de forma persistente. Ative a câmera para navegador pela seção de ações rápidas.",
+                &[("device", device.to_string())],
             ),
             health: Health::Warning,
+            code: "browser-service-not-persistent",
         },
         (false, _, Some(device), true) => CheckItem {
             title: "Navegador e comunicadores",
-            detail: format!(
-                "A webcam virtual existe em {device}, mas o relay está parado. Ative a câmera para navegador para manter Meet, Discord e outros apps funcionando de forma previsível."
+            detail: trf(
+                "A webcam virtual existe em {device}, mas o relay está parado. Ative a câmera para navegador para manter Meet, Discord e outros apps funcionando de forma previsível.",
+                &[("device", device.to_string())],
             ),
             health: Health::Warning,
+            code: "browser-relay-stopped",
         },
         (true, _, Some(device), false) => CheckItem {
             title: "Navegador e comunicadores",
-            detail: format!(
-                "O relay está ativo, mas {device} ainda não expôs um nó de captura utilizável. Reaplique a ação rápida da câmera para navegador."
+            detail: trf(
+                "O relay está ativo, mas {device} ainda não expôs um nó de captura utilizável. Reaplique a ação rápida da câmera para navegador.",
+                &[("device", device.to_string())],
             ),
             health: Health::Warning,
+            code: "browser-device-not-capture",
         },
         _ if camera_source_ready => CheckItem {
             title: "Navegador e comunicadores",
-            detail: "A câmera já aparece nas fontes do sistema, mas a webcam virtual ainda não foi ativada. Use a ação rápida para expor a câmera como dispositivo V4L2 para Meet, Discord, Teams e outros apps WebRTC.".into(),
+            detail: tr("A câmera já aparece nas fontes do sistema, mas a webcam virtual ainda não foi ativada. Use a ação rápida para expor a câmera como dispositivo V4L2 para Meet, Discord, Teams e outros apps WebRTC."),
             health: Health::Warning,
+            code: "browser-system-source-ready",
         },
         _ if libcamera_detected => CheckItem {
             title: "Navegador e comunicadores",
-            detail: "A câmera base já está funcional no libcamera, mas o bridge V4L2 para navegador ainda não foi ativado.".into(),
+            detail: tr("A câmera base já está funcional no libcamera, mas o bridge V4L2 para navegador ainda não foi ativado."),
             health: Health::Warning,
+            code: "browser-libcamera-ready",
         },
         _ => CheckItem {
             title: "Navegador e comunicadores",
-            detail: "O bridge V4L2 para navegador ainda não foi ativado e a câmera também não apareceu nas fontes do sistema. Use a ação rápida para configurar a webcam virtual e reavalie o estado da câmera base se o problema persistir.".into(),
+            detail: tr("O bridge V4L2 para navegador ainda não foi ativado e a câmera também não apareceu nas fontes do sistema. Use a ação rápida para configurar a webcam virtual e reavalie o estado da câmera base se o problema persistir."),
             health: Health::Warning,
+            code: "browser-missing",
         },
     }
 }
@@ -978,8 +1063,9 @@ fn detect_speakers_check() -> CheckItem {
     if !max98390_present {
         return CheckItem {
             title: "Alto-falantes internos",
-            detail: "Este sistema não expôs amplificadores MAX98390 via ACPI ou I2C, então o setup não aplicou o fluxo específico dos alto-falantes Galaxy Book.".into(),
+            detail: tr("Este sistema não expôs amplificadores MAX98390 via ACPI ou I2C, então o setup não aplicou o fluxo específico dos alto-falantes Galaxy Book."),
             health: Health::Unknown,
+            code: "speakers-unsupported",
         };
     }
 
@@ -1007,47 +1093,52 @@ fn detect_speakers_check() -> CheckItem {
     if !packages.missing.is_empty() {
         return CheckItem {
             title: "Alto-falantes internos",
-            detail: format!(
-                "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de speakers: {}",
-                packages.missing.join(", ")
+            detail: trf(
+                "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de speakers: {packages}",
+                &[("packages", packages.missing.join(", "))],
             ),
             health: Health::Warning,
+            code: "speakers-packages-missing",
         };
     }
 
     if !modules_indexed {
         let detail = if modules_load_failure {
-            "O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c. O boot já registrou falha ao procurar esses módulos, então o próximo passo é reconstruir e instalar manualmente o driver pela seção de ações rápidas.".into()
+            tr("O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c. O boot já registrou falha ao procurar esses módulos, então o próximo passo é reconstruir e instalar manualmente o driver pela seção de ações rápidas.")
         } else {
-            "O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c via modinfo. Reconstrua e instale manualmente o driver pela seção de ações rápidas antes de testar a saída Speaker novamente.".into()
+            tr("O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c via modinfo. Reconstrua e instale manualmente o driver pela seção de ações rápidas antes de testar a saída Speaker novamente.")
         };
         return CheckItem {
             title: "Alto-falantes internos",
             detail,
             health: Health::Error,
+            code: "speakers-modules-missing",
         };
     }
 
     if core_loaded && i2c_loaded && (setup_active || setup_enabled) {
         return CheckItem {
             title: "Alto-falantes internos",
-            detail: "O suporte MAX98390 está instalado, os módulos dos amplificadores estão carregados e o serviço de I2C está pronto para o boot.".into(),
+            detail: tr("O suporte MAX98390 está instalado, os módulos dos amplificadores estão carregados e o serviço de I2C está pronto para o boot."),
             health: Health::Good,
+            code: "speakers-ready",
         };
     }
 
     if core_loaded && i2c_loaded {
         return CheckItem {
             title: "Alto-falantes internos",
-            detail: "Os módulos MAX98390 estão carregados, mas o serviço que cria os dispositivos I2C no boot ainda não está ativo de forma persistente.".into(),
+            detail: tr("Os módulos MAX98390 estão carregados, mas o serviço que cria os dispositivos I2C no boot ainda não está ativo de forma persistente."),
             health: Health::Warning,
+            code: "speakers-service-disabled",
         };
     }
 
     CheckItem {
         title: "Alto-falantes internos",
-        detail: "O hardware MAX98390 foi detectado, mas os módulos dos amplificadores ainda não estão carregados. Ative o suporte dos alto-falantes pela seção de ações rápidas.".into(),
+        detail: tr("O hardware MAX98390 foi detectado, mas os módulos dos amplificadores ainda não estão carregados. Ative o suporte dos alto-falantes pela seção de ações rápidas."),
         health: Health::Warning,
+        code: "speakers-modules-unloaded",
     }
 }
 
@@ -1114,70 +1205,70 @@ fn recommend_next_step(
 ) -> (String, String) {
     if !packages.missing.is_empty() {
         return (
-            "Instalação pendente".into(),
-            "Instale os pacotes principais da câmera pela própria seção de ações rápidas, reinicie o sistema e atualize o diagnóstico.".into(),
+            tr("Instalação pendente"),
+            tr("Instale os pacotes principais da câmera pela própria seção de ações rápidas, reinicie o sistema e atualize o diagnóstico."),
         );
     }
 
     if akmods_failed {
         return (
-            "O driver não foi gerado no boot".into(),
-            "O akmods falhou ao construir o módulo para o kernel atual. Reexecute o reparo do driver, confira o log do akmods e reinicie antes de testar a câmera novamente.".into(),
+            tr("O driver não foi gerado no boot"),
+            tr("O akmods falhou ao construir o módulo para o kernel atual. Reexecute o reparo do driver, confira o log do akmods e reinicie antes de testar a câmera novamente."),
         );
     }
 
     if module_origin == ModuleOrigin::InTree && clock_error {
         return (
-            "O sistema caiu para o driver in-tree".into(),
-            "O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela seção de ações rápidas e reinicie.".into(),
+            tr("O sistema caiu para o driver in-tree"),
+            tr("O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela seção de ações rápidas e reinicie."),
         );
     }
 
     if module_origin == ModuleOrigin::Patched && !module_loaded {
         return (
-            "O driver corrigido não foi carregado".into(),
-            "O módulo ov02c10 corrigido está instalado no sistema, mas não entrou no kernel. Habilite o carregamento automático do driver e reinicie para a câmera voltar a aparecer no grafo de mídia.".into(),
+            tr("O driver corrigido não foi carregado"),
+            tr("O módulo ov02c10 corrigido está instalado no sistema, mas não entrou no kernel. Habilite o carregamento automático do driver e reinicie para a câmera voltar a aparecer no grafo de mídia."),
         );
     }
 
     if manual_updates_override && !libcamera_detected {
         return (
-            "O override manual da câmera está atrapalhando o libcamera".into(),
-            "A câmera do kernel parece estável, mas o caminho direto do Galaxy Book Câmera não encontrou o sensor enquanto um ov02c10 manual em /updates está ativo. O próximo passo é restaurar o stack Intel IPU6 pela seção de ações rápidas.".into(),
+            tr("O override manual da câmera está atrapalhando o libcamera"),
+            tr("A câmera do kernel parece estável, mas o caminho direto do Galaxy Book Câmera não encontrou o sensor enquanto um ov02c10 manual em /updates está ativo. O próximo passo é restaurar o stack Intel IPU6 pela seção de ações rápidas."),
         );
     }
 
     if !browser_camera_ready && (libcamera_detected || camera_source_ready) {
         return (
-            "Compatibilidade com navegador pendente".into(),
-            "A câmera base já está pronta para uso no sistema, mas a webcam virtual para Meet, Discord, Teams e outros apps ainda não está ativa. Use a ação rápida para expor a câmera como dispositivo V4L2.".into(),
+            tr("Compatibilidade com navegador pendente"),
+            tr("A câmera base já está pronta para uso no sistema, mas a webcam virtual para Meet, Discord, Teams e outros apps ainda não está ativa. Use a ação rápida para expor a câmera como dispositivo V4L2."),
         );
     }
 
     if !libcamera_detected && !camera_source_ready {
         return (
-            "A câmera ainda não apareceu no caminho direto do app".into(),
-            "O driver e os pacotes principais parecem presentes, mas a câmera ainda não foi detectada nem no caminho direto do Galaxy Book Câmera nem nas fontes do sistema. O próximo passo é revisar os logs do boot e a pilha IPU6.".into(),
+            tr("A câmera ainda não apareceu no caminho direto do app"),
+            tr("O driver e os pacotes principais parecem presentes, mas a câmera ainda não foi detectada nem no caminho direto do Galaxy Book Câmera nem nas fontes do sistema. O próximo passo é revisar os logs do boot e a pilha IPU6."),
         );
     }
 
     if !camera_app_installed {
         return (
-            "Driver pronto, app da câmera ausente".into(),
-            "A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app para validar preview, foto e vídeo no fluxo final.".into(),
+            tr("Driver pronto, app da câmera ausente"),
+            tr("A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app para validar preview, foto e vídeo no fluxo final."),
         );
     }
 
     if speaker_supported && !speaker_ready {
         return (
-            "Suporte dos alto-falantes pendente".into(),
-            "A máquina expõe amplificadores MAX98390, mas o pacote de speakers ainda não está pronto ou os módulos não foram carregados. Ative o suporte dos alto-falantes internos pela seção de ações rápidas e teste a saída Speaker novamente.".into(),
+            tr("Suporte dos alto-falantes pendente"),
+            tr("A máquina expõe amplificadores MAX98390, mas o pacote de speakers ainda não está pronto ou os módulos não foram carregados. Ative o suporte dos alto-falantes internos pela seção de ações rápidas e teste a saída Speaker novamente."),
         );
     }
 
     (
-        "Fluxo principal da câmera parece pronto".into(),
-        "O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já vê a câmera e o app final está instalado. O próximo passo é abrir o Galaxy Book Câmera e validar preview, foto e vídeo.".into(),
+        tr("Fluxo principal da câmera parece pronto"),
+        tr("O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já vê a câmera e o app final está instalado. O próximo passo é abrir o Galaxy Book Câmera e validar preview, foto e vídeo."),
     )
 }
 

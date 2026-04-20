@@ -5,7 +5,7 @@ use crate::actions::{ActionKey, dedupe_action_keys};
 use crate::diagnostics::{diagnostic_item, suggested_actions};
 use crate::ui::{DiagnosticKey, SetupWindow};
 
-use galaxybook_setup::SetupSnapshot;
+use galaxybook_setup::{SetupSnapshot, tr};
 
 impl SetupWindow {
     pub(crate) fn present_suggested_actions(&self, key: DiagnosticKey) {
@@ -13,10 +13,12 @@ impl SetupWindow {
         if let Some(snapshot) = self.snapshot.borrow().as_ref().cloned() {
             self.apply_suggested_actions(&snapshot, key);
         } else {
-            self.suggested_title_row.set_subtitle("Diagnóstico indisponível");
-            self.suggested_status_row.set_subtitle("Aguardando leitura");
+            self.suggested_title_row
+                .set_subtitle(&tr("Diagnóstico indisponível"));
+            self.suggested_status_row
+                .set_subtitle(&tr("Aguardando leitura"));
             self.suggested_detail_row
-                .set_subtitle("Atualize o diagnóstico antes de abrir as ações sugeridas.");
+                .set_subtitle(&tr("Atualize o diagnóstico antes de abrir as ações sugeridas."));
             self.reset_suggested_actions(&[]);
         }
         self.navigation_view.push_by_tag("suggested-actions");
@@ -28,8 +30,9 @@ impl SetupWindow {
         key: DiagnosticKey,
     ) {
         let item = diagnostic_item(snapshot, key);
-        self.suggested_title_row.set_subtitle(item.title);
-        self.suggested_status_row.set_subtitle(item.health.label());
+        self.suggested_title_row.set_subtitle(&tr(item.title));
+        self.suggested_status_row
+            .set_subtitle(&tr(item.health.label()));
         self.suggested_detail_row.set_subtitle(&item.detail);
         let actions = suggested_actions(snapshot, key);
         self.reset_suggested_actions(&actions);
@@ -47,8 +50,8 @@ impl SetupWindow {
 
         if deduped_actions.is_empty() {
             let row = adw::ActionRow::builder()
-                .title("Sem automação disponível")
-                .subtitle("Este diagnóstico ainda não tem uma ação rápida dedicada no setup. O painel geral de ações continua disponível sem filtro.")
+                .title(tr("Sem automação disponível"))
+                .subtitle(tr("Este diagnóstico ainda não tem uma ação rápida dedicada no setup. O painel geral de ações continua disponível sem filtro."))
                 .build();
             row.set_activatable(false);
             self.suggested_actions_group.add(&row);

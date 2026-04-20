@@ -8,7 +8,7 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    CAMERA_APP_DESKTOP_ID, REBOOT_COMMAND, RESTORE_INTEL_CAMERA_COMMAND,
+    CAMERA_APP_DESKTOP_ID, REBOOT_COMMAND, RESTORE_INTEL_CAMERA_COMMAND, tr, trf,
 };
 
 use crate::actions::ActionKey;
@@ -35,9 +35,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.install_main_support_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Instalar suporte principal",
+                    &tr("Instalar suporte principal"),
                     command,
-                    "Pacotes principais instalados. Atualize o diagnóstico e use as ações específicas se câmera ou alto-falantes ainda precisarem de ajuste.",
+                    &tr("Pacotes principais instalados. Atualize o diagnóstico e use as ações específicas se câmera ou alto-falantes ainda precisarem de ajuste."),
                     true,
                 );
             }
@@ -49,9 +49,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.install_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Instalar suporte da câmera",
+                    &tr("Instalar suporte da câmera"),
                     command,
-                    "Instalação concluída. Reinicie o sistema para carregar o driver.",
+                    &tr("Instalação concluída. Reinicie o sistema para carregar o driver."),
                     true,
                 );
             }
@@ -63,9 +63,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.repair_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Reparar o driver",
+                    &tr("Reparar o driver"),
                     command,
-                    "Reparo concluído. Reinicie o sistema para aplicar o módulo atualizado.",
+                    &tr("Reparo concluído. Reinicie o sistema para aplicar o módulo atualizado."),
                     true,
                 );
             }
@@ -77,9 +77,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.enable_camera_module_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Habilitar driver da câmera",
+                    &tr("Habilitar driver da câmera"),
                     command,
-                    "Carregamento do ov02c10 ajustado. Se a câmera ainda não aparecer, reinicie o sistema para validar o boot completo.",
+                    &tr("Carregamento do ov02c10 ajustado. Se a câmera ainda não aparecer, reinicie o sistema para validar o boot completo."),
                     true,
                 );
             }
@@ -91,9 +91,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.force_camera_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Ajustar prioridade do driver",
+                    &tr("Ajustar prioridade do driver"),
                     command,
-                    "Ajuste concluído. Se o módulo ainda estiver em uso, reinicie o sistema antes de validar a câmera.",
+                    &tr("Ajuste concluído. Se o módulo ainda estiver em uso, reinicie o sistema antes de validar a câmera."),
                     true,
                 );
             }
@@ -105,9 +105,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.restore_intel_camera_command.clone())
                     .unwrap_or_else(|| RESTORE_INTEL_CAMERA_COMMAND.into());
                 self.run_privileged_command(
-                    "Restaurar stack Intel IPU6",
+                    &tr("Restaurar stack Intel IPU6"),
                     command,
-                    "Restauração concluída. Se a câmera continuar ausente no libcamera, reinicie o sistema antes de validar novamente.",
+                    &tr("Restauração concluída. Se a câmera continuar ausente no libcamera, reinicie o sistema antes de validar novamente."),
                     true,
                 );
             }
@@ -119,9 +119,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.enable_browser_camera_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Ativar câmera para navegador",
+                    &tr("Ativar câmera para navegador"),
                     command,
-                    "Bridge V4L2 ativado. Se os nós crus do IPU6 ainda aparecerem na sessão atual, faça logout/login antes de validar Meet, Discord e outros apps.",
+                    &tr("Bridge V4L2 ativado. Se os nós crus do IPU6 ainda aparecerem na sessão atual, faça logout/login antes de validar Meet, Discord e outros apps."),
                     true,
                 );
             }
@@ -133,9 +133,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.enable_speaker_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Ativar alto-falantes internos",
+                    &tr("Ativar alto-falantes internos"),
                     command,
-                    "Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema continuar preso ao estado anterior.",
+                    &tr("Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema continuar preso ao estado anterior."),
                     true,
                 );
             }
@@ -147,9 +147,9 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.repair_nvidia_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Reparar suporte NVIDIA",
+                    &tr("Reparar suporte NVIDIA"),
                     command,
-                    "Fluxo NVIDIA concluído. Reinicie o sistema se os módulos ainda não aparecerem carregados.",
+                    &tr("Fluxo NVIDIA concluído. Reinicie o sistema se os módulos ainda não aparecerem carregados."),
                     true,
                 );
             }
@@ -161,17 +161,17 @@ impl SetupWindow {
                     .map(|snapshot| snapshot.set_balanced_profile_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
-                    "Definir perfil balanceado",
+                    &tr("Definir perfil balanceado"),
                     command,
-                    "Perfil balanced aplicado com sucesso.",
+                    &tr("Perfil balanced aplicado com sucesso."),
                     true,
                 );
             }
             ActionKey::Reboot => {
                 self.run_privileged_command(
-                    "Reiniciar o sistema",
+                    &tr("Reiniciar o sistema"),
                     REBOOT_COMMAND.into(),
-                    "Reinicialização solicitada.",
+                    &tr("Reinicialização solicitada."),
                     false,
                 );
             }
@@ -180,13 +180,14 @@ impl SetupWindow {
                     if let Err(error) =
                         app.launch(&[], None::<&gio::AppLaunchContext>)
                     {
-                        self.toast_overlay.add_toast(adw::Toast::new(&format!(
-                            "Falha ao abrir o app da câmera: {error}"
+                        self.toast_overlay.add_toast(adw::Toast::new(&trf(
+                            "Falha ao abrir o app da câmera: {error}",
+                            &[("error", error.to_string())],
                         )));
                     }
                 } else {
                     self.toast_overlay.add_toast(adw::Toast::new(
-                        "O Galaxy Book Câmera não foi encontrado no sistema.",
+                        &tr("O Galaxy Book Câmera não foi encontrado no sistema."),
                     ));
                 }
             }
@@ -208,7 +209,10 @@ impl SetupWindow {
         self.refresh_button.set_sensitive(false);
         self.set_action_buttons_sensitive(false);
         self.toast_overlay
-            .add_toast(adw::Toast::new(&format!("Executando: {title}…")));
+            .add_toast(adw::Toast::new(&trf(
+                "Executando: {title}…",
+                &[("title", title.to_string())],
+            )));
 
         let title_owned = title.to_string();
         let success_message_owned = success_message.to_string();
@@ -262,7 +266,7 @@ impl SetupWindow {
                     this.refresh_button.set_sensitive(true);
                     this.set_action_buttons_sensitive(true);
                     this.toast_overlay.add_toast(adw::Toast::new(
-                        "Falha ao acompanhar a ação solicitada.",
+                        &tr("Falha ao acompanhar a ação solicitada."),
                     ));
                     glib::ControlFlow::Break
                 }
@@ -278,7 +282,7 @@ impl SetupWindow {
             .build();
 
         let header = adw::HeaderBar::new();
-        let window_title = adw::WindowTitle::new(title, "Saída da ação");
+        let window_title = adw::WindowTitle::new(title, &tr("Saída da ação"));
         header.set_title_widget(Some(&window_title));
 
         let toolbar = adw::ToolbarView::new();
@@ -294,11 +298,13 @@ impl SetupWindow {
             .left_margin(16)
             .right_margin(16)
             .build();
-        text_view.buffer().set_text(if output.trim().is_empty() {
-            "A ação falhou, mas não retornou saída textual."
+        let fallback_output = tr("A ação falhou, mas não retornou saída textual.");
+        let output_text = if output.trim().is_empty() {
+            fallback_output.as_str()
         } else {
             output
-        });
+        };
+        text_view.buffer().set_text(output_text);
 
         let scroller = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Automatic)

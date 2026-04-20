@@ -14,6 +14,7 @@ ExclusiveArch:  x86_64
 BuildRequires:  cargo
 BuildRequires:  clang
 BuildRequires:  desktop-file-utils
+BuildRequires:  gettext
 BuildRequires:  gcc-c++
 BuildRequires:  make
 BuildRequires:  pkgconfig(gtk4)
@@ -38,6 +39,10 @@ cargo --offline build --release --locked --bin galaxybook-setup
 %install
 install -Dm755 target/release/galaxybook-setup %{buildroot}%{_bindir}/galaxybook-setup
 install -Dm644 assets/galaxybook-setup.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
+for lang in en es it; do \
+  install -d %{buildroot}%{_datadir}/locale/$$lang/LC_MESSAGES; \
+  msgfmt po/$$lang.po -o %{buildroot}%{_datadir}/locale/$$lang/LC_MESSAGES/%{name}.mo; \
+done
 sed \
   -e 's|@EXEC@|galaxybook-setup|g' \
   -e 's|@ICON@|%{app_id}|g' \
@@ -55,6 +60,9 @@ cargo --offline test --locked --lib --bin galaxybook-setup
 %{_bindir}/galaxybook-setup
 %{_datadir}/applications/%{app_id}.desktop
 %{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
+%{_datadir}/locale/en/LC_MESSAGES/%{name}.mo
+%{_datadir}/locale/es/LC_MESSAGES/%{name}.mo
+%{_datadir}/locale/it/LC_MESSAGES/%{name}.mo
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 
 %changelog

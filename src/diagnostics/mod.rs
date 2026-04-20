@@ -2,7 +2,7 @@ pub(crate) mod runtime;
 
 use crate::actions::ActionKey;
 use crate::ui::DiagnosticKey;
-use galaxybook_setup::{APP_NAME, CheckItem, Health, SetupSnapshot};
+use galaxybook_setup::{APP_NAME, CheckItem, Health, SetupSnapshot, tr, trf, trn};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct DiagnosticAlertCounts {
@@ -68,17 +68,25 @@ pub(crate) fn diagnostic_alert_counts(snapshot: &SetupSnapshot) -> DiagnosticAle
 }
 
 pub(crate) fn diagnostic_notification_title(counts: DiagnosticAlertCounts) -> String {
-    format!("{APP_NAME}: {}", diagnostic_counts_summary(counts))
+    trf(
+        "{app_name}: {summary}",
+        &[
+            ("app_name", APP_NAME.to_string()),
+            ("summary", diagnostic_counts_summary(counts)),
+        ],
+    )
 }
 
 pub(crate) fn diagnostic_notification_body(
     snapshot: &SetupSnapshot,
     counts: DiagnosticAlertCounts,
 ) -> String {
-    format!(
-        "{} Próximo passo: {}",
-        diagnostic_counts_summary(counts),
-        snapshot.recommendation_body
+    trf(
+        "{summary} Próximo passo: {next_step}",
+        &[
+            ("summary", diagnostic_counts_summary(counts)),
+            ("next_step", snapshot.recommendation_body.clone()),
+        ],
     )
 }
 
@@ -86,33 +94,26 @@ pub(crate) fn diagnostic_counts_summary(counts: DiagnosticAlertCounts) -> String
     let mut parts = Vec::new();
 
     if counts.errors > 0 {
-        parts.push(format!(
-            "{} {}",
-            counts.errors,
-            pluralize(counts.errors, "erro", "erros")
+        parts.push(trn("{count} erro", "{count} erros", counts.errors).replace(
+            "{count}",
+            &counts.errors.to_string(),
         ));
     }
 
     if counts.warnings > 0 {
-        parts.push(format!(
-            "{} {}",
-            counts.warnings,
-            pluralize(counts.warnings, "alerta", "alertas")
-        ));
+        parts.push(
+            trn("{count} alerta", "{count} alertas", counts.warnings)
+                .replace("{count}", &counts.warnings.to_string()),
+        );
     }
 
     if parts.is_empty() {
-        "Nenhum alerta nos diagnósticos.".into()
+        tr("Nenhum alerta nos diagnósticos.")
     } else {
-        format!("{} nos diagnósticos.", parts.join(" e "))
-    }
-}
-
-fn pluralize<'a>(value: u32, singular: &'a str, plural: &'a str) -> &'a str {
-    if value == 1 {
-        singular
-    } else {
-        plural
+        trf(
+            "{alerts} nos diagnósticos.",
+            &[("alerts", parts.join(&tr(" e ")))],
+        )
     }
 }
 
@@ -122,11 +123,11 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         DiagnosticKey::Packages => vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera],
         DiagnosticKey::Akmods => vec![ActionKey::RepairDriver, ActionKey::Reboot],
         DiagnosticKey::Module => {
-            if item.detail.contains("não foi carregado no kernel") {
+            if item.code == "module-not-loaded" {
                 vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
-            } else if item.detail.contains("override manual") {
+            } else if item.code == "module-manual-override" {
                 vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
-            } else if item.detail.contains("in-tree") {
+            } else if item.code == "module-in-tree" {
                 vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
             } else {
                 vec![ActionKey::RepairDriver, ActionKey::Reboot]
@@ -137,9 +138,8 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![ActionKey::EnableBrowserCamera, ActionKey::OpenCamera]
             } else {
                 let mut actions = vec![ActionKey::RepairDriver, ActionKey::Reboot];
-                if diagnostic_item(snapshot, DiagnosticKey::Module)
-                    .detail
-                    .contains("não foi carregado no kernel")
+                if diagnostic_item(snapshot, DiagnosticKey::Module).code
+                    == "module-not-loaded"
                 {
                     actions.insert(0, ActionKey::EnableCameraModule);
                 } else {

@@ -1,6 +1,8 @@
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
+use galaxybook_setup::{tr, tr_mark};
+
 use crate::actions::{ActionKey, build_action_row};
 use crate::ui::{InfoRow, StatusRow, new_action_button};
 
@@ -52,8 +54,8 @@ pub(super) struct QuickActionsSection {
 
 pub(super) fn build_system_section() -> SystemSection {
     let group = adw::PreferencesGroup::builder()
-        .title("Sistema")
-        .description("Notebook, Fedora, kernel e Secure Boot.")
+        .title(tr("Sistema"))
+        .description(tr("Notebook, Fedora, kernel e Secure Boot."))
         .build();
     let device_row = InfoRow::new("Notebook");
     let fedora_row = InfoRow::new("Fedora");
@@ -75,8 +77,8 @@ pub(super) fn build_system_section() -> SystemSection {
 
 pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     let diagnostics_group = adw::PreferencesGroup::builder()
-        .title("Diagnóstico atual")
-        .description("Leitura consolidada do estado do notebook e do próximo passo recomendado.")
+        .title(tr("Diagnóstico atual"))
+        .description(tr("Leitura consolidada do estado do notebook e do próximo passo recomendado."))
         .build();
     let recommendation_title_row = InfoRow::new("Estado");
     let recommendation_body_row = InfoRow::new("Próximo passo");
@@ -84,8 +86,8 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     diagnostics_group.add(&recommendation_body_row.row);
 
     let camera_group = adw::PreferencesGroup::builder()
-        .title("Câmera")
-        .description("Pacotes, driver, akmods, caminho direto do Galaxy Book Câmera, bridge para navegador e erros conhecidos do boot.")
+        .title(tr("Câmera"))
+        .description(tr("Pacotes, driver, akmods, caminho direto do Galaxy Book Câmera, bridge para navegador e erros conhecidos do boot."))
         .build();
     let packages_row = StatusRow::new("Pacotes principais");
     let akmods_row = StatusRow::new("Driver gerado no boot");
@@ -101,15 +103,15 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     camera_group.add(&boot_row.row);
 
     let audio_group = adw::PreferencesGroup::builder()
-        .title("Áudio")
-        .description("Validação do caminho MAX98390 usado pelos alto-falantes internos.")
+        .title(tr("Áudio"))
+        .description(tr("Validação do caminho MAX98390 usado pelos alto-falantes internos."))
         .build();
     let speakers_row = StatusRow::new("Alto-falantes internos");
     audio_group.add(&speakers_row.row);
 
     let gpu_group = adw::PreferencesGroup::builder()
-        .title("GPU e plataforma")
-        .description("Estabilidade do driver NVIDIA e perfil de uso balanceado da plataforma.")
+        .title(tr("GPU e plataforma"))
+        .description(tr("Estabilidade do driver NVIDIA e perfil de uso balanceado da plataforma."))
         .build();
     let gpu_row = StatusRow::new("Driver NVIDIA");
     let platform_profile_row = StatusRow::new("Perfil de uso");
@@ -117,8 +119,8 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     gpu_group.add(&platform_profile_row.row);
 
     let integrations_group = adw::PreferencesGroup::builder()
-        .title("Integrações do desktop")
-        .description("Checklist geral de extensões e integrações que o setup pode acompanhar.")
+        .title(tr("Integrações do desktop"))
+        .description(tr("Checklist geral de extensões e integrações que o setup pode acompanhar."))
         .build();
     let clipboard_row = StatusRow::new("Histórico da área de transferência");
     let gsconnect_row = StatusRow::new("GSConnect");
@@ -151,27 +153,27 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
 }
 
 pub(super) fn build_quick_actions_section() -> QuickActionsSection {
-    let install_main_button = new_action_button("Instalar suporte principal");
-    let install_button = new_action_button("Instalar suporte da câmera");
-    let repair_button = new_action_button("Reparar o driver");
+    let install_main_button = new_action_button(&tr("Instalar suporte principal"));
+    let install_button = new_action_button(&tr("Instalar suporte da câmera"));
+    let repair_button = new_action_button(&tr("Reparar o driver"));
     let enable_camera_module_button =
-        new_action_button("Habilitar driver da câmera");
+        new_action_button(&tr("Habilitar driver da câmera"));
     let force_driver_button =
-        new_action_button("Ajustar prioridade do driver");
+        new_action_button(&tr("Ajustar prioridade do driver"));
     let restore_camera_button =
-        new_action_button("Restaurar stack Intel IPU6");
+        new_action_button(&tr("Restaurar stack Intel IPU6"));
     let enable_browser_camera_button =
-        new_action_button("Ativar câmera para navegador");
+        new_action_button(&tr("Ativar câmera para navegador"));
     let enable_speakers_button =
-        new_action_button("Ativar alto-falantes internos");
-    let repair_nvidia_button = new_action_button("Reparar suporte NVIDIA");
-    let balanced_profile_button = new_action_button("Definir perfil balanceado");
-    let reboot_button = new_action_button("Reiniciar o sistema");
-    let open_camera_button = new_action_button("Abrir Galaxy Book Câmera");
+        new_action_button(&tr("Ativar alto-falantes internos"));
+    let repair_nvidia_button = new_action_button(&tr("Reparar suporte NVIDIA"));
+    let balanced_profile_button = new_action_button(&tr("Definir perfil balanceado"));
+    let reboot_button = new_action_button(&tr("Reiniciar o sistema"));
+    let open_camera_button = new_action_button(&tr("Abrir Galaxy Book Câmera"));
 
     let group = adw::PreferencesGroup::builder()
-        .title("Ações rápidas")
-        .description("Fluxos executáveis diretamente da interface, sem precisar digitar comandos.")
+        .title(tr("Ações rápidas"))
+        .description(tr("Fluxos executáveis diretamente da interface, sem precisar digitar comandos."))
         .build();
     group.add(&build_action_row(
         ActionKey::InstallMainSupport,
@@ -229,16 +231,19 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
 
 pub(super) fn build_future_group() -> adw::PreferencesGroup {
     let group = adw::PreferencesGroup::builder()
-        .title("Módulos futuros")
-        .description("Estrutura reservada para outros fluxos do Galaxy Book no Fedora.")
+        .title(tr("Módulos futuros"))
+        .description(tr("Estrutura reservada para outros fluxos do Galaxy Book no Fedora."))
         .build();
     for (title, subtitle) in [
-        ("Fingerprint", "Planejado para uma etapa futura."),
-        ("Sistema", "Planejado para uma etapa futura."),
+        (
+            tr_mark("Fingerprint"),
+            tr_mark("Planejado para uma etapa futura."),
+        ),
+        (tr_mark("Sistema"), tr_mark("Planejado para uma etapa futura.")),
     ] {
         let row = adw::ActionRow::builder()
-            .title(title)
-            .subtitle(subtitle)
+            .title(tr(title))
+            .subtitle(tr(subtitle))
             .build();
         row.set_activatable(false);
         group.add(&row);

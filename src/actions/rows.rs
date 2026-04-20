@@ -3,6 +3,7 @@ use libadwaita as adw;
 
 use crate::actions::{ActionKey, ActionMetadata, action_metadata};
 use crate::ui::{SetupWindow, build_button_row, new_action_button};
+use galaxybook_setup::tr;
 
 impl SetupWindow {
     pub(crate) fn build_suggested_action_row(
@@ -10,7 +11,7 @@ impl SetupWindow {
         key: ActionKey,
     ) -> adw::ActionRow {
         let metadata = action_metadata(key);
-        let button = new_action_button(metadata.title);
+        let button = new_action_button(&tr(metadata.title));
         button.set_sensitive(!*self.action_running.borrow());
 
         let this = self.clone();
@@ -18,7 +19,7 @@ impl SetupWindow {
             this.invoke_action(key);
         });
 
-        build_button_row(metadata.title, metadata.subtitle, &button)
+        build_button_row(&tr(metadata.title), &tr(metadata.subtitle), &button)
     }
 }
 
@@ -27,5 +28,5 @@ pub(crate) fn build_action_row(
     button: &gtk::Button,
 ) -> adw::ActionRow {
     let ActionMetadata { title, subtitle } = action_metadata(key);
-    build_button_row(title, subtitle, button)
+    build_button_row(&tr(title), &tr(subtitle), button)
 }

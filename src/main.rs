@@ -7,10 +7,11 @@ use gtk::glib;
 use gtk::prelude::*;
 use libadwaita as adw;
 
-use galaxybook_setup::{APP_ID, run_smoke_test};
+use galaxybook_setup::{init_i18n, APP_ID, run_smoke_test};
 use ui::SetupWindow;
 
 fn main() -> glib::ExitCode {
+    init_i18n();
     if std::env::args().any(|arg| arg == "--smoke-test") {
         return match run_smoke_test() {
             Ok(()) => glib::ExitCode::SUCCESS,
@@ -49,6 +50,7 @@ mod tests {
             title,
             detail: String::new(),
             health,
+            code: "",
         }
     }
 
