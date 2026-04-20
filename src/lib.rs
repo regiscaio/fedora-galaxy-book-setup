@@ -2,7 +2,7 @@ mod i18n;
 
 use std::fs;
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 pub const APP_ID: &str = "com.caioregis.GalaxyBookSetup";
 pub const APP_NAME: &str = "Galaxy Book Setup";
@@ -1319,8 +1319,14 @@ fn command_text(command: &str, args: &[&str]) -> Result<String, ()> {
 }
 
 fn systemd_unit_is_active(unit: &str) -> bool {
+    if !systemd_available() {
+        return false;
+    }
+
     Command::new("systemctl")
         .args(["is-active", "--quiet", unit])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
@@ -1337,8 +1343,13 @@ fn detect_system_camera_source_ready() -> bool {
 }
 
 fn systemd_unit_enabled_state(unit: &str) -> Option<String> {
+    if !systemd_available() {
+        return None;
+    }
+
     let output = Command::new("systemctl")
         .args(["is-enabled", unit])
+        .stderr(Stdio::null())
         .output()
         .ok()?;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -1352,6 +1363,20 @@ fn systemd_unit_enabled_state(unit: &str) -> Option<String> {
             Some(stderr)
         }
     }
+}
+
+fn systemd_available() -> bool {
+    if !Path::new("/run/systemd/system").exists() {
+        return false;
+    }
+
+    Command::new("systemctl")
+        .arg("--version")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 fn rpm_installed(package: &str) -> bool {
