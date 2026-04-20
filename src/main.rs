@@ -25,6 +25,7 @@ enum DiagnosticKey {
     Libcamera,
     BrowserCamera,
     Boot,
+    Speakers,
     Gpu,
     PlatformProfile,
     Clipboard,
@@ -40,6 +41,7 @@ enum ActionKey {
     ForceDriverPriority,
     RestoreIntelIpu6,
     EnableBrowserCamera,
+    EnableSpeakers,
     RepairNvidia,
     SetBalancedProfile,
     Reboot,
@@ -178,6 +180,7 @@ struct SetupWindow {
     libcamera_row: StatusRow,
     browser_camera_row: StatusRow,
     boot_row: StatusRow,
+    speakers_row: StatusRow,
     gpu_row: StatusRow,
     platform_profile_row: StatusRow,
     clipboard_row: StatusRow,
@@ -194,6 +197,7 @@ struct SetupWindow {
     force_driver_button: gtk::Button,
     restore_camera_button: gtk::Button,
     enable_browser_camera_button: gtk::Button,
+    enable_speakers_button: gtk::Button,
     repair_nvidia_button: gtk::Button,
     balanced_profile_button: gtk::Button,
     reboot_button: gtk::Button,
@@ -297,6 +301,13 @@ impl SetupWindow {
         camera_group.add(&browser_camera_row.row);
         camera_group.add(&boot_row.row);
 
+        let audio_group = adw::PreferencesGroup::builder()
+            .title("Áudio")
+            .description("Validação do caminho MAX98390 usado pelos alto-falantes internos.")
+            .build();
+        let speakers_row = StatusRow::new("Alto-falantes internos");
+        audio_group.add(&speakers_row.row);
+
         let gpu_group = adw::PreferencesGroup::builder()
             .title("GPU e plataforma")
             .description("Estabilidade do driver NVIDIA e perfil de uso balanceado da plataforma.")
@@ -323,6 +334,7 @@ impl SetupWindow {
         let force_driver_button = new_action_button("Ajustar");
         let restore_camera_button = new_action_button("Restaurar");
         let enable_browser_camera_button = new_action_button("Ativar");
+        let enable_speakers_button = new_action_button("Ativar");
         let repair_nvidia_button = new_action_button("Executar");
         let balanced_profile_button = new_action_button("Aplicar");
         let reboot_button = new_action_button("Reiniciar");
@@ -359,8 +371,13 @@ impl SetupWindow {
         ));
         actions_group.add(&build_button_row(
             "Ativar câmera para navegador",
-            "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC, usando icamerasrc, v4l2-relayd e v4l2loopback.",
+            "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC, usando icamerasrc, v4l2-relayd e v4l2loopback, além de ocultar os nós crus do IPU6.",
             &enable_browser_camera_button,
+        ));
+        actions_group.add(&build_button_row(
+            "Ativar alto-falantes internos",
+            "Instala o suporte MAX98390, reconstrói os módulos, carrega os amplificadores e habilita o serviço de I2C usado pelos alto-falantes internos.",
+            &enable_speakers_button,
         ));
         actions_group.add(&build_button_row(
             "Reparar suporte NVIDIA",
@@ -388,7 +405,6 @@ impl SetupWindow {
             .description("Estrutura reservada para outros fluxos do Galaxy Book no Fedora.")
             .build();
         for (title, subtitle) in [
-            ("Áudio", "Planejado para uma etapa futura."),
             ("Fingerprint", "Planejado para uma etapa futura."),
             ("Sistema", "Planejado para uma etapa futura."),
         ] {
@@ -408,7 +424,7 @@ impl SetupWindow {
             .build();
         sections_group.add(&build_navigation_row(
             "Diagnósticos",
-            "Checklist geral da câmera, da GPU e das integrações do desktop.",
+            "Checklist geral da câmera, do áudio, da GPU e das integrações do desktop.",
             {
                 let navigation_view = navigation_view.clone();
                 move || navigation_view.push_by_tag("flow")
@@ -424,7 +440,7 @@ impl SetupWindow {
         ));
         sections_group.add(&build_navigation_row(
             "Módulos futuros",
-            "Áudio, fingerprint e outras frentes planejadas.",
+            "Fingerprint e outras frentes planejadas.",
             {
                 let navigation_view = navigation_view.clone();
                 move || navigation_view.push_by_tag("future")
@@ -440,6 +456,7 @@ impl SetupWindow {
             .build();
         flow_page_content.add(&diagnostics_group);
         flow_page_content.add(&camera_group);
+        flow_page_content.add(&audio_group);
         flow_page_content.add(&gpu_group);
         flow_page_content.add(&integrations_group);
         let flow_page =
@@ -542,6 +559,7 @@ impl SetupWindow {
             libcamera_row,
             browser_camera_row,
             boot_row,
+            speakers_row,
             gpu_row,
             platform_profile_row,
             clipboard_row,
@@ -558,6 +576,7 @@ impl SetupWindow {
             force_driver_button,
             restore_camera_button,
             enable_browser_camera_button,
+            enable_speakers_button,
             repair_nvidia_button,
             balanced_profile_button,
             reboot_button,
@@ -747,6 +766,11 @@ impl SetupWindow {
         });
 
         let this = self.clone();
+        self.enable_speakers_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::EnableSpeakers);
+        });
+
+        let this = self.clone();
         self.repair_nvidia_button.connect_clicked(move |_| {
             this.invoke_action(ActionKey::RepairNvidia);
         });
@@ -774,6 +798,7 @@ impl SetupWindow {
         self.connect_diagnostic_row(&self.libcamera_row, DiagnosticKey::Libcamera);
         self.connect_diagnostic_row(&self.browser_camera_row, DiagnosticKey::BrowserCamera);
         self.connect_diagnostic_row(&self.boot_row, DiagnosticKey::Boot);
+        self.connect_diagnostic_row(&self.speakers_row, DiagnosticKey::Speakers);
         self.connect_diagnostic_row(&self.gpu_row, DiagnosticKey::Gpu);
         self.connect_diagnostic_row(&self.platform_profile_row, DiagnosticKey::PlatformProfile);
         self.connect_diagnostic_row(&self.clipboard_row, DiagnosticKey::Clipboard);
@@ -832,6 +857,7 @@ impl SetupWindow {
         self.libcamera_row.apply(&snapshot.libcamera);
         self.browser_camera_row.apply(&snapshot.browser_camera);
         self.boot_row.apply(&snapshot.boot);
+        self.speakers_row.apply(&snapshot.speakers);
         self.gpu_row.apply(&snapshot.gpu);
         self.platform_profile_row.apply(&snapshot.platform_profile);
         self.clipboard_row.apply(&snapshot.clipboard_extension);
@@ -986,6 +1012,7 @@ impl SetupWindow {
         self.force_driver_button.set_sensitive(allowed);
         self.restore_camera_button.set_sensitive(allowed);
         self.enable_browser_camera_button.set_sensitive(allowed);
+        self.enable_speakers_button.set_sensitive(allowed);
         self.repair_nvidia_button.set_sensitive(allowed);
         self.balanced_profile_button.set_sensitive(allowed);
         self.reboot_button.set_sensitive(allowed);
@@ -1080,7 +1107,21 @@ impl SetupWindow {
                 self.run_privileged_command(
                     "Ativar câmera para navegador",
                     command,
-                    "Bridge V4L2 ativado. Validar Meet, Discord, Teams e outros apps depois que o diagnóstico atualizar.",
+                    "Bridge V4L2 ativado. Se os nós crus do IPU6 ainda aparecerem na sessão atual, faça logout/login antes de validar Meet, Discord e outros apps.",
+                    true,
+                );
+            }
+            ActionKey::EnableSpeakers => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.enable_speaker_command.clone())
+                    .unwrap_or_default();
+                self.run_privileged_command(
+                    "Ativar alto-falantes internos",
+                    command,
+                    "Fluxo dos alto-falantes concluído. Se a saída ainda estiver muda, reinicie o sistema antes de validar novamente.",
                     true,
                 );
             }
@@ -1401,7 +1442,12 @@ fn action_metadata(key: ActionKey) -> (&'static str, &'static str, &'static str)
         ),
         ActionKey::EnableBrowserCamera => (
             "Ativar câmera para navegador",
-            "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema.",
+            "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema e oculta os nós crus do IPU6 no PipeWire.",
+            "Ativar",
+        ),
+        ActionKey::EnableSpeakers => (
+            "Ativar alto-falantes internos",
+            "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores e habilita o serviço de I2C usado pelos alto-falantes internos.",
             "Ativar",
         ),
         ActionKey::RepairNvidia => (
@@ -1435,6 +1481,7 @@ fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &CheckItem {
         DiagnosticKey::Libcamera => &snapshot.libcamera,
         DiagnosticKey::BrowserCamera => &snapshot.browser_camera,
         DiagnosticKey::Boot => &snapshot.boot,
+        DiagnosticKey::Speakers => &snapshot.speakers,
         DiagnosticKey::Gpu => &snapshot.gpu,
         DiagnosticKey::PlatformProfile => &snapshot.platform_profile,
         DiagnosticKey::Clipboard => &snapshot.clipboard_extension,
@@ -1443,7 +1490,7 @@ fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &CheckItem {
     }
 }
 
-fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 11] {
+fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 12] {
     [
         &snapshot.packages,
         &snapshot.akmods,
@@ -1451,6 +1498,7 @@ fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 11] {
         &snapshot.libcamera,
         &snapshot.browser_camera,
         &snapshot.boot,
+        &snapshot.speakers,
         &snapshot.gpu,
         &snapshot.platform_profile,
         &snapshot.clipboard_extension,
@@ -1571,6 +1619,13 @@ fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) -> Vec<Action
                 ]
             }
         }
+        DiagnosticKey::Speakers => {
+            if item.health == Health::Good {
+                Vec::new()
+            } else {
+                vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
+            }
+        }
         DiagnosticKey::Gpu => vec![ActionKey::RepairNvidia, ActionKey::Reboot],
         DiagnosticKey::PlatformProfile => vec![ActionKey::SetBalancedProfile],
         DiagnosticKey::Clipboard | DiagnosticKey::Gsconnect | DiagnosticKey::DesktopIcons => {
@@ -1682,12 +1737,12 @@ fn build_about_details_subpage() -> adw::NavigationPage {
         ),
         (
             "Módulo disponível",
-            "Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."
+            "Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte inicial aos alto-falantes MAX98390, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."
                 .to_string(),
         ),
         (
             "Próximos módulos",
-            "Áudio, fingerprint e outros fluxos de integração do notebook."
+            "Fingerprint e outros fluxos de integração do notebook."
                 .to_string(),
         ),
     ] {
@@ -1813,7 +1868,7 @@ mod tests {
         }
     }
 
-    fn snapshot_with_healths(healths: [Health; 11]) -> SetupSnapshot {
+    fn snapshot_with_healths(healths: [Health; 12]) -> SetupSnapshot {
         SetupSnapshot {
             system: SystemSummary {
                 notebook: String::new(),
@@ -1827,11 +1882,12 @@ mod tests {
             libcamera: item("Detecção no libcamera", healths[3]),
             browser_camera: item("Navegador e comunicadores", healths[4]),
             boot: item("Erros no boot", healths[5]),
-            gpu: item("Driver NVIDIA", healths[6]),
-            platform_profile: item("Perfil de uso", healths[7]),
-            clipboard_extension: item("Histórico da área de transferência", healths[8]),
-            gsconnect_extension: item("GSConnect", healths[9]),
-            desktop_icons_extension: item("Ícones na área de trabalho", healths[10]),
+            speakers: item("Alto-falantes internos", healths[6]),
+            gpu: item("Driver NVIDIA", healths[7]),
+            platform_profile: item("Perfil de uso", healths[8]),
+            clipboard_extension: item("Histórico da área de transferência", healths[9]),
+            gsconnect_extension: item("GSConnect", healths[10]),
+            desktop_icons_extension: item("Ícones na área de trabalho", healths[11]),
             recommendation_title: String::new(),
             recommendation_body: String::new(),
             install_command: String::new(),
@@ -1840,6 +1896,7 @@ mod tests {
             force_camera_command: String::new(),
             restore_intel_camera_command: String::new(),
             enable_browser_camera_command: String::new(),
+            enable_speaker_command: String::new(),
             repair_nvidia_command: String::new(),
             set_balanced_profile_command: String::new(),
             reboot_command: String::new(),
@@ -1857,7 +1914,8 @@ mod tests {
             Health::Warning,
             Health::Good,
             Health::Error,
-            Health::Unknown,
+            Health::Warning,
+            Health::Good,
             Health::Good,
             Health::Warning,
             Health::Good,
@@ -1866,7 +1924,7 @@ mod tests {
         assert_eq!(
             diagnostic_alert_counts(&snapshot),
             DiagnosticAlertCounts {
-                warnings: 3,
+                warnings: 4,
                 errors: 2,
             }
         );

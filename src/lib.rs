@@ -132,7 +132,7 @@ dnf install -y \
   gstreamer1-plugins-icamerasrc \
   v4l-utils
 
-install -d /etc/v4l2-relayd.d /etc/modprobe.d
+install -d /etc/v4l2-relayd.d /etc/modprobe.d /etc/udev/rules.d /etc/wireplumber/wireplumber.conf.d
 cat > /etc/v4l2-relayd.d/icamerasrc.conf <<'EOF'
 VIDEOSRC="icamerasrc"
 FORMAT=NV12
@@ -145,6 +145,29 @@ EOF
 cat > /etc/modprobe.d/galaxybook-v4l2loopback.conf <<'EOF'
 options v4l2loopback exclusive_caps=1 card_label="Intel MIPI Camera"
 EOF
+
+cat > /etc/udev/rules.d/90-hide-ipu6-v4l2.rules <<'EOF'
+SUBSYSTEM=="video4linux", KERNEL=="video*", ATTR{name}=="Intel IPU6 ISYS Capture*", TAG-="uaccess"
+SUBSYSTEM=="video4linux", KERNEL=="video*", ATTR{name}=="Intel IPU6 CSI2*", TAG-="uaccess"
+EOF
+
+cat > /etc/wireplumber/wireplumber.conf.d/50-disable-ipu6-v4l2.conf <<'EOF'
+monitor.v4l2.rules = [
+  {
+    matches = [
+      { node.name = "~v4l2_input.pci-0000_00_05*" }
+    ]
+    actions = {
+      update-props = {
+        node.disabled = true
+      }
+    }
+  }
+]
+EOF
+
+udevadm control --reload-rules || true
+udevadm trigger --action=change --subsystem-match=video4linux || true
 
 systemctl stop v4l2-relayd@icamerasrc.service || true
 modprobe -r v4l2loopback || true
@@ -159,6 +182,27 @@ device="$(grep -l -m1 -E '^Intel MIPI Camera$' /sys/devices/virtual/video4linux/
 if [ -n "$device" ] && command -v v4l2-ctl >/dev/null 2>&1; then
   v4l2-ctl -D -d "/dev/$device" || true
 fi
+
+echo "As regras para esconder os nós crus do IPU6 foram aplicadas. Faça logout/login ou reinicie a sessão se eles ainda aparecerem na lista de câmeras."
+"#;
+pub const ENABLE_SPEAKER_COMMAND: &str = r#"set -euo pipefail
+dnf install -y \
+  galaxybook-max98390-kmod-common \
+  akmod-galaxybook-max98390 \
+  i2c-tools
+
+akmods --force --akmod galaxybook-max98390 --kernels "$(uname -r)"
+depmod -a "$(uname -r)"
+
+modprobe snd-hda-scodec-max98390 || true
+modprobe snd-hda-scodec-max98390-i2c || true
+
+systemctl enable max98390-hda-i2c-setup.service
+systemctl enable max98390-hda-check-upstream.service || true
+systemctl start max98390-hda-i2c-setup.service
+systemctl start max98390-hda-check-upstream.service || true
+
+lsmod | grep '^snd_hda_scodec_max98390' || true
 "#;
 pub const REPAIR_NVIDIA_COMMAND: &str =
     r#"dnf install -y akmod-nvidia && akmods --force --kernels "$(uname -r)" && depmod -a && dracut --force"#;
@@ -243,6 +287,7 @@ pub struct SetupSnapshot {
     pub libcamera: CheckItem,
     pub browser_camera: CheckItem,
     pub boot: CheckItem,
+    pub speakers: CheckItem,
     pub gpu: CheckItem,
     pub platform_profile: CheckItem,
     pub clipboard_extension: CheckItem,
@@ -256,6 +301,7 @@ pub struct SetupSnapshot {
     pub force_camera_command: String,
     pub restore_intel_camera_command: String,
     pub enable_browser_camera_command: String,
+    pub enable_speaker_command: String,
     pub repair_nvidia_command: String,
     pub set_balanced_profile_command: String,
     pub reboot_command: String,
@@ -450,6 +496,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         libcamera_detected,
         camera_source_ready,
     );
+    let speakers_check = detect_speakers_check();
 
     let boot_check = if clock_error {
         CheckItem {
@@ -504,6 +551,8 @@ pub fn collect_snapshot() -> SetupSnapshot {
         camera_source_ready,
         browser_camera.health == Health::Good,
         camera_app_installed,
+        speakers_check.health != Health::Unknown,
+        speakers_check.health == Health::Good,
     );
 
     SetupSnapshot {
@@ -514,6 +563,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         libcamera: libcamera_check,
         browser_camera,
         boot: boot_check,
+        speakers: speakers_check,
         gpu: gpu_check,
         platform_profile: platform_profile_check,
         clipboard_extension: clipboard_check,
@@ -527,6 +577,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         force_camera_command: FORCE_CAMERA_DRIVER_COMMAND.into(),
         restore_intel_camera_command: RESTORE_INTEL_CAMERA_COMMAND.into(),
         enable_browser_camera_command: ENABLE_BROWSER_CAMERA_COMMAND.into(),
+        enable_speaker_command: ENABLE_SPEAKER_COMMAND.into(),
         repair_nvidia_command: REPAIR_NVIDIA_COMMAND.into(),
         set_balanced_profile_command: SET_BALANCED_PROFILE_COMMAND.into(),
         reboot_command: REBOOT_COMMAND.into(),
@@ -544,13 +595,14 @@ pub fn run_smoke_test() -> Result<(), String> {
     println!("kernel={}", snapshot.system.kernel);
     println!("secure_boot={}", snapshot.system.secure_boot);
     println!(
-        "checks={},{},{},{},{},{},{},{},{},{},{}",
+        "checks={},{},{},{},{},{},{},{},{},{},{},{}",
         snapshot.packages.health.icon_name(),
         snapshot.akmods.health.icon_name(),
         snapshot.module.health.icon_name(),
         snapshot.libcamera.health.icon_name(),
         snapshot.browser_camera.health.icon_name(),
         snapshot.boot.health.icon_name(),
+        snapshot.speakers.health.icon_name(),
         snapshot.gpu.health.icon_name(),
         snapshot.platform_profile.health.icon_name(),
         snapshot.clipboard_extension.health.icon_name(),
@@ -836,6 +888,67 @@ fn detect_browser_camera_check(
     }
 }
 
+fn detect_speakers_check() -> CheckItem {
+    let max98390_present = has_max98390_device();
+    if !max98390_present {
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail: "Este sistema não expôs amplificadores MAX98390 via ACPI ou I2C, então o setup não aplicou o fluxo específico dos alto-falantes Galaxy Book.".into(),
+            health: Health::Unknown,
+        };
+    }
+
+    let packages = package_presence(&[
+        "galaxybook-max98390-kmod-common",
+        "akmod-galaxybook-max98390",
+    ]);
+    let modules = read_trimmed("/proc/modules").unwrap_or_default();
+    let core_loaded = modules
+        .lines()
+        .any(|line| line.starts_with("snd_hda_scodec_max98390 "));
+    let i2c_loaded = modules
+        .lines()
+        .any(|line| line.starts_with("snd_hda_scodec_max98390_i2c "));
+    let setup_service = "max98390-hda-i2c-setup.service";
+    let setup_active = systemd_unit_is_active(setup_service);
+    let setup_enabled = systemd_unit_enabled_state(setup_service)
+        .map(|state| state.starts_with("enabled"))
+        .unwrap_or(false);
+
+    if !packages.missing.is_empty() {
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail: format!(
+                "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de speakers: {}",
+                packages.missing.join(", ")
+            ),
+            health: Health::Warning,
+        };
+    }
+
+    if core_loaded && i2c_loaded && (setup_active || setup_enabled) {
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail: "O suporte MAX98390 está instalado, os módulos dos amplificadores estão carregados e o serviço de I2C está pronto para o boot.".into(),
+            health: Health::Good,
+        };
+    }
+
+    if core_loaded && i2c_loaded {
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail: "Os módulos MAX98390 estão carregados, mas o serviço que cria os dispositivos I2C no boot ainda não está ativo de forma persistente.".into(),
+            health: Health::Warning,
+        };
+    }
+
+    CheckItem {
+        title: "Alto-falantes internos",
+        detail: "O hardware MAX98390 foi detectado, mas os módulos dos amplificadores ainda não estão carregados. Ative o suporte dos alto-falantes pela seção de ações rápidas.".into(),
+        health: Health::Warning,
+    }
+}
+
 fn module_origin_from_path(path: Option<&str>) -> ModuleOrigin {
     match path {
         Some(path) if path.contains("/extra/") || path.contains("/updates/") => ModuleOrigin::Patched,
@@ -850,6 +963,30 @@ fn detect_clock_error(kernel_log: &str) -> bool {
         || kernel_log.contains("probe with driver ov02c10 failed with error -22")
 }
 
+fn has_max98390_device() -> bool {
+    fs::read_dir("/sys/bus/acpi/devices")
+        .ok()
+        .map(|entries| {
+            entries.flatten().any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("MAX98390:")
+            })
+        })
+        .unwrap_or(false)
+        || fs::read_dir("/sys/bus/i2c/devices")
+            .ok()
+            .map(|entries| {
+                entries.flatten().any(|entry| {
+                    fs::read_to_string(entry.path().join("name"))
+                        .map(|name| name.contains("MAX98390"))
+                        .unwrap_or(false)
+                })
+            })
+            .unwrap_or(false)
+}
+
 fn recommend_next_step(
     packages: &PackagePresence,
     akmods_failed: bool,
@@ -861,6 +998,8 @@ fn recommend_next_step(
     camera_source_ready: bool,
     browser_camera_ready: bool,
     camera_app_installed: bool,
+    speaker_supported: bool,
+    speaker_ready: bool,
 ) -> (String, String) {
     if !packages.missing.is_empty() {
         return (
@@ -915,6 +1054,13 @@ fn recommend_next_step(
         return (
             "Driver pronto, app da câmera ausente".into(),
             "A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app para validar preview, foto e vídeo no fluxo final.".into(),
+        );
+    }
+
+    if speaker_supported && !speaker_ready {
+        return (
+            "Suporte dos alto-falantes pendente".into(),
+            "A máquina expõe amplificadores MAX98390, mas o pacote de speakers ainda não está pronto ou os módulos não foram carregados. Ative o suporte dos alto-falantes internos pela seção de ações rápidas e teste a saída Speaker novamente.".into(),
         );
     }
 
@@ -1126,6 +1272,8 @@ mod tests {
             false,
             false,
             false,
+            false,
+            false,
         );
         assert_eq!(title, "Instalação pendente");
     }
@@ -1147,6 +1295,8 @@ mod tests {
             false,
             false,
             true,
+            false,
+            false,
         );
         assert_eq!(title, "O driver corrigido não foi carregado");
     }
@@ -1216,8 +1366,33 @@ mod tests {
             true,
             false,
             true,
+            false,
+            false,
         );
         assert_eq!(title, "Compatibilidade com navegador pendente");
+    }
+
+    #[test]
+    fn speaker_recommendation_appears_when_camera_flow_is_ready() {
+        let packages = PackagePresence {
+            installed: vec!["akmod-galaxybook-ov02c10".into()],
+            missing: vec![],
+        };
+        let (title, _) = recommend_next_step(
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            false,
+        );
+        assert_eq!(title, "Suporte dos alto-falantes pendente");
     }
 
     #[test]

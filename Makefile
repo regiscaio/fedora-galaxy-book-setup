@@ -41,7 +41,7 @@ build:
 			-w /workspace \
 			-e CARGO_HOME=/cargo \
 			"$(IMAGE_NAME)" \
-			/bin/bash --noprofile --norc -lc 'cargo build --manifest-path Cargo.toml --release --bin $(BIN)'; \
+			/bin/bash --noprofile --norc -lc 'cargo build --manifest-path /workspace/Cargo.toml --release --bin $(BIN)'; \
 	fi
 
 test:
@@ -61,7 +61,7 @@ test:
 			-e CARGO_HOME=/cargo \
 			-e CARGO_TARGET_DIR=/tmp/galaxybook-target \
 			"$(IMAGE_NAME)" \
-			/bin/bash --noprofile --norc -lc 'cargo test --manifest-path Cargo.toml --lib --bin $(BIN)'; \
+			/bin/bash --noprofile --norc -lc 'cargo test --manifest-path /workspace/Cargo.toml --lib --bin $(BIN)'; \
 	fi
 
 smoke-test: build
@@ -81,7 +81,7 @@ vendor:
 		-w /workspace \
 		-e CARGO_HOME=/cargo \
 		"$(IMAGE_NAME)" \
-		/bin/bash --noprofile --norc -lc 'cargo vendor --manifest-path Cargo.toml vendor' > "$$tmp_config"; \
+		/bin/bash --noprofile --norc -lc 'cargo vendor --manifest-path /workspace/Cargo.toml vendor' > "$$tmp_config"; \
 	mv "$$tmp_config" .cargo/config.toml
 
 dist: vendor

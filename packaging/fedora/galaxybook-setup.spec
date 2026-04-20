@@ -2,7 +2,7 @@
 
 Name:           galaxybook-setup
 Version:        1.0.0
-Release:        1%{?dist}
+Release:        3%{?dist}
 Summary:        Installation and diagnostics assistant for Galaxy Book on Fedora
 
 License:        NOASSERTION
@@ -20,7 +20,8 @@ BuildRequires:  pkgconfig(gtk4)
 BuildRequires:  pkgconfig(libadwaita-1)
 BuildRequires:  rust
 
-Recommends:     akmod-galaxybook-ov02c10 >= 0.1.0
+Recommends:     akmod-galaxybook-ov02c10 >= 1.0.0
+Recommends:     akmod-galaxybook-max98390 >= 1.0.0
 Recommends:     galaxybook-camera >= 1.0.0
 
 %description
@@ -56,6 +57,13 @@ cargo --offline test --locked --lib --bin galaxybook-setup
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 
 %changelog
+* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-3
+- Add the initial MAX98390 speaker diagnostics and quick action
+- Fix containerized manifest paths in the Makefile test/build flow
+
+* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-2
+- Hide raw IPU6 V4L2 nodes when enabling the browser camera bridge
+
 * Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-1
 - Start the stable RPM line at 1.0.0
 
