@@ -8,7 +8,7 @@ use crate::ui::{
     build_about_details_subpage, build_about_summary_row,
     build_scrolled_navigation_page, build_suffix_action_row,
 };
-use crate::SetupWindow;
+use crate::ui::SetupWindow;
 
 impl SetupWindow {
     pub(crate) fn present_about_dialog(&self) {

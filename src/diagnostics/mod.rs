@@ -1,7 +1,7 @@
 pub(crate) mod runtime;
 
 use crate::actions::ActionKey;
-use crate::DiagnosticKey;
+use crate::ui::DiagnosticKey;
 use galaxybook_setup::{APP_NAME, CheckItem, Health, SetupSnapshot};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

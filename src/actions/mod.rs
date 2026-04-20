@@ -15,7 +15,7 @@ use galaxybook_setup::{
 
 use crate::system::execute_privileged_shell_command;
 use crate::ui::{build_button_row, new_action_button};
-use crate::SetupWindow;
+use crate::ui::SetupWindow;
 
 pub(crate) use self::catalog::{
     ActionKey, ActionMetadata, action_metadata, dedupe_action_keys,

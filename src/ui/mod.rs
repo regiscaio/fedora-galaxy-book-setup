@@ -1,5 +1,6 @@
 pub(crate) mod about;
 pub(crate) mod rows;
+pub(crate) mod window;
 
 use std::rc::Rc;
 
@@ -10,6 +11,7 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 pub(crate) use self::rows::{InfoRow, StatusRow};
+pub(crate) use self::window::{DiagnosticKey, SetupWindow};
 
 pub(crate) fn build_scrolled_navigation_page(
     page: &adw::PreferencesPage,

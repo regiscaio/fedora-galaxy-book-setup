@@ -17,7 +17,7 @@ use crate::diagnostics::{
     diagnostic_item, diagnostic_notification_body, diagnostic_notification_title,
     suggested_actions,
 };
-use crate::{DiagnosticKey, SetupWindow};
+use crate::ui::{DiagnosticKey, SetupWindow};
 
 impl SetupWindow {
     pub(crate) fn refresh(&self) {
