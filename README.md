@@ -78,7 +78,7 @@ O checklist de `Diagnósticos` cobre hoje:
 - detecção da câmera no caminho direto do `libcamera` usado pelo `Galaxy Book Câmera`;
 - bridge V4L2 para navegadores e comunicadores, com foco em Meet, Discord, Teams e apps WebRTC;
 - erros conhecidos do boot;
-- caminho MAX98390 dos alto-falantes internos;
+- caminho MAX98390 dos alto-falantes internos, incluindo o caso em que o pacote entra no sistema, mas o kernel atual ainda não expõe `snd-hda-scodec-max98390` via `modinfo`;
 - estado do driver NVIDIA e observação de que `nvidia-smi` é opcional;
 - perfil de uso da plataforma, com destaque para `balanced` como padrão recomendado de ventoinha, temperatura e desempenho;
 - extensões do GNOME como histórico da área de transferência, GSConnect e ícones na área de trabalho.
@@ -94,7 +94,7 @@ Hoje, as ações disponíveis incluem:
 - forçar a prioridade do driver corrigido em `updates/`, com assinatura para Secure Boot quando necessário e sem compressão incompatível do módulo;
 - restaurar o stack Intel IPU6 empacotado quando o caminho direto do `Galaxy Book Câmera` deixa de enxergar o sensor, mesmo com a câmera exposta no sistema;
 - ativar a câmera para navegador via `icamerasrc`, `v4l2-relayd` e `v4l2loopback`, expondo uma webcam V4L2 compatível com apps WebRTC e ocultando os nós crus do IPU6 no `PipeWire` e no `WirePlumber`;
-- ativar o suporte aos alto-falantes internos via `MAX98390`, com reconstrução dos módulos e serviço de I2C no boot;
+- ativar o suporte aos alto-falantes internos via `MAX98390`, com reconstrução dos módulos, fallback manual de instalação no kernel atual e serviço de I2C no boot;
 - instalar ou reparar o suporte NVIDIA;
 - aplicar o perfil `balanced` da plataforma;
 - reiniciar o sistema;

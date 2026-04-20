@@ -186,16 +186,96 @@ fi
 echo "As regras para esconder os nós crus do IPU6 foram aplicadas. Faça logout/login ou reinicie a sessão se eles ainda aparecerem na lista de câmeras."
 "#;
 pub const ENABLE_SPEAKER_COMMAND: &str = r#"set -euo pipefail
+kernel="$(uname -r)"
+workdir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$workdir"
+}
+trap cleanup EXIT
+
 dnf install -y \
   galaxybook-max98390-kmod-common \
   akmod-galaxybook-max98390 \
   i2c-tools
 
-akmods --force --akmod galaxybook-max98390 --kernels "$(uname -r)"
-depmod -a "$(uname -r)"
+akmods --force --akmod galaxybook-max98390 --kernels "$kernel"
 
-modprobe snd-hda-scodec-max98390 || true
-modprobe snd-hda-scodec-max98390-i2c || true
+source_rpm="$(readlink -f /usr/src/akmods/galaxybook-max98390-kmod.latest)"
+if [ ! -f "$source_rpm" ]; then
+  echo "O source RPM do suporte MAX98390 não foi encontrado em /usr/src/akmods." >&2
+  exit 1
+fi
+
+if [ ! -d "/usr/src/kernels/$kernel" ]; then
+  echo "Os headers do kernel atual não estão instalados: /usr/src/kernels/$kernel" >&2
+  exit 1
+fi
+
+rpm2cpio "$source_rpm" | (cd "$workdir" && cpio -idm --quiet)
+archive="$(find "$workdir" -maxdepth 1 -name 'galaxybook-max98390-kmod-*.tar.gz' | head -n1)"
+if [ -z "$archive" ]; then
+  echo "Não foi possível localizar o tarball do suporte MAX98390 dentro do source RPM." >&2
+  exit 1
+fi
+
+tar -C "$workdir" -xf "$archive"
+srcdir="$(find "$workdir" -maxdepth 1 -mindepth 1 -type d -name 'galaxybook-max98390-kmod-*' | head -n1)"
+if [ -z "$srcdir" ]; then
+  echo "Não foi possível extrair a árvore do suporte MAX98390." >&2
+  exit 1
+fi
+
+make -C "/usr/src/kernels/$kernel" M="$srcdir/module" modules
+
+updates_dir="/lib/modules/$kernel/updates/sound/hda/codecs/side-codecs"
+install -d "$updates_dir"
+rm -f \
+  "$updates_dir/snd-hda-scodec-max98390.ko" \
+  "$updates_dir/snd-hda-scodec-max98390.ko.xz" \
+  "$updates_dir/snd-hda-scodec-max98390-i2c.ko" \
+  "$updates_dir/snd-hda-scodec-max98390-i2c.ko.xz"
+
+secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
+if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
+  sign_file="/usr/src/kernels/$kernel/scripts/sign-file"
+  if [ ! -x "$sign_file" ]; then
+    sign_file="/lib/modules/$kernel/build/scripts/sign-file"
+  fi
+
+  if [ ! -x "$sign_file" ]; then
+    echo "O utilitário sign-file do kernel não foi encontrado para $kernel." >&2
+    exit 1
+  fi
+
+  if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
+    echo "Secure Boot está ativo, mas a chave do akmods não está disponível para assinar os módulos MAX98390." >&2
+    exit 1
+  fi
+
+  "$sign_file" sha256 \
+    /etc/pki/akmods/private/private_key.priv \
+    /etc/pki/akmods/certs/public_key.der \
+    "$srcdir/module/snd-hda-scodec-max98390.ko"
+  "$sign_file" sha256 \
+    /etc/pki/akmods/private/private_key.priv \
+    /etc/pki/akmods/certs/public_key.der \
+    "$srcdir/module/snd-hda-scodec-max98390-i2c.ko"
+fi
+
+install -m 0644 "$srcdir/module/snd-hda-scodec-max98390.ko" \
+  "$updates_dir/snd-hda-scodec-max98390.ko"
+install -m 0644 "$srcdir/module/snd-hda-scodec-max98390-i2c.ko" \
+  "$updates_dir/snd-hda-scodec-max98390-i2c.ko"
+
+if command -v restorecon >/dev/null 2>&1; then
+  restorecon "$updates_dir/snd-hda-scodec-max98390.ko" || true
+  restorecon "$updates_dir/snd-hda-scodec-max98390-i2c.ko" || true
+fi
+
+depmod -a "$kernel"
+
+modprobe snd-hda-scodec-max98390
+modprobe snd-hda-scodec-max98390-i2c
 
 systemctl enable max98390-hda-i2c-setup.service
 systemctl enable max98390-hda-check-upstream.service || true
@@ -203,6 +283,8 @@ systemctl start max98390-hda-i2c-setup.service
 systemctl start max98390-hda-check-upstream.service || true
 
 lsmod | grep '^snd_hda_scodec_max98390' || true
+modinfo -n snd-hda-scodec-max98390
+modinfo -n snd-hda-scodec-max98390-i2c
 "#;
 pub const REPAIR_NVIDIA_COMMAND: &str =
     r#"dnf install -y akmod-nvidia && akmods --force --kernels "$(uname -r)" && depmod -a && dracut --force"#;
@@ -909,6 +991,10 @@ fn detect_speakers_check() -> CheckItem {
     let i2c_loaded = modules
         .lines()
         .any(|line| line.starts_with("snd_hda_scodec_max98390_i2c "));
+    let core_module_path = command_text("modinfo", &["-n", "snd-hda-scodec-max98390"]).ok();
+    let i2c_module_path = command_text("modinfo", &["-n", "snd-hda-scodec-max98390-i2c"]).ok();
+    let modules_indexed = core_module_path.is_some() && i2c_module_path.is_some();
+    let modules_load_failure = speaker_modules_missing_in_boot();
     let setup_service = "max98390-hda-i2c-setup.service";
     let setup_active = systemd_unit_is_active(setup_service);
     let setup_enabled = systemd_unit_enabled_state(setup_service)
@@ -923,6 +1009,19 @@ fn detect_speakers_check() -> CheckItem {
                 packages.missing.join(", ")
             ),
             health: Health::Warning,
+        };
+    }
+
+    if !modules_indexed {
+        let detail = if modules_load_failure {
+            "O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c. O boot já registrou falha ao procurar esses módulos, então o próximo passo é reconstruir e instalar manualmente o driver pela seção de ações rápidas.".into()
+        } else {
+            "O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c via modinfo. Reconstrua e instale manualmente o driver pela seção de ações rápidas antes de testar a saída Speaker novamente.".into()
+        };
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail,
+            health: Health::Error,
         };
     }
 
@@ -947,6 +1046,15 @@ fn detect_speakers_check() -> CheckItem {
         detail: "O hardware MAX98390 foi detectado, mas os módulos dos amplificadores ainda não estão carregados. Ative o suporte dos alto-falantes pela seção de ações rápidas.".into(),
         health: Health::Warning,
     }
+}
+
+fn speaker_modules_missing_in_boot() -> bool {
+    command_text("journalctl", &["-b", "--no-pager", "-u", "systemd-modules-load"])
+        .map(|output| {
+            output.contains("Failed to find module 'snd_hda_scodec_max98390'")
+                || output.contains("Failed to find module 'snd_hda_scodec_max98390_i2c'")
+        })
+        .unwrap_or(false)
 }
 
 fn module_origin_from_path(path: Option<&str>) -> ModuleOrigin {

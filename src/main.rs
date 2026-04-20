@@ -328,17 +328,23 @@ impl SetupWindow {
         integrations_group.add(&gsconnect_row.row);
         integrations_group.add(&desktop_icons_row.row);
 
-        let install_button = new_action_button("Executar");
-        let repair_button = new_action_button("Executar");
-        let enable_camera_module_button = new_action_button("Habilitar");
-        let force_driver_button = new_action_button("Ajustar");
-        let restore_camera_button = new_action_button("Restaurar");
-        let enable_browser_camera_button = new_action_button("Ativar");
-        let enable_speakers_button = new_action_button("Ativar");
-        let repair_nvidia_button = new_action_button("Executar");
-        let balanced_profile_button = new_action_button("Aplicar");
-        let reboot_button = new_action_button("Reiniciar");
-        let open_camera_button = new_action_button("Abrir");
+        let install_button = new_action_button("Instalar suporte da câmera");
+        let repair_button = new_action_button("Reparar o driver");
+        let enable_camera_module_button =
+            new_action_button("Habilitar driver da câmera");
+        let force_driver_button =
+            new_action_button("Ajustar prioridade do driver");
+        let restore_camera_button =
+            new_action_button("Restaurar stack Intel IPU6");
+        let enable_browser_camera_button =
+            new_action_button("Ativar câmera para navegador");
+        let enable_speakers_button =
+            new_action_button("Ativar alto-falantes internos");
+        let repair_nvidia_button = new_action_button("Reparar suporte NVIDIA");
+        let balanced_profile_button =
+            new_action_button("Definir perfil balanceado");
+        let reboot_button = new_action_button("Reiniciar o sistema");
+        let open_camera_button = new_action_button("Abrir Galaxy Book Câmera");
 
         let actions_group = adw::PreferencesGroup::builder()
             .title("Ações rápidas")
@@ -376,7 +382,7 @@ impl SetupWindow {
         ));
         actions_group.add(&build_button_row(
             "Ativar alto-falantes internos",
-            "Instala o suporte MAX98390, reconstrói os módulos, carrega os amplificadores e habilita o serviço de I2C usado pelos alto-falantes internos.",
+            "Instala o suporte MAX98390, reconstrói os módulos, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
             &enable_speakers_button,
         ));
         actions_group.add(&build_button_row(
@@ -991,8 +997,8 @@ impl SetupWindow {
     }
 
     fn build_suggested_action_row(&self, key: ActionKey) -> adw::ActionRow {
-        let (title, subtitle, button_label) = action_metadata(key);
-        let button = new_action_button(button_label);
+        let (title, subtitle) = action_metadata(key);
+        let button = new_action_button(title);
         button.set_sensitive(!*self.action_running.borrow());
 
         let this = self.clone();
@@ -1121,7 +1127,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     "Ativar alto-falantes internos",
                     command,
-                    "Fluxo dos alto-falantes concluído. Se a saída ainda estiver muda, reinicie o sistema antes de validar novamente.",
+                    "Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema continuar preso ao estado anterior.",
                     true,
                 );
             }
@@ -1337,7 +1343,7 @@ fn build_button_row(title: &str, subtitle: &str, button: &gtk::Button) -> adw::A
     suffix_box.set_halign(gtk::Align::End);
     suffix_box.set_valign(gtk::Align::Center);
     suffix_box.set_vexpand(false);
-    suffix_box.set_height_request(34);
+    suffix_box.set_height_request(40);
     suffix_box.append(button);
 
     let top_spacer = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -1358,13 +1364,17 @@ fn build_button_row(title: &str, subtitle: &str, button: &gtk::Button) -> adw::A
     row
 }
 
-fn new_action_button(label: &str) -> gtk::Button {
-    let button = gtk::Button::with_label(label);
+fn new_action_button(tooltip: &str) -> gtk::Button {
+    let button = gtk::Button::builder()
+        .icon_name("media-playback-start-symbolic")
+        .tooltip_text(tooltip)
+        .valign(gtk::Align::Center)
+        .halign(gtk::Align::End)
+        .build();
+    button.add_css_class("flat");
     button.add_css_class("quick-action-button");
-    button.set_width_request(116);
-    button.set_height_request(34);
-    button.set_halign(gtk::Align::End);
-    button.set_valign(gtk::Align::Center);
+    button.set_width_request(40);
+    button.set_height_request(40);
     button.set_vexpand(false);
     button
 }
@@ -1413,62 +1423,51 @@ where
     build_suffix_action_row(title, subtitle, "go-next-symbolic", "Abrir seção", on_activate)
 }
 
-fn action_metadata(key: ActionKey) -> (&'static str, &'static str, &'static str) {
+fn action_metadata(key: ActionKey) -> (&'static str, &'static str) {
     match key {
         ActionKey::InstallCamera => (
             "Instalar suporte da câmera",
             "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
-            "Executar",
         ),
         ActionKey::RepairDriver => (
             "Reparar o driver",
             "Reconstrói o módulo com akmods para o kernel atual e atualiza a árvore de módulos.",
-            "Executar",
         ),
         ActionKey::EnableCameraModule => (
             "Habilitar driver da câmera",
             "Garante o carregamento do ov02c10 no boot, ajusta o softdep do IPU6 e carrega o módulo agora no kernel.",
-            "Habilitar",
         ),
         ActionKey::ForceDriverPriority => (
             "Ajustar prioridade do driver",
             "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o instala em /lib/modules/.../updates sem compressão incompatível.",
-            "Ajustar",
         ),
         ActionKey::RestoreIntelIpu6 => (
             "Restaurar stack Intel IPU6",
             "Remove o override manual em /updates, reinstala o stack Intel empacotado e volta ao caminho que já funcionava com a câmera do sistema.",
-            "Restaurar",
         ),
         ActionKey::EnableBrowserCamera => (
             "Ativar câmera para navegador",
             "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema e oculta os nós crus do IPU6 no PipeWire.",
-            "Ativar",
         ),
         ActionKey::EnableSpeakers => (
             "Ativar alto-falantes internos",
-            "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores e habilita o serviço de I2C usado pelos alto-falantes internos.",
-            "Ativar",
+            "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
         ),
         ActionKey::RepairNvidia => (
             "Reparar suporte NVIDIA",
             "Instala ou reconstrói o akmod-nvidia para o kernel atual. O nvidia-smi permanece opcional.",
-            "Executar",
         ),
         ActionKey::SetBalancedProfile => (
             "Definir perfil balanceado",
             "Aplica o perfil balanced da plataforma para uso geral, equilibrando ventoinha, temperatura e desempenho.",
-            "Aplicar",
         ),
         ActionKey::Reboot => (
             "Reiniciar o sistema",
             "Aplica mudanças pendentes do driver e reinicia a sessão inteira do notebook.",
-            "Reiniciar",
         ),
         ActionKey::OpenCamera => (
             "Abrir Galaxy Book Câmera",
             "Abre o aplicativo final da câmera quando ele estiver instalado no sistema.",
-            "Abrir",
         ),
     }
 }
@@ -1622,6 +1621,8 @@ fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) -> Vec<Action
         DiagnosticKey::Speakers => {
             if item.health == Health::Good {
                 Vec::new()
+            } else if item.health == Health::Error {
+                vec![ActionKey::EnableSpeakers]
             } else {
                 vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
             }
@@ -1812,10 +1813,25 @@ fn install_css() {
         }
 
         .quick-action-button {
-            min-width: 116px;
-            min-height: 34px;
-            padding: 0 14px;
-            border-radius: 12px;
+            min-width: 40px;
+            min-height: 40px;
+            padding: 0;
+            border-radius: 9999px;
+            background: transparent;
+            box-shadow: none;
+            color: @accent_fg_color;
+        }
+
+        .quick-action-button:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .quick-action-button:active {
+            background: rgba(255, 255, 255, 0.14);
+        }
+
+        .quick-action-button:disabled {
+            color: alpha(currentColor, 0.45);
         }
         ",
     );

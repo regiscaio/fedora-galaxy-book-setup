@@ -2,7 +2,7 @@
 
 Name:           galaxybook-setup
 Version:        1.0.0
-Release:        3%{?dist}
+Release:        4%{?dist}
 Summary:        Installation and diagnostics assistant for Galaxy Book on Fedora
 
 License:        NOASSERTION
@@ -57,6 +57,10 @@ cargo --offline test --locked --lib --bin galaxybook-setup
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 
 %changelog
+* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-4
+- Detect MAX98390 kmod exposure failures more precisely in the diagnostics
+- Add a manual fallback to install the speaker modules in the current kernel
+
 * Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-3
 - Add the initial MAX98390 speaker diagnostics and quick action
 - Fix containerized manifest paths in the Makefile test/build flow
