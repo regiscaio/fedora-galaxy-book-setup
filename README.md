@@ -6,11 +6,12 @@ Para instalar o setup a partir do repositório DNF público:
 
 ```bash
 sudo dnf config-manager addrepo --from-repofile=https://packages.caioregis.com/fedora/caioregis.repo
-sudo dnf install galaxybook-setup galaxybook-camera akmod-galaxybook-ov02c10 akmod-galaxybook-max98390
+sudo dnf install galaxybook-setup
 ```
 
-Esse é o conjunto mais útil no uso real, porque o app de setup foi pensado para
-trabalhar junto com o app de câmera e com os drivers empacotados.
+Com o repositório configurado, o próprio setup já consegue instalar o conjunto
+principal do notebook pela ação rápida `Instalar suporte principal`, puxando o
+app de câmera, o driver `OV02C10` e o suporte `MAX98390` dos alto-falantes.
 
 <p align="center">
   <img src="assets/galaxybook-setup.svg" alt="Ícone do Galaxy Book Setup" width="112">
@@ -88,6 +89,7 @@ pela própria interface, usando privilégio administrativo quando necessário.
 
 Hoje, as ações disponíveis incluem:
 
+- instalar o suporte principal do notebook diretamente pelo setup, trazendo o app de câmera, o driver `OV02C10` e o suporte `MAX98390`;
 - instalar o conjunto principal da câmera;
 - reconstruir o driver com `akmods`;
 - habilitar o carregamento do `ov02c10` no boot e carregar o módulo imediatamente;

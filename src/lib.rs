@@ -7,6 +7,7 @@ pub const APP_NAME: &str = "Galaxy Book Setup";
 pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
 const CAMERA_APP_TUNING_FILE: &str =
     "/usr/share/galaxybook-camera/libcamera/simple/ov02c10.yaml";
+pub const INSTALL_MAIN_SUPPORT_COMMAND: &str = "dnf install -y galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-max98390-kmod-common akmod-galaxybook-max98390 i2c-tools";
 pub const INSTALL_CAMERA_COMMAND: &str =
     "dnf install -y galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-camera";
 pub const REPAIR_CAMERA_COMMAND: &str =
@@ -377,6 +378,7 @@ pub struct SetupSnapshot {
     pub desktop_icons_extension: CheckItem,
     pub recommendation_title: String,
     pub recommendation_body: String,
+    pub install_main_support_command: String,
     pub install_command: String,
     pub repair_command: String,
     pub enable_camera_module_command: String,
@@ -653,6 +655,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         desktop_icons_extension: desktop_icons_check,
         recommendation_title,
         recommendation_body,
+        install_main_support_command: INSTALL_MAIN_SUPPORT_COMMAND.into(),
         install_command: INSTALL_CAMERA_COMMAND.into(),
         repair_command: REPAIR_CAMERA_COMMAND.into(),
         enable_camera_module_command: ENABLE_CAMERA_MODULE_COMMAND.into(),

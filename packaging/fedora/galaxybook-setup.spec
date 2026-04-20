@@ -2,7 +2,7 @@
 
 Name:           galaxybook-setup
 Version:        1.0.0
-Release:        4%{?dist}
+Release:        5%{?dist}
 Summary:        Installation and diagnostics assistant for Galaxy Book on Fedora
 
 License:        NOASSERTION
@@ -57,6 +57,10 @@ cargo --offline test --locked --lib --bin galaxybook-setup
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 
 %changelog
+* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-5
+- Add a one-click main install flow to bootstrap camera and speaker support from the setup
+- Update the README to document setup-first installation from the public DNF repository
+
 * Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-4
 - Detect MAX98390 kmod exposure failures more precisely in the diagnostics
 - Add a manual fallback to install the speaker modules in the current kernel
@@ -70,22 +74,3 @@ cargo --offline test --locked --lib --bin galaxybook-setup
 
 * Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-1
 - Start the stable RPM line at 1.0.0
-
-* Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 0.1.0-6
-- Reduce icon padding so the setup symbol occupies more of the launcher canvas
-
-* Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 0.1.0-5
-- Refine the setup icon to match the Device Care geometry more closely
-
-* Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 0.1.0-4
-- Rewrite the About details page to describe the setup app itself instead of camera flow commands
-
-* Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 0.1.0-3
-- Replace the setup About dialog with the same native grouped modal style as the camera app
-- Refresh the app icon with a Device Care-inspired visual inside the shared Galaxy Book card base
-
-* Sat Apr 18 2026 Caio Régis <regiscaio@users.noreply.github.com> - 0.1.0-2
-- Fix startup crash on AdwApplicationWindow by mounting the header inside window content
-
-* Sat Apr 18 2026 Caio Régis <regiscaio@users.noreply.github.com> - 0.1.0-1
-- Initial RPM packaging

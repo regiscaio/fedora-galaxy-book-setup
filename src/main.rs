@@ -35,6 +35,7 @@ enum DiagnosticKey {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ActionKey {
+    InstallMainSupport,
     InstallCamera,
     RepairDriver,
     EnableCameraModule,
@@ -191,6 +192,7 @@ struct SetupWindow {
     suggested_detail_row: InfoRow,
     suggested_actions_group: adw::PreferencesGroup,
     suggested_action_rows: Rc<RefCell<Vec<gtk::Widget>>>,
+    install_main_button: gtk::Button,
     install_button: gtk::Button,
     repair_button: gtk::Button,
     enable_camera_module_button: gtk::Button,
@@ -328,6 +330,7 @@ impl SetupWindow {
         integrations_group.add(&gsconnect_row.row);
         integrations_group.add(&desktop_icons_row.row);
 
+        let install_main_button = new_action_button("Instalar suporte principal");
         let install_button = new_action_button("Instalar suporte da câmera");
         let repair_button = new_action_button("Reparar o driver");
         let enable_camera_module_button =
@@ -350,6 +353,11 @@ impl SetupWindow {
             .title("Ações rápidas")
             .description("Fluxos executáveis diretamente da interface, sem precisar digitar comandos.")
             .build();
+        actions_group.add(&build_button_row(
+            "Instalar suporte principal",
+            "Instala o conjunto principal do notebook a partir do próprio setup: Galaxy Book Câmera, driver OV02C10 e suporte MAX98390 dos alto-falantes internos.",
+            &install_main_button,
+        ));
         actions_group.add(&build_button_row(
             "Instalar suporte da câmera",
             "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
@@ -576,6 +584,7 @@ impl SetupWindow {
             suggested_detail_row,
             suggested_actions_group,
             suggested_action_rows,
+            install_main_button,
             install_button,
             repair_button,
             enable_camera_module_button,
@@ -736,6 +745,11 @@ impl SetupWindow {
     }
 
     fn bind_events(&self) {
+        let this = self.clone();
+        self.install_main_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::InstallMainSupport);
+        });
+
         let this = self.clone();
         self.refresh_button.connect_clicked(move |_| {
             this.refresh();
@@ -1012,6 +1026,7 @@ impl SetupWindow {
     fn set_action_buttons_sensitive(&self, sensitive: bool) {
         let busy = *self.action_running.borrow();
         let allowed = sensitive && !busy;
+        self.install_main_button.set_sensitive(allowed);
         self.install_button.set_sensitive(allowed);
         self.repair_button.set_sensitive(allowed);
         self.enable_camera_module_button.set_sensitive(allowed);
@@ -1033,6 +1048,20 @@ impl SetupWindow {
 
     fn invoke_action(&self, key: ActionKey) {
         match key {
+            ActionKey::InstallMainSupport => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.install_main_support_command.clone())
+                    .unwrap_or_default();
+                self.run_privileged_command(
+                    "Instalar suporte principal",
+                    command,
+                    "Pacotes principais instalados. Atualize o diagnóstico e use as ações específicas se câmera ou alto-falantes ainda precisarem de ajuste.",
+                    true,
+                );
+            }
             ActionKey::InstallCamera => {
                 let command = self
                     .snapshot
@@ -1425,6 +1454,10 @@ where
 
 fn action_metadata(key: ActionKey) -> (&'static str, &'static str) {
     match key {
+        ActionKey::InstallMainSupport => (
+            "Instalar suporte principal",
+            "Instala Galaxy Book Câmera, driver OV02C10 e suporte MAX98390 para começar pelo setup sem depender de instalação manual dos outros pacotes.",
+        ),
         ActionKey::InstallCamera => (
             "Instalar suporte da câmera",
             "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
@@ -1571,7 +1604,7 @@ fn pluralize<'a>(value: u32, singular: &'a str, plural: &'a str) -> &'a str {
 fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) -> Vec<ActionKey> {
     let item = diagnostic_item(snapshot, key);
     match key {
-        DiagnosticKey::Packages => vec![ActionKey::InstallCamera, ActionKey::OpenCamera],
+        DiagnosticKey::Packages => vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera],
         DiagnosticKey::Akmods => vec![ActionKey::RepairDriver, ActionKey::Reboot],
         DiagnosticKey::Module => {
             if item.detail.contains("não foi carregado no kernel") {
@@ -1870,7 +1903,8 @@ fn main() -> glib::ExitCode {
 #[cfg(test)]
 mod tests {
     use super::{
-        DiagnosticAlertCounts, diagnostic_alert_counts, diagnostic_counts_summary,
+        ActionKey, DiagnosticAlertCounts, DiagnosticKey, diagnostic_alert_counts,
+        diagnostic_counts_summary, suggested_actions,
     };
     use galaxybook_setup::{
         CheckItem, Health, SetupSnapshot, SystemSummary,
@@ -1906,6 +1940,7 @@ mod tests {
             desktop_icons_extension: item("Ícones na área de trabalho", healths[11]),
             recommendation_title: String::new(),
             recommendation_body: String::new(),
+            install_main_support_command: String::new(),
             install_command: String::new(),
             repair_command: String::new(),
             enable_camera_module_command: String::new(),
@@ -1954,6 +1989,29 @@ mod tests {
                 errors: 1,
             }),
             "1 erro e 2 alertas nos diagnósticos."
+        );
+    }
+
+    #[test]
+    fn packages_suggest_main_install_first() {
+        let snapshot = snapshot_with_healths([
+            Health::Warning,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+        ]);
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Packages),
+            vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera]
         );
     }
 }
