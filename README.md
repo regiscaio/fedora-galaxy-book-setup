@@ -23,6 +23,8 @@ sudo dnf install galaxybook-setup
 Com o repositório configurado, o próprio setup já consegue instalar o conjunto
 principal do notebook pela ação rápida `Instalar suporte principal`, puxando o
 app de câmera, o driver `OV02C10` e o suporte `MAX98390` dos alto-falantes.
+Ele também consegue oferecer a instalação do `Galaxy Book Sound`, que fica
+responsável por equalizador, perfis e Atmos compatível.
 
 `Galaxy Book Setup` é um auxiliar de instalação e diagnóstico para notebooks
 Samsung Galaxy Book no Fedora. A proposta do app é organizar fluxos de
@@ -45,6 +47,11 @@ Este app não substitui:
 O papel dele é funcionar como um **assistente de instalação e validação**,
 mostrando o estado atual da máquina e organizando os próximos passos.
 
+No fluxo de áudio, isso significa separar bem as responsabilidades: o
+`Galaxy Book Setup` valida o caminho dos alto-falantes internos, organiza a
+instalação e abre o `Galaxy Book Sound`, enquanto equalização, perfis e
+`Atmos compatível` ficam no app de som.
+
 ## Relação com os outros repositórios
 
 Este projeto trabalha junto com:
@@ -52,12 +59,14 @@ Este projeto trabalha junto com:
 - <https://github.com/regiscaio/fedora-galaxy-book-ov02c10>
 - <https://github.com/regiscaio/fedora-galaxy-book-max98390>
 - <https://github.com/regiscaio/fedora-galaxy-book-camera>
+- <https://github.com/regiscaio/fedora-galaxy-book-sound>
 
 Responsabilidades:
 
 - `fedora-galaxy-book-ov02c10`: módulo `ov02c10` empacotado para Fedora;
 - `fedora-galaxy-book-max98390`: suporte empacotado aos alto-falantes internos via MAX98390;
 - `fedora-galaxy-book-camera`: app de uso diário da câmera;
+- `fedora-galaxy-book-sound`: app de equalizador, perfis e Atmos compatível com backend próprio em PipeWire;
 - `fedora-galaxy-book-setup`: assistente de instalação, diagnóstico e fluxo.
 
 ## Recursos atuais
@@ -66,12 +75,13 @@ A versão atual do app já organiza a interface em áreas bem definidas:
 
 - `Sistema`: resumo do notebook, Fedora, kernel e Secure Boot;
 - `Diagnósticos`: checklist geral com o estado da câmera, do bridge para
-  navegador, do áudio, da GPU e das integrações do desktop, incluindo a dock
-  do GNOME usada neste notebook;
+  navegador, do áudio, do `Galaxy Book Sound`, da GPU e das integrações do
+  desktop, incluindo a dock do GNOME usada neste notebook;
 - `Ações rápidas`: instalação, reparo e ajuste de prioridade do driver,
   ativação da webcam para navegador, ativação dos alto-falantes internos,
-  fluxo NVIDIA, perfil balanceado, reaplicação do perfil da dock, reboot e
-  abertura do app da câmera;
+  instalação e abertura do `Galaxy Book Sound`, fluxo NVIDIA, perfil
+  balanceado, reaplicação do perfil da dock, reboot e abertura do app da
+  câmera;
 - `Módulos futuros`: espaço reservado para fingerprint e outros fluxos.
 
 Dentro de `Diagnósticos`, cada linha leva para uma subseção de **ações
@@ -92,6 +102,7 @@ O checklist cobre hoje:
 - erros conhecidos do boot;
 - caminho MAX98390 dos alto-falantes internos, inclusive quando o pacote está
   instalado, mas o kernel atual ainda não expõe `snd-hda-scodec-max98390` via `modinfo`;
+- presença do `Galaxy Book Sound`;
 - estado do driver NVIDIA e observação de que `nvidia-smi` é opcional;
 - perfil de uso da plataforma, com destaque para `balanced`;
 - estado do `Dash to Dock`, com checagem do perfil da dock usado neste
@@ -119,13 +130,16 @@ Hoje, as ações disponíveis incluem:
 - ativar o suporte aos alto-falantes internos via `MAX98390`, com reconstrução
   dos módulos, fallback manual de instalação no kernel atual e serviço de I2C
   no boot;
+- instalar o `Galaxy Book Sound` para aplicar equalização e Atmos compatível na
+  sessão via PipeWire;
 - instalar ou reparar o suporte NVIDIA;
 - aplicar o perfil `balanced` da plataforma;
 - reaplicar o perfil da dock do GNOME usado neste notebook, reativando o
   `Dash to Dock` e restaurando o comportamento esperado da dock inferior
   auto-ocultável;
 - reiniciar o sistema;
-- abrir o `Galaxy Book Câmera`.
+- abrir o `Galaxy Book Câmera`;
+- abrir o `Galaxy Book Sound`.
 
 ## Instalação para usuários
 

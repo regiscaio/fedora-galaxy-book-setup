@@ -58,7 +58,7 @@ impl SetupWindow {
         ));
         links_group.add(&build_suffix_action_row(
             &tr("Detalhes"),
-            &tr("Versão, identificação do app e escopo atual do assistente."),
+            &tr("Versão, identificação do app e escopo atual do assistente, incluindo o fluxo do Galaxy Book Sound."),
             "go-next-symbolic",
             &tr("Abrir detalhes"),
             {

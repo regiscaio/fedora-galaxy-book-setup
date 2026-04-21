@@ -54,7 +54,7 @@ mod tests {
         }
     }
 
-    fn snapshot_with_healths(healths: [Health; 13]) -> SetupSnapshot {
+    fn snapshot_with_healths(healths: [Health; 14]) -> SetupSnapshot {
         SetupSnapshot {
             system: SystemSummary {
                 notebook: String::new(),
@@ -69,16 +69,21 @@ mod tests {
             browser_camera: item("Navegador e comunicadores", healths[4]),
             boot: item("Erros no boot", healths[5]),
             speakers: item("Alto-falantes internos", healths[6]),
-            gpu: item("Driver NVIDIA", healths[7]),
-            platform_profile: item("Perfil de uso", healths[8]),
-            clipboard_extension: item("Histórico da área de transferência", healths[9]),
-            gsconnect_extension: item("GSConnect", healths[10]),
-            desktop_icons_extension: item("Ícones na área de trabalho", healths[11]),
-            dock_extension: item("Dock do GNOME", healths[12]),
+            sound_app: item("Galaxy Book Sound", healths[7]),
+            gpu: item("Driver NVIDIA", healths[8]),
+            platform_profile: item("Perfil de uso", healths[9]),
+            clipboard_extension: item(
+                "Histórico da área de transferência",
+                healths[10],
+            ),
+            gsconnect_extension: item("GSConnect", healths[11]),
+            desktop_icons_extension: item("Ícones na área de trabalho", healths[12]),
+            dock_extension: item("Dock do GNOME", healths[13]),
             recommendation_title: String::new(),
             recommendation_body: String::new(),
             install_main_support_command: String::new(),
             install_command: String::new(),
+            install_sound_app_command: String::new(),
             repair_command: String::new(),
             enable_camera_module_command: String::new(),
             force_camera_command: String::new(),
@@ -93,6 +98,7 @@ mod tests {
             apply_dock_profile_command: String::new(),
             reboot_command: String::new(),
             camera_app_installed: false,
+            sound_app_installed: false,
         }
     }
 
@@ -106,6 +112,7 @@ mod tests {
             Health::Warning,
             Health::Good,
             Health::Error,
+            Health::Good,
             Health::Warning,
             Health::Good,
             Health::Good,
@@ -150,6 +157,7 @@ mod tests {
             Health::Good,
             Health::Good,
             Health::Good,
+            Health::Good,
         ]);
 
         assert_eq!(
@@ -160,7 +168,7 @@ mod tests {
 
     #[test]
     fn clipboard_suggests_clipboard_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 13]);
+        let snapshot = snapshot_with_healths([Health::Good; 14]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Clipboard),
             vec![ActionKey::ApplyClipboardProfile]
@@ -169,7 +177,7 @@ mod tests {
 
     #[test]
     fn gsconnect_suggests_gsconnect_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 13]);
+        let snapshot = snapshot_with_healths([Health::Good; 14]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Gsconnect),
             vec![ActionKey::ApplyGsconnectProfile]
@@ -178,10 +186,45 @@ mod tests {
 
     #[test]
     fn desktop_icons_suggests_desktop_icons_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 13]);
+        let snapshot = snapshot_with_healths([Health::Good; 14]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::DesktopIcons),
             vec![ActionKey::ApplyDesktopIconsProfile]
+        );
+    }
+
+    #[test]
+    fn speakers_ready_suggests_sound_app_when_missing() {
+        let snapshot = snapshot_with_healths([
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Unknown,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+            Health::Good,
+        ]);
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Speakers),
+            vec![ActionKey::InstallSoundApp]
+        );
+    }
+
+    #[test]
+    fn sound_app_ready_suggests_open() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 14]);
+        snapshot.sound_app.code = "sound-app-ready";
+        snapshot.sound_app_installed = true;
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SoundApp),
+            vec![ActionKey::OpenSoundApp]
         );
     }
 }

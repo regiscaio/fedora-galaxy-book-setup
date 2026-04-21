@@ -8,7 +8,8 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    CAMERA_APP_DESKTOP_ID, REBOOT_COMMAND, RESTORE_INTEL_CAMERA_COMMAND, tr, trf,
+    CAMERA_APP_DESKTOP_ID, REBOOT_COMMAND, RESTORE_INTEL_CAMERA_COMMAND,
+    SOUND_APP_DESKTOP_ID, tr, trf,
 };
 
 use crate::actions::ActionKey;
@@ -60,6 +61,20 @@ impl SetupWindow {
                     &tr("Instalar suporte da câmera"),
                     command,
                     &tr("Instalação concluída. Reinicie o sistema para carregar o driver."),
+                    true,
+                );
+            }
+            ActionKey::InstallSoundApp => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.install_sound_app_command.clone())
+                    .unwrap_or_default();
+                self.run_privileged_command(
+                    &tr("Instalar Galaxy Book Sound"),
+                    command,
+                    &tr("Galaxy Book Sound instalado. Abra o painel para ajustar equalizador, perfis e Atmos compatível."),
                     true,
                 );
             }
@@ -254,6 +269,22 @@ impl SetupWindow {
                 } else {
                     self.toast_overlay.add_toast(adw::Toast::new(
                         &tr("O Galaxy Book Câmera não foi encontrado no sistema."),
+                    ));
+                }
+            }
+            ActionKey::OpenSoundApp => {
+                if let Some(app) = gio::DesktopAppInfo::new(SOUND_APP_DESKTOP_ID) {
+                    if let Err(error) =
+                        app.launch(&[], None::<&gio::AppLaunchContext>)
+                    {
+                        self.toast_overlay.add_toast(adw::Toast::new(&trf(
+                            "Falha ao abrir o painel de som: {error}",
+                            &[("error", error.to_string())],
+                        )));
+                    }
+                } else {
+                    self.toast_overlay.add_toast(adw::Toast::new(
+                        &tr("O Galaxy Book Sound não foi encontrado no sistema."),
                     ));
                 }
             }

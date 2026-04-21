@@ -59,6 +59,7 @@ impl SetupWindow {
         self.browser_camera_row.apply(&snapshot.browser_camera);
         self.boot_row.apply(&snapshot.boot);
         self.speakers_row.apply(&snapshot.speakers);
+        self.sound_app_row.apply(&snapshot.sound_app);
         self.gpu_row.apply(&snapshot.gpu);
         self.platform_profile_row.apply(&snapshot.platform_profile);
         self.clipboard_row.apply(&snapshot.clipboard_extension);
@@ -80,6 +81,8 @@ impl SetupWindow {
 
         self.open_camera_button
             .set_sensitive(snapshot.camera_app_installed && !*self.action_running.borrow());
+        self.open_sound_button
+            .set_sensitive(snapshot.sound_app_installed && !*self.action_running.borrow());
         self.refresh_button.set_sensitive(!*self.action_running.borrow());
         self.set_action_buttons_sensitive(!*self.action_running.borrow());
 

@@ -8,11 +8,13 @@ pub const APP_ID: &str = "com.caioregis.GalaxyBookSetup";
 pub const APP_NAME: &str = "Galaxy Book Setup";
 pub use i18n::{init_i18n, tr, trf, tr_mark, trn};
 pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
+pub const SOUND_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookSound.desktop";
 const CAMERA_APP_TUNING_FILE: &str =
     "/usr/share/galaxybook-camera/libcamera/simple/ov02c10.yaml";
 pub const INSTALL_MAIN_SUPPORT_COMMAND: &str = "dnf install -y galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-max98390-kmod-common akmod-galaxybook-max98390 i2c-tools";
 pub const INSTALL_CAMERA_COMMAND: &str =
     "dnf install -y galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-camera";
+pub const INSTALL_SOUND_APP_COMMAND: &str = "dnf install -y galaxybook-sound";
 pub const REPAIR_CAMERA_COMMAND: &str =
     r#"akmods --force --akmod galaxybook-ov02c10 --kernels "$(uname -r)" && depmod -a"#;
 pub const ENABLE_CAMERA_MODULE_COMMAND: &str = r#"set -euo pipefail
@@ -431,6 +433,7 @@ pub struct SetupSnapshot {
     pub browser_camera: CheckItem,
     pub boot: CheckItem,
     pub speakers: CheckItem,
+    pub sound_app: CheckItem,
     pub gpu: CheckItem,
     pub platform_profile: CheckItem,
     pub clipboard_extension: CheckItem,
@@ -447,6 +450,7 @@ pub struct SetupSnapshot {
     pub restore_intel_camera_command: String,
     pub enable_browser_camera_command: String,
     pub enable_speaker_command: String,
+    pub install_sound_app_command: String,
     pub repair_nvidia_command: String,
     pub set_balanced_profile_command: String,
     pub apply_clipboard_profile_command: String,
@@ -455,6 +459,7 @@ pub struct SetupSnapshot {
     pub apply_dock_profile_command: String,
     pub reboot_command: String,
     pub camera_app_installed: bool,
+    pub sound_app_installed: bool,
 }
 
 #[derive(Default)]
@@ -683,6 +688,8 @@ pub fn collect_snapshot() -> SetupSnapshot {
         camera_source_ready,
     );
     let speakers_check = detect_speakers_check();
+    let sound_app_installed = detect_sound_app_installed();
+    let sound_app_check = detect_sound_app_check(sound_app_installed);
 
     let boot_check = if clock_error {
         CheckItem {
@@ -747,6 +754,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         camera_app_installed,
         speakers_check.health != Health::Unknown,
         speakers_check.health == Health::Good,
+        sound_app_installed,
     );
 
     SetupSnapshot {
@@ -758,6 +766,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         browser_camera,
         boot: boot_check,
         speakers: speakers_check,
+        sound_app: sound_app_check,
         gpu: gpu_check,
         platform_profile: platform_profile_check,
         clipboard_extension: clipboard_check,
@@ -774,6 +783,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         restore_intel_camera_command: RESTORE_INTEL_CAMERA_COMMAND.into(),
         enable_browser_camera_command: ENABLE_BROWSER_CAMERA_COMMAND.into(),
         enable_speaker_command: ENABLE_SPEAKER_COMMAND.into(),
+        install_sound_app_command: INSTALL_SOUND_APP_COMMAND.into(),
         repair_nvidia_command: REPAIR_NVIDIA_COMMAND.into(),
         set_balanced_profile_command: SET_BALANCED_PROFILE_COMMAND.into(),
         apply_clipboard_profile_command: build_clipboard_profile_command(),
@@ -782,6 +792,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         apply_dock_profile_command: build_dash_to_dock_profile_command(),
         reboot_command: REBOOT_COMMAND.into(),
         camera_app_installed,
+        sound_app_installed,
     }
 }
 
@@ -795,7 +806,7 @@ pub fn run_smoke_test() -> Result<(), String> {
     println!("kernel={}", snapshot.system.kernel);
     println!("secure_boot={}", snapshot.system.secure_boot);
     println!(
-        "checks={},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "checks={},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         snapshot.packages.health.icon_name(),
         snapshot.akmods.health.icon_name(),
         snapshot.module.health.icon_name(),
@@ -803,6 +814,7 @@ pub fn run_smoke_test() -> Result<(), String> {
         snapshot.browser_camera.health.icon_name(),
         snapshot.boot.health.icon_name(),
         snapshot.speakers.health.icon_name(),
+        snapshot.sound_app.health.icon_name(),
         snapshot.gpu.health.icon_name(),
         snapshot.platform_profile.health.icon_name(),
         snapshot.clipboard_extension.health.icon_name(),
@@ -812,6 +824,7 @@ pub fn run_smoke_test() -> Result<(), String> {
     );
     println!("recommendation_title={}", snapshot.recommendation_title);
     println!("camera_app_installed={}", snapshot.camera_app_installed);
+    println!("sound_app_installed={}", snapshot.sound_app_installed);
 
     if snapshot.system.kernel.trim().is_empty() {
         return Err(tr("Kernel não pode estar vazio no smoke test."));
@@ -1480,6 +1493,23 @@ fn has_max98390_device() -> bool {
             .unwrap_or(false)
 }
 
+fn detect_sound_app_check(sound_app_installed: bool) -> CheckItem {
+    match sound_app_installed {
+        true => CheckItem {
+            title: "Galaxy Book Sound",
+            detail: tr("O painel de som está instalado e pronto para equalizador, perfis e Atmos compatível via PipeWire."),
+            health: Health::Good,
+            code: "sound-app-ready",
+        },
+        false => CheckItem {
+            title: "Galaxy Book Sound",
+            detail: tr("O painel de som ainda não está instalado. Use-o para equalizador, perfis prontos e Atmos compatível depois que o MAX98390 estiver funcional."),
+            health: Health::Unknown,
+            code: "sound-app-missing",
+        },
+    }
+}
+
 fn recommend_next_step(
     packages: &PackagePresence,
     akmods_failed: bool,
@@ -1493,6 +1523,7 @@ fn recommend_next_step(
     camera_app_installed: bool,
     speaker_supported: bool,
     speaker_ready: bool,
+    sound_app_installed: bool,
 ) -> (String, String) {
     if !packages.missing.is_empty() {
         return (
@@ -1557,9 +1588,16 @@ fn recommend_next_step(
         );
     }
 
+    if speaker_ready && !sound_app_installed {
+        return (
+            tr("Painel de som opcional ainda não instalado"),
+            tr("O suporte MAX98390 já parece pronto. Se você quiser equalizador, perfis e Atmos compatível, instale o Galaxy Book Sound pela seção de ações rápidas."),
+        );
+    }
+
     (
         tr("Fluxo principal da câmera parece pronto"),
-        tr("O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já vê a câmera e o app final está instalado. O próximo passo é abrir o Galaxy Book Câmera e validar preview, foto e vídeo."),
+        tr("O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já vê a câmera e o app final está instalado. Se os alto-falantes também já estiverem prontos, o próximo passo é abrir o Galaxy Book Câmera ou o Galaxy Book Sound e validar o fluxo final."),
     )
 }
 
@@ -1678,6 +1716,20 @@ fn rpm_installed(package: &str) -> bool {
         .unwrap_or(false)
 }
 
+fn detect_sound_app_installed() -> bool {
+    rpm_installed("galaxybook-sound") || command_exists("galaxybook-sound")
+}
+
+fn command_exists(command: &str) -> bool {
+    Command::new("bash")
+        .args(["-lc", &format!("command -v {command} >/dev/null 2>&1")])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
 fn rpm_owner_for_file(path: &str) -> Option<String> {
     let output = Command::new("rpm")
         .args(["-qf", path, "--qf", "%{NAME}"])
@@ -1792,6 +1844,7 @@ mod tests {
             false,
             false,
             false,
+            false,
         );
         assert_eq!(title, "Instalação pendente");
     }
@@ -1813,6 +1866,7 @@ mod tests {
             false,
             false,
             true,
+            false,
             false,
             false,
         );
@@ -1906,6 +1960,7 @@ mod tests {
             true,
             false,
             false,
+            false,
         );
         assert_eq!(title, "Compatibilidade com navegador pendente");
     }
@@ -1929,8 +1984,33 @@ mod tests {
             true,
             true,
             false,
+            false,
         );
         assert_eq!(title, "Suporte dos alto-falantes pendente");
+    }
+
+    #[test]
+    fn sound_app_recommendation_appears_after_speakers_are_ready() {
+        let packages = PackagePresence {
+            installed: vec!["akmod-galaxybook-ov02c10".into()],
+            missing: vec![],
+        };
+        let (title, _) = recommend_next_step(
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            false,
+        );
+        assert_eq!(title, "Painel de som opcional ainda não instalado");
     }
 
     #[test]

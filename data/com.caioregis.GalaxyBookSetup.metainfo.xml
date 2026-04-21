@@ -15,7 +15,8 @@
     <p>
       Galaxy Book Setup is a native GTK4 and libadwaita helper for Fedora on
       Samsung Galaxy Book notebooks. It organizes installation and diagnostic
-      flows for hardware support, starting with the internal camera stack.
+      flows for hardware support, starting with the internal camera stack and
+      extending to MAX98390 audio support and the Galaxy Book Sound panel.
     </p>
   </description>
   <content_rating type="oars-1.1"/>

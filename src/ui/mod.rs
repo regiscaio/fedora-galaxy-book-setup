@@ -223,7 +223,7 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
         ),
         (
             tr_mark("Módulo disponível"),
-            tr("Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte inicial aos alto-falantes MAX98390, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."),
+            tr("Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte MAX98390, oferta do Galaxy Book Sound para equalizador/perfis/Atmos compatível, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."),
         ),
         (
             tr_mark("Próximos módulos"),
@@ -252,10 +252,20 @@ pub(crate) fn apply_status_class(widget: &impl IsA<gtk::Widget>, health: Health)
         "status-pill-warning",
         "status-pill-error",
         "status-pill-unknown",
+        "success",
+        "warning",
+        "error",
+        "status-fg-unknown",
     ] {
         widget.remove_css_class(class_name);
     }
     widget.add_css_class(health.css_class());
+    widget.add_css_class(match health {
+        Health::Good => "success",
+        Health::Warning => "warning",
+        Health::Error => "error",
+        Health::Unknown => "status-fg-unknown",
+    });
 }
 
 pub(crate) fn install_css() {
@@ -277,44 +287,29 @@ pub(crate) fn install_css() {
 
         .status-pill-good {
             background-color: alpha(@success_bg_color, 0.18);
-        }
-
-        .status-pill-good,
-        .status-pill-good label,
-        .status-pill-good image {
-            color: @success_fg_color;
-            -gtk-icon-palette: success @success_fg_color, warning @success_fg_color, error @success_fg_color;
+            border: 1px solid alpha(@success_fg_color, 0.18);
         }
 
         .status-pill-warning {
             background-color: alpha(@warning_bg_color, 0.20);
-        }
-
-        .status-pill-warning,
-        .status-pill-warning label,
-        .status-pill-warning image {
-            color: @warning_fg_color;
-            -gtk-icon-palette: success @warning_fg_color, warning @warning_fg_color, error @warning_fg_color;
+            border: 1px solid alpha(@warning_fg_color, 0.18);
         }
 
         .status-pill-error {
             background-color: alpha(@error_bg_color, 0.18);
-        }
-
-        .status-pill-error,
-        .status-pill-error label,
-        .status-pill-error image {
-            color: @error_fg_color;
-            -gtk-icon-palette: success @error_fg_color, warning @error_fg_color, error @error_fg_color;
+            border: 1px solid alpha(@error_fg_color, 0.18);
         }
 
         .status-pill-unknown {
             background-color: alpha(@window_fg_color, 0.10);
+            border: 1px solid alpha(@window_fg_color, 0.10);
         }
 
-        .status-pill-unknown,
-        .status-pill-unknown label,
-        .status-pill-unknown image {
+        .status-fg-unknown,
+        label.status-fg-unknown,
+        image.status-fg-unknown,
+        .status-fg-unknown label,
+        .status-fg-unknown image {
             color: alpha(@window_fg_color, 0.85);
             -gtk-icon-palette: success alpha(@window_fg_color, 0.85), warning alpha(@window_fg_color, 0.85), error alpha(@window_fg_color, 0.85);
         }

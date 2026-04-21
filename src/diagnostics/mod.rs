@@ -29,6 +29,7 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
         DiagnosticKey::BrowserCamera => &snapshot.browser_camera,
         DiagnosticKey::Boot => &snapshot.boot,
         DiagnosticKey::Speakers => &snapshot.speakers,
+        DiagnosticKey::SoundApp => &snapshot.sound_app,
         DiagnosticKey::Gpu => &snapshot.gpu,
         DiagnosticKey::PlatformProfile => &snapshot.platform_profile,
         DiagnosticKey::Clipboard => &snapshot.clipboard_extension,
@@ -38,7 +39,7 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
     }
 }
 
-fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 13] {
+fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 14] {
     [
         &snapshot.packages,
         &snapshot.akmods,
@@ -47,6 +48,7 @@ fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 13] {
         &snapshot.browser_camera,
         &snapshot.boot,
         &snapshot.speakers,
+        &snapshot.sound_app,
         &snapshot.gpu,
         &snapshot.platform_profile,
         &snapshot.clipboard_extension,
@@ -170,11 +172,22 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         }
         DiagnosticKey::Speakers => {
             if item.health == Health::Good {
-                Vec::new()
+                if snapshot.sound_app_installed {
+                    vec![ActionKey::OpenSoundApp]
+                } else {
+                    vec![ActionKey::InstallSoundApp]
+                }
             } else if item.health == Health::Error {
                 vec![ActionKey::EnableSpeakers]
             } else {
                 vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
+            }
+        }
+        DiagnosticKey::SoundApp => {
+            if item.code == "sound-app-ready" {
+                vec![ActionKey::OpenSoundApp]
+            } else {
+                vec![ActionKey::InstallSoundApp]
             }
         }
         DiagnosticKey::Gpu => vec![ActionKey::RepairNvidia, ActionKey::Reboot],

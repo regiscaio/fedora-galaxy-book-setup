@@ -4,6 +4,7 @@ use galaxybook_setup::tr_mark;
 pub(crate) enum ActionKey {
     InstallMainSupport,
     InstallCamera,
+    InstallSoundApp,
     RepairDriver,
     EnableCameraModule,
     ForceDriverPriority,
@@ -18,6 +19,7 @@ pub(crate) enum ActionKey {
     ApplyDockProfile,
     Reboot,
     OpenCamera,
+    OpenSoundApp,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -38,6 +40,12 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
             title: tr_mark("Instalar suporte da câmera"),
             subtitle: tr_mark(
                 "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
+            ),
+        },
+        ActionKey::InstallSoundApp => ActionMetadata {
+            title: tr_mark("Instalar Galaxy Book Sound"),
+            subtitle: tr_mark(
+                "Instala o painel de som do Galaxy Book para equalizador, perfis e Atmos compatível via PipeWire.",
             ),
         },
         ActionKey::RepairDriver => ActionMetadata {
@@ -122,6 +130,12 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
             title: tr_mark("Abrir Galaxy Book Câmera"),
             subtitle: tr_mark(
                 "Abre o aplicativo final da câmera quando ele estiver instalado no sistema.",
+            ),
+        },
+        ActionKey::OpenSoundApp => ActionMetadata {
+            title: tr_mark("Abrir Galaxy Book Sound"),
+            subtitle: tr_mark(
+                "Abre o painel de som com equalizador, perfis e Atmos compatível quando ele estiver instalado no sistema.",
             ),
         },
     }

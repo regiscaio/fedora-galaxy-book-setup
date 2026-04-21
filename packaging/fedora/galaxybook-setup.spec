@@ -31,7 +31,8 @@ Recommends:     galaxybook-camera >= 1.0.0
 %description
 Galaxy Book Setup is a native GTK4 and libadwaita helper for Fedora on Galaxy
 Book notebooks. It organizes installation and diagnostic flows for hardware
-support, starting with the internal camera stack.
+support, starting with the internal camera stack and extending to MAX98390
+audio support plus the Galaxy Book Sound panel.
 
 %prep
 %autosetup -n %{name}-%{version}

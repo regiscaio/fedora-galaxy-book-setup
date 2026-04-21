@@ -31,7 +31,7 @@ pub(super) fn build_sections_page(
         .build();
     sections_group.add(&build_navigation_row(
         &tr("Diagnósticos"),
-        &tr("Checklist geral da câmera, do áudio, da GPU e das integrações do desktop."),
+        &tr("Checklist geral da câmera, do áudio, do Galaxy Book Sound, da GPU e das integrações do desktop."),
         {
             let navigation_view = navigation_view.clone();
             move || navigation_view.push_by_tag("flow")
@@ -39,7 +39,7 @@ pub(super) fn build_sections_page(
     ));
     sections_group.add(&build_navigation_row(
         &tr("Ações rápidas"),
-        &tr("Execute instalação, reparo e reinício direto da interface."),
+        &tr("Execute instalação, reparo, abertura dos apps finais e reinício direto da interface."),
         {
             let navigation_view = navigation_view.clone();
             move || navigation_view.push_by_tag("actions")

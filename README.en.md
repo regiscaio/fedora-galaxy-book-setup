@@ -22,7 +22,9 @@ sudo dnf install galaxybook-setup
 
 Once the repository is configured, the app can already install the main support
 set through the `Install core support` quick action, pulling in the camera app,
-the `OV02C10` driver, and `MAX98390` speaker support.
+the `OV02C10` driver, and `MAX98390` speaker support. It can also offer the
+installation of `Galaxy Book Sound`, which is responsible for the equalizer,
+profiles, and compatible Atmos mode.
 
 `Galaxy Book Setup` is an installation and diagnostics assistant for Samsung
 Galaxy Book laptops on Fedora. Its goal is to organize flows that would
@@ -45,6 +47,11 @@ This app does not replace:
 Its role is to work as an **installation and validation assistant**, showing
 the current state of the machine and organizing the next steps.
 
+For audio, that means a clear split of responsibilities: `Galaxy Book Setup`
+validates the internal-speaker path, organizes installation, and opens
+`Galaxy Book Sound`, while equalization, profiles, and `compatible Atmos` live
+in the sound app itself.
+
 ## Relationship with the other repositories
 
 This project works together with:
@@ -52,12 +59,14 @@ This project works together with:
 - <https://github.com/regiscaio/fedora-galaxy-book-ov02c10>
 - <https://github.com/regiscaio/fedora-galaxy-book-max98390>
 - <https://github.com/regiscaio/fedora-galaxy-book-camera>
+- <https://github.com/regiscaio/fedora-galaxy-book-sound>
 
 Responsibilities:
 
 - `fedora-galaxy-book-ov02c10`: packaged `ov02c10` kernel module for Fedora;
 - `fedora-galaxy-book-max98390`: packaged internal speaker support through MAX98390;
 - `fedora-galaxy-book-camera`: daily-use camera app;
+- `fedora-galaxy-book-sound`: equalizer, profiles, and compatible Atmos app with its own PipeWire backend;
 - `fedora-galaxy-book-setup`: installation, diagnostics, and workflow assistant.
 
 ## Current capabilities
@@ -65,8 +74,8 @@ Responsibilities:
 The current app already organizes the interface into clear areas:
 
 - `System`: notebook, Fedora, kernel, and Secure Boot summary;
-- `Diagnostics`: global checklist for camera, browser bridge, audio, GPU, and desktop integrations, including the GNOME dock profile used on this notebook;
-- `Quick actions`: driver install, repair, priority override, browser camera enablement, speaker enablement, NVIDIA flow, balanced profile, dock profile reapply, reboot, and camera app launch;
+- `Diagnostics`: global checklist for camera, browser bridge, audio, `Galaxy Book Sound`, GPU, and desktop integrations, including the GNOME dock profile used on this notebook;
+- `Quick actions`: driver install, repair, priority override, browser camera enablement, speaker enablement, `Galaxy Book Sound` install and launch, NVIDIA flow, balanced profile, dock profile reapply, reboot, and camera or sound app launch;
 - `Future modules`: reserved space for fingerprint and other flows.
 
 Inside `Diagnostics`, each row also opens a **suggested actions** subpage. That
@@ -87,6 +96,7 @@ The checklist currently covers:
 - known boot errors;
 - MAX98390 speaker path, including the case where the package is installed but
   the current kernel still does not expose `snd-hda-scodec-max98390` through `modinfo`;
+- presence of `Galaxy Book Sound`;
 - NVIDIA driver state and the fact that `nvidia-smi` is optional;
 - platform profile state, with `balanced` as the recommended default;
 - Dash to Dock state, including validation of the dock profile used on this
@@ -96,9 +106,17 @@ The checklist currently covers:
 Quick actions do not just copy commands: they execute the main flows directly
 from the UI, requesting administrative privilege when needed.
 
-Current quick actions include reapplying the notebook's Dash to Dock profile,
-re-enabling the extension and restoring the expected auto-hiding bottom dock
-behavior when the desktop configuration drifts.
+Current quick actions include:
+
+- installing the notebook's main support directly from setup, bringing in the
+  camera app, the `OV02C10` driver, and `MAX98390` speaker support;
+- installing the `Galaxy Book Sound` app to apply equalization and compatible
+  Atmos mode in the current session through PipeWire;
+- reapplying the notebook's Dash to Dock profile, re-enabling the extension
+  and restoring the expected auto-hiding bottom dock behavior when the desktop
+  configuration drifts;
+- opening `Galaxy Book Camera`;
+- opening `Galaxy Book Sound`.
 
 ## User installation
 

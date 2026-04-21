@@ -27,6 +27,7 @@ pub(super) struct DiagnosticsSections {
     pub(super) boot_row: StatusRow,
     pub(super) audio_group: adw::PreferencesGroup,
     pub(super) speakers_row: StatusRow,
+    pub(super) sound_app_row: StatusRow,
     pub(super) gpu_group: adw::PreferencesGroup,
     pub(super) gpu_row: StatusRow,
     pub(super) platform_profile_row: StatusRow,
@@ -41,6 +42,7 @@ pub(super) struct QuickActionsSection {
     pub(super) group: adw::PreferencesGroup,
     pub(super) install_main_button: gtk::Button,
     pub(super) install_button: gtk::Button,
+    pub(super) install_sound_button: gtk::Button,
     pub(super) repair_button: gtk::Button,
     pub(super) enable_camera_module_button: gtk::Button,
     pub(super) force_driver_button: gtk::Button,
@@ -55,6 +57,7 @@ pub(super) struct QuickActionsSection {
     pub(super) dock_profile_button: gtk::Button,
     pub(super) reboot_button: gtk::Button,
     pub(super) open_camera_button: gtk::Button,
+    pub(super) open_sound_button: gtk::Button,
 }
 
 pub(super) fn build_system_section() -> SystemSection {
@@ -109,10 +112,12 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
 
     let audio_group = adw::PreferencesGroup::builder()
         .title(tr("Áudio"))
-        .description(tr("Validação do caminho MAX98390 usado pelos alto-falantes internos."))
+        .description(tr("Validação do caminho MAX98390 e do painel Galaxy Book Sound usado no ajuste fino do áudio."))
         .build();
     let speakers_row = StatusRow::new("Alto-falantes internos");
+    let sound_app_row = StatusRow::new("Galaxy Book Sound");
     audio_group.add(&speakers_row.row);
+    audio_group.add(&sound_app_row.row);
 
     let gpu_group = adw::PreferencesGroup::builder()
         .title(tr("GPU e plataforma"))
@@ -149,6 +154,7 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
         boot_row,
         audio_group,
         speakers_row,
+        sound_app_row,
         gpu_group,
         gpu_row,
         platform_profile_row,
@@ -163,6 +169,7 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
 pub(super) fn build_quick_actions_section() -> QuickActionsSection {
     let install_main_button = new_action_button(&tr("Instalar suporte principal"));
     let install_button = new_action_button(&tr("Instalar suporte da câmera"));
+    let install_sound_button = new_action_button(&tr("Instalar Galaxy Book Sound"));
     let repair_button = new_action_button(&tr("Reparar o driver"));
     let enable_camera_module_button =
         new_action_button(&tr("Habilitar driver da câmera"));
@@ -184,6 +191,7 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
     let dock_profile_button = new_action_button(&tr("Aplicar perfil da dock"));
     let reboot_button = new_action_button(&tr("Reiniciar o sistema"));
     let open_camera_button = new_action_button(&tr("Abrir Galaxy Book Câmera"));
+    let open_sound_button = new_action_button(&tr("Abrir Galaxy Book Sound"));
 
     let group = adw::PreferencesGroup::builder()
         .title(tr("Ações rápidas"))
@@ -194,6 +202,10 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         &install_main_button,
     ));
     group.add(&build_action_row(ActionKey::InstallCamera, &install_button));
+    group.add(&build_action_row(
+        ActionKey::InstallSoundApp,
+        &install_sound_button,
+    ));
     group.add(&build_action_row(ActionKey::RepairDriver, &repair_button));
     group.add(&build_action_row(
         ActionKey::EnableCameraModule,
@@ -241,11 +253,13 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
     ));
     group.add(&build_action_row(ActionKey::Reboot, &reboot_button));
     group.add(&build_action_row(ActionKey::OpenCamera, &open_camera_button));
+    group.add(&build_action_row(ActionKey::OpenSoundApp, &open_sound_button));
 
     QuickActionsSection {
         group,
         install_main_button,
         install_button,
+        install_sound_button,
         repair_button,
         enable_camera_module_button,
         force_driver_button,
@@ -260,6 +274,7 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         dock_profile_button,
         reboot_button,
         open_camera_button,
+        open_sound_button,
     }
 }
 

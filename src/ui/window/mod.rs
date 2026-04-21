@@ -24,6 +24,7 @@ pub(crate) enum DiagnosticKey {
     BrowserCamera,
     Boot,
     Speakers,
+    SoundApp,
     Gpu,
     PlatformProfile,
     Clipboard,
@@ -52,6 +53,7 @@ pub(crate) struct SetupWindow {
     pub(crate) browser_camera_row: StatusRow,
     pub(crate) boot_row: StatusRow,
     pub(crate) speakers_row: StatusRow,
+    pub(crate) sound_app_row: StatusRow,
     pub(crate) gpu_row: StatusRow,
     pub(crate) platform_profile_row: StatusRow,
     pub(crate) clipboard_row: StatusRow,
@@ -65,6 +67,7 @@ pub(crate) struct SetupWindow {
     pub(crate) suggested_action_rows: Rc<RefCell<Vec<gtk::Widget>>>,
     pub(crate) install_main_button: gtk::Button,
     pub(crate) install_button: gtk::Button,
+    pub(crate) install_sound_button: gtk::Button,
     pub(crate) repair_button: gtk::Button,
     pub(crate) enable_camera_module_button: gtk::Button,
     pub(crate) force_driver_button: gtk::Button,
@@ -79,6 +82,7 @@ pub(crate) struct SetupWindow {
     pub(crate) dock_profile_button: gtk::Button,
     pub(crate) reboot_button: gtk::Button,
     pub(crate) open_camera_button: gtk::Button,
+    pub(crate) open_sound_button: gtk::Button,
     pub(crate) snapshot: Rc<RefCell<Option<SetupSnapshot>>>,
     pub(crate) action_running: Rc<RefCell<bool>>,
     pub(crate) selected_diagnostic: Rc<RefCell<Option<DiagnosticKey>>>,
@@ -111,6 +115,7 @@ impl SetupWindow {
         );
         self.connect_diagnostic_row(&self.boot_row, DiagnosticKey::Boot);
         self.connect_diagnostic_row(&self.speakers_row, DiagnosticKey::Speakers);
+        self.connect_diagnostic_row(&self.sound_app_row, DiagnosticKey::SoundApp);
         self.connect_diagnostic_row(&self.gpu_row, DiagnosticKey::Gpu);
         self.connect_diagnostic_row(
             &self.platform_profile_row,

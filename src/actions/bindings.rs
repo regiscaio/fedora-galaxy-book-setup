@@ -21,6 +21,11 @@ impl SetupWindow {
         });
 
         let this = self.clone();
+        self.install_sound_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::InstallSoundApp);
+        });
+
+        let this = self.clone();
         self.repair_button.connect_clicked(move |_| {
             this.invoke_action(ActionKey::RepairDriver);
         });
@@ -89,6 +94,11 @@ impl SetupWindow {
         self.open_camera_button.connect_clicked(move |_| {
             this.invoke_action(ActionKey::OpenCamera);
         });
+
+        let this = self.clone();
+        self.open_sound_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::OpenSoundApp);
+        });
     }
 
     pub(crate) fn set_action_buttons_sensitive(&self, sensitive: bool) {
@@ -96,6 +106,7 @@ impl SetupWindow {
         let allowed = sensitive && !busy;
         self.install_main_button.set_sensitive(allowed);
         self.install_button.set_sensitive(allowed);
+        self.install_sound_button.set_sensitive(allowed);
         self.repair_button.set_sensitive(allowed);
         self.enable_camera_module_button.set_sensitive(allowed);
         self.force_driver_button.set_sensitive(allowed);
@@ -116,5 +127,13 @@ impl SetupWindow {
             .map(|snapshot| snapshot.camera_app_installed)
             .unwrap_or(false);
         self.open_camera_button.set_sensitive(allowed && open_allowed);
+        let open_sound_allowed = self
+            .snapshot
+            .borrow()
+            .as_ref()
+            .map(|snapshot| snapshot.sound_app_installed)
+            .unwrap_or(false);
+        self.open_sound_button
+            .set_sensitive(allowed && open_sound_allowed);
     }
 }
