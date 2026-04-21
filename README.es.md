@@ -36,6 +36,24 @@ proyecto ya acompaña también el flujo de los **altavoces internos con
 MAX98390**, además de GPU, fingerprint, perfil de plataforma e integraciones
 generales del sistema.
 
+## Interfaz actual
+
+### Pantalla inicial
+
+![Galaxy Book Setup — pantalla inicial](img/app-setup-galaxy-1.png)
+
+### Diagnósticos
+
+![Galaxy Book Setup — diagnósticos](img/app-setup-galaxy-2.png)
+
+### Audio interno
+
+![Galaxy Book Setup — audio interno](img/app-setup-galaxy-3.png)
+
+### Modal `Sobre`
+
+![Galaxy Book Setup — Sobre](img/app-setup-galaxy-4.png)
+
 ## Alcance
 
 Esta app no sustituye:

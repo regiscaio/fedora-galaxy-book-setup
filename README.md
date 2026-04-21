@@ -35,6 +35,24 @@ O foco inicial é a **câmera interna** do Galaxy Book4 Ultra, mas o projeto já
 acompanha também o fluxo dos **alto-falantes internos com MAX98390**, além de
 GPU, fingerprint, perfil de plataforma e integrações gerais do sistema.
 
+## Interface atual
+
+### Tela inicial
+
+![Galaxy Book Setup — tela inicial](img/app-setup-galaxy-1.png)
+
+### Diagnósticos
+
+![Galaxy Book Setup — diagnósticos](img/app-setup-galaxy-2.png)
+
+### Áudio interno
+
+![Galaxy Book Setup — áudio interno](img/app-setup-galaxy-3.png)
+
+### Modal `Sobre`
+
+![Galaxy Book Setup — Sobre](img/app-setup-galaxy-4.png)
+
 ## Escopo
 
 Este app não substitui:

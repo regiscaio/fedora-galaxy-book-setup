@@ -35,6 +35,24 @@ The initial focus is the **internal camera** of the Galaxy Book4 Ultra, but
 the project already covers the **internal speakers with MAX98390**, as well as
 GPU, fingerprint, platform profile, and broader system integrations.
 
+## Current interface
+
+### Home screen
+
+![Galaxy Book Setup — home screen](img/app-setup-galaxy-1.png)
+
+### Diagnostics
+
+![Galaxy Book Setup — diagnostics](img/app-setup-galaxy-2.png)
+
+### Internal audio
+
+![Galaxy Book Setup — internal audio](img/app-setup-galaxy-3.png)
+
+### `About` modal
+
+![Galaxy Book Setup — About](img/app-setup-galaxy-4.png)
+
 ## Scope
 
 This app does not replace:
