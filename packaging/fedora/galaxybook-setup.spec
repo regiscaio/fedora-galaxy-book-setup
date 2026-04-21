@@ -67,24 +67,3 @@ APP_VERSION_OVERRIDE=%{version} cargo --offline test --locked --lib --bin galaxy
 %{_datadir}/metainfo/%{app_id}.metainfo.xml
 
 %changelog
-* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-6
-- Add an explicit GPL-2.0-only license to the project and package metadata
-- Add multilingual README variants and language navigation links
-
-* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-5
-- Add a one-click main install flow to bootstrap camera and speaker support from the setup
-- Update the README to document setup-first installation from the public DNF repository
-
-* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-4
-- Detect MAX98390 kmod exposure failures more precisely in the diagnostics
-- Add a manual fallback to install the speaker modules in the current kernel
-
-* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-3
-- Add the initial MAX98390 speaker diagnostics and quick action
-- Fix containerized manifest paths in the Makefile test/build flow
-
-* Mon Apr 20 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-2
-- Hide raw IPU6 V4L2 nodes when enabling the browser camera bridge
-
-* Sun Apr 19 2026 Caio Régis <regiscaio@users.noreply.github.com> - 1.0.0-1
-- Start the stable RPM line at 1.0.0
