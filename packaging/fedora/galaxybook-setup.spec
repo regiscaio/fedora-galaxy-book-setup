@@ -40,8 +40,8 @@ cargo --offline build --release --locked --bin galaxybook-setup
 install -Dm755 target/release/galaxybook-setup %{buildroot}%{_bindir}/galaxybook-setup
 install -Dm644 assets/galaxybook-setup.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/%{app_id}.svg
 for lang in en es it; do \
-  install -d %{buildroot}%{_datadir}/locale/$$lang/LC_MESSAGES; \
-  msgfmt po/$$lang.po -o %{buildroot}%{_datadir}/locale/$$lang/LC_MESSAGES/%{name}.mo; \
+  install -d %{buildroot}%{_datadir}/locale/${lang}/LC_MESSAGES; \
+  msgfmt po/${lang}.po -o %{buildroot}%{_datadir}/locale/${lang}/LC_MESSAGES/%{name}.mo; \
 done
 sed \
   -e 's|@EXEC@|galaxybook-setup|g' \
