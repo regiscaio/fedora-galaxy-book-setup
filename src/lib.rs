@@ -1,5 +1,6 @@
 mod i18n;
 
+use std::env;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -295,6 +296,14 @@ modinfo -n snd-hda-scodec-max98390-i2c
 pub const REPAIR_NVIDIA_COMMAND: &str =
     r#"dnf install -y akmod-nvidia && akmods --force --kernels "$(uname -r)" && depmod -a && dracut --force"#;
 pub const SET_BALANCED_PROFILE_COMMAND: &str = r#"if [ -w /sys/firmware/acpi/platform_profile ]; then printf 'balanced' > /sys/firmware/acpi/platform_profile; cat /sys/firmware/acpi/platform_profile; else echo 'O perfil da plataforma não está disponível neste sistema.' >&2; exit 1; fi"#;
+pub const REPAIR_FINGERPRINT_COMMAND: &str =
+    r#"dnf reinstall -y fprintd libfprint && systemctl restart fprintd && rpm -q fprintd libfprint"#;
+pub const ENABLE_FINGERPRINT_AUTH_COMMAND: &str =
+    r#"authselect enable-feature with-fingerprint && authselect apply-changes && authselect current"#;
+pub const OPEN_FINGERPRINT_SETTINGS_COMMAND: &str = r#"if ! command -v gnome-control-center >/dev/null 2>&1; then echo "O gnome-control-center não está disponível neste sistema." >&2; exit 1; fi
+nohup gnome-control-center user-accounts >/dev/null 2>&1 &
+echo "As configurações de Usuários foram abertas para gerenciar o cadastro de digitais."
+"#;
 pub const REBOOT_COMMAND: &str = "systemctl reboot -i";
 
 const CLIPBOARD_EXTENSION_IDS: &[&str] = &[
@@ -307,6 +316,12 @@ const CLIPBOARD_PROFILE_EXTENSION_ID: &str = "clipboard-indicator@tudmotu.com";
 const GSCONNECT_EXTENSION_ID: &str = "gsconnect@andyholmes.github.io";
 const DESKTOP_ICONS_EXTENSION_ID: &str = "ding@rastersoft.com";
 const DASH_TO_DOCK_EXTENSION_ID: &str = "dash-to-dock@micxgx.gmail.com";
+const FINGERPRINT_SENSOR_PATTERNS: &[&str] = &[
+    "1c7a:05a1",
+    "LighTuning Technology Inc. ETU905A80-E",
+    "Egis",
+    "LighTuning",
+];
 const DASH_TO_DOCK_SCHEMA: &str = "org.gnome.shell.extensions.dash-to-dock";
 const DASH_TO_DOCK_PROFILE_SETTINGS: &[(&str, &str, &str)] = &[
     ("dock-position", "'BOTTOM'", "posição inferior"),
@@ -434,6 +449,8 @@ pub struct SetupSnapshot {
     pub boot: CheckItem,
     pub speakers: CheckItem,
     pub sound_app: CheckItem,
+    pub fingerprint_reader: CheckItem,
+    pub fingerprint_login: CheckItem,
     pub gpu: CheckItem,
     pub platform_profile: CheckItem,
     pub clipboard_extension: CheckItem,
@@ -453,6 +470,9 @@ pub struct SetupSnapshot {
     pub install_sound_app_command: String,
     pub repair_nvidia_command: String,
     pub set_balanced_profile_command: String,
+    pub repair_fingerprint_command: String,
+    pub enable_fingerprint_auth_command: String,
+    pub open_fingerprint_settings_command: String,
     pub apply_clipboard_profile_command: String,
     pub apply_gsconnect_profile_command: String,
     pub apply_desktop_icons_profile_command: String,
@@ -462,10 +482,27 @@ pub struct SetupSnapshot {
     pub sound_app_installed: bool,
 }
 
-#[derive(Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 struct PackagePresence {
     installed: Vec<String>,
     missing: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum FingerprintEnrollmentState {
+    Enrolled,
+    NotEnrolled,
+    Busy,
+    NoDevice,
+    Unavailable,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct FingerprintContext {
+    sensor_line: Option<String>,
+    missing_packages: Vec<String>,
+    authselect_enabled: bool,
+    list_state: FingerprintEnrollmentState,
 }
 
 pub fn collect_snapshot() -> SetupSnapshot {
@@ -690,6 +727,9 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let speakers_check = detect_speakers_check();
     let sound_app_installed = detect_sound_app_installed();
     let sound_app_check = detect_sound_app_check(sound_app_installed);
+    let fingerprint = collect_fingerprint_context();
+    let fingerprint_reader_check = detect_fingerprint_reader_check(&fingerprint);
+    let fingerprint_login_check = detect_fingerprint_login_check(&fingerprint);
 
     let boot_check = if clock_error {
         CheckItem {
@@ -767,6 +807,8 @@ pub fn collect_snapshot() -> SetupSnapshot {
         boot: boot_check,
         speakers: speakers_check,
         sound_app: sound_app_check,
+        fingerprint_reader: fingerprint_reader_check,
+        fingerprint_login: fingerprint_login_check,
         gpu: gpu_check,
         platform_profile: platform_profile_check,
         clipboard_extension: clipboard_check,
@@ -786,6 +828,9 @@ pub fn collect_snapshot() -> SetupSnapshot {
         install_sound_app_command: INSTALL_SOUND_APP_COMMAND.into(),
         repair_nvidia_command: REPAIR_NVIDIA_COMMAND.into(),
         set_balanced_profile_command: SET_BALANCED_PROFILE_COMMAND.into(),
+        repair_fingerprint_command: REPAIR_FINGERPRINT_COMMAND.into(),
+        enable_fingerprint_auth_command: ENABLE_FINGERPRINT_AUTH_COMMAND.into(),
+        open_fingerprint_settings_command: OPEN_FINGERPRINT_SETTINGS_COMMAND.into(),
         apply_clipboard_profile_command: build_clipboard_profile_command(),
         apply_gsconnect_profile_command: build_gsconnect_profile_command(),
         apply_desktop_icons_profile_command: build_desktop_icons_profile_command(),
@@ -806,7 +851,7 @@ pub fn run_smoke_test() -> Result<(), String> {
     println!("kernel={}", snapshot.system.kernel);
     println!("secure_boot={}", snapshot.system.secure_boot);
     println!(
-        "checks={},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "checks={},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         snapshot.packages.health.icon_name(),
         snapshot.akmods.health.icon_name(),
         snapshot.module.health.icon_name(),
@@ -815,6 +860,8 @@ pub fn run_smoke_test() -> Result<(), String> {
         snapshot.boot.health.icon_name(),
         snapshot.speakers.health.icon_name(),
         snapshot.sound_app.health.icon_name(),
+        snapshot.fingerprint_reader.health.icon_name(),
+        snapshot.fingerprint_login.health.icon_name(),
         snapshot.gpu.health.icon_name(),
         snapshot.platform_profile.health.icon_name(),
         snapshot.clipboard_extension.health.icon_name(),
@@ -1510,6 +1557,160 @@ fn detect_sound_app_check(sound_app_installed: bool) -> CheckItem {
     }
 }
 
+fn collect_fingerprint_context() -> FingerprintContext {
+    let packages = package_presence(&["fprintd", "libfprint"]);
+    let sensor_line = detect_fingerprint_sensor_line();
+    let authselect_output = command_text("authselect", &["current"]).ok();
+    let authselect_enabled = authselect_output
+        .as_deref()
+        .map(authselect_has_fingerprint)
+        .unwrap_or(false);
+    let list_state = current_user_name()
+        .and_then(|user| command_text("fprintd-list", &[user.as_str()]).ok())
+        .map(|output| fingerprint_enrollment_state(&output))
+        .unwrap_or(FingerprintEnrollmentState::Unavailable);
+
+    FingerprintContext {
+        sensor_line,
+        missing_packages: packages.missing,
+        authselect_enabled,
+        list_state,
+    }
+}
+
+fn detect_fingerprint_reader_check(context: &FingerprintContext) -> CheckItem {
+    let Some(sensor_line) = context.sensor_line.as_ref() else {
+        return CheckItem {
+            title: "Leitor de digital",
+            detail: tr("Nenhum leitor de digital compatível foi detectado via lsusb neste boot. Em modelos sem sensor integrado, esse estado é esperado."),
+            health: Health::Unknown,
+            code: "fingerprint-reader-missing",
+        };
+    };
+
+    if !context.missing_packages.is_empty() {
+        return CheckItem {
+            title: "Leitor de digital",
+            detail: trf(
+                "Sensor detectado em {sensor}, mas o stack ainda está incompleto. Faltam pacotes: {packages}",
+                &[
+                    ("sensor", sensor_line.to_string()),
+                    ("packages", context.missing_packages.join(", ")),
+                ],
+            ),
+            health: Health::Warning,
+            code: "fingerprint-stack-missing",
+        };
+    }
+
+    let (detail, health, code) = match context.list_state {
+        FingerprintEnrollmentState::Enrolled | FingerprintEnrollmentState::NotEnrolled => (
+            trf(
+                "Sensor detectado em {sensor}. O stack fprintd/libfprint respondeu normalmente para o usuário atual.",
+                &[("sensor", sensor_line.to_string())],
+            ),
+            Health::Good,
+            "fingerprint-reader-ready",
+        ),
+        FingerprintEnrollmentState::Busy => (
+            trf(
+                "Sensor detectado em {sensor}, mas o leitor respondeu como ocupado. Reaplique o stack antes de tentar um novo cadastro.",
+                &[("sensor", sensor_line.to_string())],
+            ),
+            Health::Warning,
+            "fingerprint-reader-busy",
+        ),
+        FingerprintEnrollmentState::NoDevice => (
+            trf(
+                "Sensor detectado em {sensor}, mas o fprintd não expôs um dispositivo utilizável nesta sessão.",
+                &[("sensor", sensor_line.to_string())],
+            ),
+            Health::Warning,
+            "fingerprint-reader-no-device",
+        ),
+        FingerprintEnrollmentState::Unavailable => (
+            trf(
+                "Sensor detectado em {sensor}, mas o setup não conseguiu validar a resposta do fprintd nesta sessão.",
+                &[("sensor", sensor_line.to_string())],
+            ),
+            Health::Warning,
+            "fingerprint-reader-unavailable",
+        ),
+    };
+
+    CheckItem {
+        title: "Leitor de digital",
+        detail,
+        health,
+        code,
+    }
+}
+
+fn detect_fingerprint_login_check(context: &FingerprintContext) -> CheckItem {
+    if context.sensor_line.is_none() {
+        return CheckItem {
+            title: "Login por digital",
+            detail: tr("Sem leitor de digital detectado neste boot, o setup não avaliou cadastro nem integração com authselect."),
+            health: Health::Unknown,
+            code: "fingerprint-login-unavailable",
+        };
+    }
+
+    if !context.missing_packages.is_empty() {
+        return CheckItem {
+            title: "Login por digital",
+            detail: tr("O leitor foi detectado, mas o stack de fingerprint ainda não está completo. Reinstale fprintd/libfprint antes de validar cadastro e login."),
+            health: Health::Warning,
+            code: "fingerprint-login-stack-missing",
+        };
+    }
+
+    match (context.authselect_enabled, context.list_state) {
+        (true, FingerprintEnrollmentState::Enrolled) => CheckItem {
+            title: "Login por digital",
+            detail: tr("Authselect já está com with-fingerprint ativo e o usuário atual tem pelo menos uma digital cadastrada."),
+            health: Health::Good,
+            code: "fingerprint-login-ready",
+        },
+        (true, FingerprintEnrollmentState::NotEnrolled) => CheckItem {
+            title: "Login por digital",
+            detail: tr("O stack já responde e o authselect está pronto, mas o usuário atual ainda não cadastrou nenhuma digital."),
+            health: Health::Warning,
+            code: "fingerprint-enrollment-missing",
+        },
+        (false, FingerprintEnrollmentState::Enrolled) => CheckItem {
+            title: "Login por digital",
+            detail: tr("Há digital cadastrada para o usuário atual, mas o authselect ainda não está com with-fingerprint habilitado."),
+            health: Health::Warning,
+            code: "fingerprint-auth-disabled",
+        },
+        (false, FingerprintEnrollmentState::NotEnrolled) => CheckItem {
+            title: "Login por digital",
+            detail: tr("O leitor já responde, mas ainda faltam dois passos: habilitar with-fingerprint no authselect e cadastrar a digital do usuário atual."),
+            health: Health::Warning,
+            code: "fingerprint-auth-and-enrollment-missing",
+        },
+        (_, FingerprintEnrollmentState::Busy) => CheckItem {
+            title: "Login por digital",
+            detail: tr("O leitor respondeu como ocupado. Reaplique o stack e depois abra o cadastro de usuários para refazer a digital com o sensor liberado."),
+            health: Health::Warning,
+            code: "fingerprint-login-busy",
+        },
+        (_, FingerprintEnrollmentState::NoDevice) => CheckItem {
+            title: "Login por digital",
+            detail: tr("O sensor apareceu no USB, mas o fprintd não expôs um dispositivo utilizável para validar cadastro e autenticação nesta sessão."),
+            health: Health::Warning,
+            code: "fingerprint-login-no-device",
+        },
+        (_, FingerprintEnrollmentState::Unavailable) => CheckItem {
+            title: "Login por digital",
+            detail: tr("O leitor foi detectado, mas o setup não conseguiu validar cadastro e authselect nesta sessão."),
+            health: Health::Unknown,
+            code: "fingerprint-login-unavailable",
+        },
+    }
+}
+
 fn recommend_next_step(
     packages: &PackagePresence,
     akmods_failed: bool,
@@ -1644,6 +1845,46 @@ fn command_text(command: &str, args: &[&str]) -> Result<String, ()> {
         }
     } else {
         Ok(stdout)
+    }
+}
+
+fn current_user_name() -> Option<String> {
+    env::var("USER")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn detect_fingerprint_sensor_line() -> Option<String> {
+    command_text("lsusb", &[])
+        .ok()
+        .and_then(|output| extract_first_matching_line(&output, FINGERPRINT_SENSOR_PATTERNS))
+}
+
+fn authselect_has_fingerprint(output: &str) -> bool {
+    output.lines().any(|line| line.trim() == "- with-fingerprint")
+        || output.contains("with-fingerprint")
+}
+
+fn fingerprint_enrollment_state(output: &str) -> FingerprintEnrollmentState {
+    let normalized = output.to_ascii_lowercase();
+    if normalized.contains("has no fingers enrolled") {
+        FingerprintEnrollmentState::NotEnrolled
+    } else if normalized.contains("device or resource busy") {
+        FingerprintEnrollmentState::Busy
+    } else if normalized.contains("no devices available")
+        || normalized.contains("found 0 devices")
+        || normalized.contains("no devices found")
+    {
+        FingerprintEnrollmentState::NoDevice
+    } else if normalized.contains("using device")
+        || normalized.contains("found 1 devices")
+        || normalized.contains("found 2 devices")
+        || normalized.contains("finger")
+    {
+        FingerprintEnrollmentState::Enrolled
+    } else {
+        FingerprintEnrollmentState::Unavailable
     }
 }
 
@@ -2017,5 +2258,24 @@ mod tests {
     fn libcamera_detection_accepts_sensor_name_output() {
         let output = "Available cameras:\n1: 'ov02c10' (_SB_.PC00.LNK0)\n";
         assert!(libcamera_output_has_camera(output));
+    }
+
+    #[test]
+    fn authselect_parser_detects_fingerprint_feature() {
+        assert!(authselect_has_fingerprint(
+            "Profile ID: sssd\nEnabled features:\n- with-fingerprint\n- with-mdns4\n"
+        ));
+        assert!(!authselect_has_fingerprint(
+            "Profile ID: sssd\nEnabled features:\n- with-mdns4\n"
+        ));
+    }
+
+    #[test]
+    fn fingerprint_state_detects_not_enrolled_output() {
+        let output = "found 1 devices\nUsing device /net/reactivated/Fprint/Device/0\nUser regiscaio has no fingers enrolled for Egis Technology (LighTuning) Match-on-Chip.";
+        assert_eq!(
+            fingerprint_enrollment_state(output),
+            FingerprintEnrollmentState::NotEnrolled
+        );
     }
 }

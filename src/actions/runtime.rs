@@ -8,7 +8,8 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    CAMERA_APP_DESKTOP_ID, REBOOT_COMMAND, RESTORE_INTEL_CAMERA_COMMAND,
+    CAMERA_APP_DESKTOP_ID, OPEN_FINGERPRINT_SETTINGS_COMMAND, REBOOT_COMMAND,
+    RESTORE_INTEL_CAMERA_COMMAND,
     SOUND_APP_DESKTOP_ID, tr, trf,
 };
 
@@ -160,6 +161,52 @@ impl SetupWindow {
                     command,
                     &tr("Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema continuar preso ao estado anterior."),
                     true,
+                );
+            }
+            ActionKey::RepairFingerprintStack => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.repair_fingerprint_command.clone())
+                    .unwrap_or_default();
+                self.run_privileged_command(
+                    &tr("Reinstalar stack de fingerprint"),
+                    command,
+                    &tr("Stack de fingerprint reinstalado. Atualize o diagnóstico e abra o cadastro de digitais se quiser testar novamente."),
+                    true,
+                );
+            }
+            ActionKey::EnableFingerprintAuth => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| {
+                        snapshot.enable_fingerprint_auth_command.clone()
+                    })
+                    .unwrap_or_default();
+                self.run_privileged_command(
+                    &tr("Ativar login por digital"),
+                    command,
+                    &tr("Integração do authselect com fingerprint aplicada com sucesso."),
+                    true,
+                );
+            }
+            ActionKey::OpenFingerprintSettings => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| {
+                        snapshot.open_fingerprint_settings_command.clone()
+                    })
+                    .unwrap_or_else(|| OPEN_FINGERPRINT_SETTINGS_COMMAND.into());
+                self.run_user_command(
+                    &tr("Abrir cadastro de digitais"),
+                    command,
+                    &tr("As configurações de usuários foram abertas para gerenciar as digitais."),
+                    false,
                 );
             }
             ActionKey::RepairNvidia => {

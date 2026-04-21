@@ -31,7 +31,7 @@ pub(super) fn build_sections_page(
         .build();
     sections_group.add(&build_navigation_row(
         &tr("Diagnósticos"),
-        &tr("Checklist geral da câmera, do áudio, do Galaxy Book Sound, da GPU e das integrações do desktop."),
+        &tr("Checklist geral da câmera, do áudio, da biometria, da GPU e das integrações do desktop."),
         {
             let navigation_view = navigation_view.clone();
             move || navigation_view.push_by_tag("flow")
@@ -39,18 +39,10 @@ pub(super) fn build_sections_page(
     ));
     sections_group.add(&build_navigation_row(
         &tr("Ações rápidas"),
-        &tr("Execute instalação, reparo, abertura dos apps finais e reinício direto da interface."),
+        &tr("Execute instalação, reparo, cadastro de digitais, abertura dos apps finais e reinício direto da interface."),
         {
             let navigation_view = navigation_view.clone();
             move || navigation_view.push_by_tag("actions")
-        },
-    ));
-    sections_group.add(&build_navigation_row(
-        &tr("Módulos futuros"),
-        &tr("Fingerprint e outras frentes planejadas."),
-        {
-            let navigation_view = navigation_view.clone();
-            move || navigation_view.push_by_tag("future")
         },
     ));
     sections_page.add(&sections_group);
@@ -62,6 +54,7 @@ pub(super) fn build_flow_page(
     diagnostics_group: &adw::PreferencesGroup,
     camera_group: &adw::PreferencesGroup,
     audio_group: &adw::PreferencesGroup,
+    fingerprint_group: &adw::PreferencesGroup,
     gpu_group: &adw::PreferencesGroup,
     integrations_group: &adw::PreferencesGroup,
 ) -> adw::NavigationPage {
@@ -72,6 +65,7 @@ pub(super) fn build_flow_page(
     flow_page_content.add(diagnostics_group);
     flow_page_content.add(camera_group);
     flow_page_content.add(audio_group);
+    flow_page_content.add(fingerprint_group);
     flow_page_content.add(gpu_group);
     flow_page_content.add(integrations_group);
 
@@ -129,16 +123,4 @@ pub(super) fn build_suggested_page() -> SuggestedPage {
         detail_row,
         actions_group,
     }
-}
-
-pub(super) fn build_future_page(
-    future_group: &adw::PreferencesGroup,
-) -> adw::NavigationPage {
-    let future_page_content = adw::PreferencesPage::builder()
-        .name("future")
-        .title(tr("Módulos futuros"))
-        .build();
-    future_page_content.add(future_group);
-
-    build_scrolled_navigation_page(&future_page_content, &tr("Módulos futuros"), "future")
 }

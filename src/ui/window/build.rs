@@ -7,12 +7,10 @@ use crate::ui::install_css;
 
 use super::SetupWindow;
 use super::groups::{
-    build_diagnostics_sections, build_future_group, build_quick_actions_section,
-    build_system_section,
+    build_diagnostics_sections, build_quick_actions_section, build_system_section,
 };
 use super::pages::{
-    build_actions_page, build_flow_page, build_future_page, build_sections_page,
-    build_suggested_page,
+    build_actions_page, build_flow_page, build_sections_page, build_suggested_page,
 };
 use super::shell::build_window_shell;
 
@@ -29,25 +27,23 @@ impl SetupWindow {
         let system = build_system_section();
         let diagnostics = build_diagnostics_sections();
         let quick_actions = build_quick_actions_section();
-        let future_group = build_future_group();
 
         let root_page = build_sections_page(&navigation_view, &system.group);
         let flow_page = build_flow_page(
             &diagnostics.diagnostics_group,
             &diagnostics.camera_group,
             &diagnostics.audio_group,
+            &diagnostics.fingerprint_group,
             &diagnostics.gpu_group,
             &diagnostics.integrations_group,
         );
         let actions_page = build_actions_page(&quick_actions.group);
         let suggested_page = build_suggested_page();
-        let future_page = build_future_page(&future_group);
 
         navigation_view.add(&root_page);
         navigation_view.add(&flow_page);
         navigation_view.add(&actions_page);
         navigation_view.add(&suggested_page.page);
-        navigation_view.add(&future_page);
         navigation_view.replace_with_tags(&["home"]);
 
         let snapshot = Rc::new(RefCell::new(None));
@@ -76,6 +72,8 @@ impl SetupWindow {
             boot_row: diagnostics.boot_row,
             speakers_row: diagnostics.speakers_row,
             sound_app_row: diagnostics.sound_app_row,
+            fingerprint_reader_row: diagnostics.fingerprint_reader_row,
+            fingerprint_login_row: diagnostics.fingerprint_login_row,
             gpu_row: diagnostics.gpu_row,
             platform_profile_row: diagnostics.platform_profile_row,
             clipboard_row: diagnostics.clipboard_row,
@@ -96,6 +94,9 @@ impl SetupWindow {
             restore_camera_button: quick_actions.restore_camera_button,
             enable_browser_camera_button: quick_actions.enable_browser_camera_button,
             enable_speakers_button: quick_actions.enable_speakers_button,
+            repair_fingerprint_button: quick_actions.repair_fingerprint_button,
+            enable_fingerprint_auth_button: quick_actions.enable_fingerprint_auth_button,
+            open_fingerprint_settings_button: quick_actions.open_fingerprint_settings_button,
             repair_nvidia_button: quick_actions.repair_nvidia_button,
             balanced_profile_button: quick_actions.balanced_profile_button,
             clipboard_profile_button: quick_actions.clipboard_profile_button,

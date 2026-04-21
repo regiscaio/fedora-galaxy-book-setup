@@ -25,6 +25,8 @@ pub(crate) enum DiagnosticKey {
     Boot,
     Speakers,
     SoundApp,
+    FingerprintReader,
+    FingerprintLogin,
     Gpu,
     PlatformProfile,
     Clipboard,
@@ -54,6 +56,8 @@ pub(crate) struct SetupWindow {
     pub(crate) boot_row: StatusRow,
     pub(crate) speakers_row: StatusRow,
     pub(crate) sound_app_row: StatusRow,
+    pub(crate) fingerprint_reader_row: StatusRow,
+    pub(crate) fingerprint_login_row: StatusRow,
     pub(crate) gpu_row: StatusRow,
     pub(crate) platform_profile_row: StatusRow,
     pub(crate) clipboard_row: StatusRow,
@@ -74,6 +78,9 @@ pub(crate) struct SetupWindow {
     pub(crate) restore_camera_button: gtk::Button,
     pub(crate) enable_browser_camera_button: gtk::Button,
     pub(crate) enable_speakers_button: gtk::Button,
+    pub(crate) repair_fingerprint_button: gtk::Button,
+    pub(crate) enable_fingerprint_auth_button: gtk::Button,
+    pub(crate) open_fingerprint_settings_button: gtk::Button,
     pub(crate) repair_nvidia_button: gtk::Button,
     pub(crate) balanced_profile_button: gtk::Button,
     pub(crate) clipboard_profile_button: gtk::Button,
@@ -116,6 +123,14 @@ impl SetupWindow {
         self.connect_diagnostic_row(&self.boot_row, DiagnosticKey::Boot);
         self.connect_diagnostic_row(&self.speakers_row, DiagnosticKey::Speakers);
         self.connect_diagnostic_row(&self.sound_app_row, DiagnosticKey::SoundApp);
+        self.connect_diagnostic_row(
+            &self.fingerprint_reader_row,
+            DiagnosticKey::FingerprintReader,
+        );
+        self.connect_diagnostic_row(
+            &self.fingerprint_login_row,
+            DiagnosticKey::FingerprintLogin,
+        );
         self.connect_diagnostic_row(&self.gpu_row, DiagnosticKey::Gpu);
         self.connect_diagnostic_row(
             &self.platform_profile_row,

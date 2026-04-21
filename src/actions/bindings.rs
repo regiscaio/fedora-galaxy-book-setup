@@ -56,6 +56,21 @@ impl SetupWindow {
         });
 
         let this = self.clone();
+        self.repair_fingerprint_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::RepairFingerprintStack);
+        });
+
+        let this = self.clone();
+        self.enable_fingerprint_auth_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::EnableFingerprintAuth);
+        });
+
+        let this = self.clone();
+        self.open_fingerprint_settings_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::OpenFingerprintSettings);
+        });
+
+        let this = self.clone();
         self.repair_nvidia_button.connect_clicked(move |_| {
             this.invoke_action(ActionKey::RepairNvidia);
         });
@@ -113,6 +128,9 @@ impl SetupWindow {
         self.restore_camera_button.set_sensitive(allowed);
         self.enable_browser_camera_button.set_sensitive(allowed);
         self.enable_speakers_button.set_sensitive(allowed);
+        self.repair_fingerprint_button.set_sensitive(allowed);
+        self.enable_fingerprint_auth_button.set_sensitive(allowed);
+        self.open_fingerprint_settings_button.set_sensitive(allowed);
         self.repair_nvidia_button.set_sensitive(allowed);
         self.balanced_profile_button.set_sensitive(allowed);
         self.clipboard_profile_button.set_sensitive(allowed);

@@ -33,8 +33,7 @@ RPM e validações manuais.
 
 O foco inicial é a **câmera interna** do Galaxy Book4 Ultra, mas o projeto já
 acompanha também o fluxo dos **alto-falantes internos com MAX98390**, além de
-GPU, perfil de plataforma e integrações gerais do sistema. O módulo de
-fingerprint continua planejado, mas ainda não é entregue por esta versão.
+GPU, fingerprint, perfil de plataforma e integrações gerais do sistema.
 
 ## Escopo
 
@@ -75,14 +74,14 @@ A versão atual do app já organiza a interface em áreas bem definidas:
 
 - `Sistema`: resumo do notebook, Fedora, kernel e Secure Boot;
 - `Diagnósticos`: checklist geral com o estado da câmera, do bridge para
-  navegador, do áudio, do `Galaxy Book Sound`, da GPU e das integrações do
-  desktop, incluindo a dock do GNOME usada neste notebook;
+  navegador, do áudio, do `Galaxy Book Sound`, do leitor de digital, da GPU e
+  das integrações do desktop, incluindo a dock do GNOME usada neste notebook;
 - `Ações rápidas`: instalação, reparo e ajuste de prioridade do driver,
   ativação da webcam para navegador, ativação dos alto-falantes internos,
-  instalação e abertura do `Galaxy Book Sound`, fluxo NVIDIA, perfil
-  balanceado, reaplicação do perfil da dock, reboot e abertura do app da
-  câmera;
-- `Módulos futuros`: espaço reservado para fingerprint e outros fluxos.
+  instalação e abertura do `Galaxy Book Sound`, reparo do stack de fingerprint,
+  ativação do login por digital, abertura do cadastro de digitais, fluxo
+  NVIDIA, perfil balanceado, reaplicação do perfil da dock, reboot e abertura
+  do app da câmera.
 
 Dentro de `Diagnósticos`, cada linha leva para uma subseção de **ações
 sugeridas**. Isso permite abrir correções e validações mais relevantes para o
@@ -103,6 +102,8 @@ O checklist cobre hoje:
 - caminho MAX98390 dos alto-falantes internos, inclusive quando o pacote está
   instalado, mas o kernel atual ainda não expõe `snd-hda-scodec-max98390` via `modinfo`;
 - presença do `Galaxy Book Sound`;
+- presença do leitor de digital integrado;
+- prontidão do login por digital com `fprintd` e `authselect`;
 - estado do driver NVIDIA e observação de que `nvidia-smi` é opcional;
 - perfil de uso da plataforma, com destaque para `balanced`;
 - estado do `Dash to Dock`, com checagem do perfil da dock usado neste
@@ -132,6 +133,9 @@ Hoje, as ações disponíveis incluem:
   no boot;
 - instalar o `Galaxy Book Sound` para aplicar equalização e Atmos compatível na
   sessão via PipeWire;
+- reinstalar o stack de fingerprint com `fprintd` e `libfprint`;
+- habilitar `with-fingerprint` no `authselect`;
+- abrir diretamente o cadastro de digitais nas configurações de usuários;
 - instalar ou reparar o suporte NVIDIA;
 - aplicar o perfil `balanced` da plataforma;
 - reaplicar o perfil da dock do GNOME usado neste notebook, reativando o
@@ -219,11 +223,11 @@ o que é desejável para um auxiliar de instalação.
 
 ## Roadmap
 
-Módulos planejados para próximas etapas:
+Próximas evoluções previstas:
 
-- fingerprint;
 - checagens gerais de compatibilidade do Galaxy Book com Fedora;
-- novos fluxos assistidos para integrações do ambiente GNOME e periféricos do notebook.
+- mais fluxos assistidos para integrações do ambiente GNOME e periféricos do notebook;
+- aprofundar as leituras de fingerprint com foco em validação pós-suspensão e cenários de sensor ocupado.
 
 ## Licença
 

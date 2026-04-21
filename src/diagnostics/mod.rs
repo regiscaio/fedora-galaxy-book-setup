@@ -30,6 +30,8 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
         DiagnosticKey::Boot => &snapshot.boot,
         DiagnosticKey::Speakers => &snapshot.speakers,
         DiagnosticKey::SoundApp => &snapshot.sound_app,
+        DiagnosticKey::FingerprintReader => &snapshot.fingerprint_reader,
+        DiagnosticKey::FingerprintLogin => &snapshot.fingerprint_login,
         DiagnosticKey::Gpu => &snapshot.gpu,
         DiagnosticKey::PlatformProfile => &snapshot.platform_profile,
         DiagnosticKey::Clipboard => &snapshot.clipboard_extension,
@@ -39,7 +41,7 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
     }
 }
 
-fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 14] {
+fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 16] {
     [
         &snapshot.packages,
         &snapshot.akmods,
@@ -49,6 +51,8 @@ fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 14] {
         &snapshot.boot,
         &snapshot.speakers,
         &snapshot.sound_app,
+        &snapshot.fingerprint_reader,
+        &snapshot.fingerprint_login,
         &snapshot.gpu,
         &snapshot.platform_profile,
         &snapshot.clipboard_extension,
@@ -190,6 +194,30 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![ActionKey::InstallSoundApp]
             }
         }
+        DiagnosticKey::FingerprintReader => {
+            if item.code == "fingerprint-reader-ready" {
+                vec![ActionKey::OpenFingerprintSettings]
+            } else {
+                vec![ActionKey::RepairFingerprintStack]
+            }
+        }
+        DiagnosticKey::FingerprintLogin => match item.code {
+            "fingerprint-login-ready" => vec![ActionKey::OpenFingerprintSettings],
+            "fingerprint-auth-disabled" => vec![
+                ActionKey::EnableFingerprintAuth,
+                ActionKey::OpenFingerprintSettings,
+            ],
+            "fingerprint-enrollment-missing"
+            | "fingerprint-auth-and-enrollment-missing" => vec![
+                ActionKey::OpenFingerprintSettings,
+                ActionKey::EnableFingerprintAuth,
+            ],
+            _ => vec![
+                ActionKey::RepairFingerprintStack,
+                ActionKey::EnableFingerprintAuth,
+                ActionKey::OpenFingerprintSettings,
+            ],
+        },
         DiagnosticKey::Gpu => vec![ActionKey::RepairNvidia, ActionKey::Reboot],
         DiagnosticKey::PlatformProfile => vec![ActionKey::SetBalancedProfile],
         DiagnosticKey::Clipboard => vec![ActionKey::ApplyClipboardProfile],

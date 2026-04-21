@@ -223,11 +223,11 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
         ),
         (
             tr_mark("Módulo disponível"),
-            tr("Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte MAX98390, oferta do Galaxy Book Sound para equalizador/perfis/Atmos compatível, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."),
+            tr("Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte MAX98390, Galaxy Book Sound, leitor de digital com fprintd/authselect, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."),
         ),
         (
-            tr_mark("Próximos módulos"),
-            tr("Fingerprint e outros fluxos de integração do notebook."),
+            tr_mark("Limite atual"),
+            tr("O setup organiza diagnóstico, reparo e integração do stack. Ajuste fino do áudio continua no Galaxy Book Sound e captura diária continua no Galaxy Book Câmera."),
         ),
     ] {
         let row = adw::ActionRow::builder()
@@ -277,32 +277,34 @@ pub(crate) fn install_css() {
             padding: 4px 10px;
             font-size: 0.85rem;
             font-weight: 700;
+            border: none;
+            box-shadow: none;
+            outline: none;
         }
 
         .status-icon {
             -gtk-icon-size: 18px;
             border-radius: 9999px;
             padding: 6px;
+            border: none;
+            box-shadow: none;
+            outline: none;
         }
 
         .status-pill-good {
             background-color: alpha(@success_bg_color, 0.18);
-            border: 1px solid alpha(@success_fg_color, 0.18);
         }
 
         .status-pill-warning {
             background-color: alpha(@warning_bg_color, 0.20);
-            border: 1px solid alpha(@warning_fg_color, 0.18);
         }
 
         .status-pill-error {
             background-color: alpha(@error_bg_color, 0.18);
-            border: 1px solid alpha(@error_fg_color, 0.18);
         }
 
         .status-pill-unknown {
             background-color: alpha(@window_fg_color, 0.10);
-            border: 1px solid alpha(@window_fg_color, 0.10);
         }
 
         .status-fg-unknown,

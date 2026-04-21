@@ -16,7 +16,7 @@ impl SetupWindow {
         self.recommendation_title_row
             .set_subtitle(&tr("Atualizando diagnóstico…"));
         self.recommendation_body_row.set_subtitle(
-            &tr("Aguarde enquanto o setup verifica pacotes, driver, akmods, câmera, GPU, plataforma e integrações do desktop."),
+            &tr("Aguarde enquanto o setup verifica pacotes, driver, akmods, câmera, áudio, fingerprint, GPU, plataforma e integrações do desktop."),
         );
 
         let (sender, receiver) = mpsc::channel();
@@ -60,6 +60,9 @@ impl SetupWindow {
         self.boot_row.apply(&snapshot.boot);
         self.speakers_row.apply(&snapshot.speakers);
         self.sound_app_row.apply(&snapshot.sound_app);
+        self.fingerprint_reader_row
+            .apply(&snapshot.fingerprint_reader);
+        self.fingerprint_login_row.apply(&snapshot.fingerprint_login);
         self.gpu_row.apply(&snapshot.gpu);
         self.platform_profile_row.apply(&snapshot.platform_profile);
         self.clipboard_row.apply(&snapshot.clipboard_extension);

@@ -1,7 +1,7 @@
 use libadwaita as adw;
 use libadwaita::prelude::*;
 
-use galaxybook_setup::{tr, tr_mark};
+use galaxybook_setup::tr;
 
 use crate::actions::{ActionKey, build_action_row};
 use crate::ui::{InfoRow, StatusRow, new_action_button};
@@ -28,6 +28,9 @@ pub(super) struct DiagnosticsSections {
     pub(super) audio_group: adw::PreferencesGroup,
     pub(super) speakers_row: StatusRow,
     pub(super) sound_app_row: StatusRow,
+    pub(super) fingerprint_group: adw::PreferencesGroup,
+    pub(super) fingerprint_reader_row: StatusRow,
+    pub(super) fingerprint_login_row: StatusRow,
     pub(super) gpu_group: adw::PreferencesGroup,
     pub(super) gpu_row: StatusRow,
     pub(super) platform_profile_row: StatusRow,
@@ -49,6 +52,9 @@ pub(super) struct QuickActionsSection {
     pub(super) restore_camera_button: gtk::Button,
     pub(super) enable_browser_camera_button: gtk::Button,
     pub(super) enable_speakers_button: gtk::Button,
+    pub(super) repair_fingerprint_button: gtk::Button,
+    pub(super) enable_fingerprint_auth_button: gtk::Button,
+    pub(super) open_fingerprint_settings_button: gtk::Button,
     pub(super) repair_nvidia_button: gtk::Button,
     pub(super) balanced_profile_button: gtk::Button,
     pub(super) clipboard_profile_button: gtk::Button,
@@ -119,6 +125,15 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     audio_group.add(&speakers_row.row);
     audio_group.add(&sound_app_row.row);
 
+    let fingerprint_group = adw::PreferencesGroup::builder()
+        .title(tr("Biometria"))
+        .description(tr("Presença do leitor integrado, resposta do stack fprintd/libfprint e prontidão do login por digital."))
+        .build();
+    let fingerprint_reader_row = StatusRow::new("Leitor de digital");
+    let fingerprint_login_row = StatusRow::new("Login por digital");
+    fingerprint_group.add(&fingerprint_reader_row.row);
+    fingerprint_group.add(&fingerprint_login_row.row);
+
     let gpu_group = adw::PreferencesGroup::builder()
         .title(tr("GPU e plataforma"))
         .description(tr("Estabilidade do driver NVIDIA e perfil de uso balanceado da plataforma."))
@@ -155,6 +170,9 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
         audio_group,
         speakers_row,
         sound_app_row,
+        fingerprint_group,
+        fingerprint_reader_row,
+        fingerprint_login_row,
         gpu_group,
         gpu_row,
         platform_profile_row,
@@ -181,6 +199,12 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         new_action_button(&tr("Ativar câmera para navegador"));
     let enable_speakers_button =
         new_action_button(&tr("Ativar alto-falantes internos"));
+    let repair_fingerprint_button =
+        new_action_button(&tr("Reinstalar stack de fingerprint"));
+    let enable_fingerprint_auth_button =
+        new_action_button(&tr("Ativar login por digital"));
+    let open_fingerprint_settings_button =
+        new_action_button(&tr("Abrir cadastro de digitais"));
     let repair_nvidia_button = new_action_button(&tr("Reparar suporte NVIDIA"));
     let balanced_profile_button = new_action_button(&tr("Definir perfil balanceado"));
     let clipboard_profile_button =
@@ -228,6 +252,18 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         &enable_speakers_button,
     ));
     group.add(&build_action_row(
+        ActionKey::RepairFingerprintStack,
+        &repair_fingerprint_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::EnableFingerprintAuth,
+        &enable_fingerprint_auth_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::OpenFingerprintSettings,
+        &open_fingerprint_settings_button,
+    ));
+    group.add(&build_action_row(
         ActionKey::RepairNvidia,
         &repair_nvidia_button,
     ));
@@ -266,6 +302,9 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         restore_camera_button,
         enable_browser_camera_button,
         enable_speakers_button,
+        repair_fingerprint_button,
+        enable_fingerprint_auth_button,
+        open_fingerprint_settings_button,
         repair_nvidia_button,
         balanced_profile_button,
         clipboard_profile_button,
@@ -276,27 +315,4 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         open_camera_button,
         open_sound_button,
     }
-}
-
-pub(super) fn build_future_group() -> adw::PreferencesGroup {
-    let group = adw::PreferencesGroup::builder()
-        .title(tr("Módulos futuros"))
-        .description(tr("Estrutura reservada para outros fluxos do Galaxy Book no Fedora."))
-        .build();
-    for (title, subtitle) in [
-        (
-            tr_mark("Fingerprint"),
-            tr_mark("Planejado para uma etapa futura."),
-        ),
-        (tr_mark("Sistema"), tr_mark("Planejado para uma etapa futura.")),
-    ] {
-        let row = adw::ActionRow::builder()
-            .title(tr(title))
-            .subtitle(tr(subtitle))
-            .build();
-        row.set_activatable(false);
-        group.add(&row);
-    }
-
-    group
 }

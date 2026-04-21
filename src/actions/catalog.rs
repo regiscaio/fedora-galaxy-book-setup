@@ -11,6 +11,9 @@ pub(crate) enum ActionKey {
     RestoreIntelIpu6,
     EnableBrowserCamera,
     EnableSpeakers,
+    RepairFingerprintStack,
+    EnableFingerprintAuth,
+    OpenFingerprintSettings,
     RepairNvidia,
     SetBalancedProfile,
     ApplyClipboardProfile,
@@ -82,6 +85,24 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
             title: tr_mark("Ativar alto-falantes internos"),
             subtitle: tr_mark(
                 "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
+            ),
+        },
+        ActionKey::RepairFingerprintStack => ActionMetadata {
+            title: tr_mark("Reinstalar stack de fingerprint"),
+            subtitle: tr_mark(
+                "Reinstala fprintd e libfprint e reinicia o daemon para recuperar o leitor quando o sensor aparece, mas o cadastro ou a autenticação falham.",
+            ),
+        },
+        ActionKey::EnableFingerprintAuth => ActionMetadata {
+            title: tr_mark("Ativar login por digital"),
+            subtitle: tr_mark(
+                "Habilita with-fingerprint no authselect, aplica as mudanças do perfil PAM atual e devolve o estado final do authselect.",
+            ),
+        },
+        ActionKey::OpenFingerprintSettings => ActionMetadata {
+            title: tr_mark("Abrir cadastro de digitais"),
+            subtitle: tr_mark(
+                "Abre as configurações de usuários do GNOME para cadastrar, revisar ou refazer as digitais do usuário atual.",
             ),
         },
         ActionKey::RepairNvidia => ActionMetadata {
