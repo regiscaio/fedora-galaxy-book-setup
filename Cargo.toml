@@ -3,6 +3,7 @@ name = "galaxybook-setup"
 version = "1.0.0"
 edition = "2024"
 license = "GPL-2.0-only"
+build = "build.rs"
 
 [dependencies]
 gettextrs = { package = "gettext-rs", version = "0.7", features = ["gettext-system"] }

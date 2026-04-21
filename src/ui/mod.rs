@@ -162,7 +162,7 @@ pub(crate) fn build_about_summary_row(
     version_label.set_markup(&format!(
         "<span alpha='55%' size='small'>{}</span>",
         glib::markup_escape_text(
-            &trf("Versão {version}", &[("version", env!("CARGO_PKG_VERSION").to_string())]),
+            &trf("Versão {version}", &[("version", env!("APP_VERSION").to_string())]),
         )
     ));
     version_label.set_xalign(0.0);
@@ -199,7 +199,7 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
 
     for (title, subtitle) in [
         (tr_mark("Nome"), APP_NAME.to_string()),
-        (tr_mark("Versão"), env!("CARGO_PKG_VERSION").to_string()),
+        (tr_mark("Versão"), env!("APP_VERSION").to_string()),
         (tr_mark("App ID"), APP_ID.to_string()),
         (tr_mark("Desktop ID"), format!("{APP_ID}.desktop")),
     ] {

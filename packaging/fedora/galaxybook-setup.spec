@@ -1,8 +1,9 @@
 %global app_id com.caioregis.GalaxyBookSetup
+%global pkg_version %{?pkg_version_override}%{!?pkg_version_override:1.0.0}
 
 Name:           galaxybook-setup
-Version:        1.0.0
-Release:        6%{?dist}
+Version:        %{pkg_version}
+Release:        1%{?dist}
 Summary:        Installation and diagnostics assistant for Galaxy Book on Fedora
 
 License:        GPL-2.0-only
@@ -34,7 +35,7 @@ support, starting with the internal camera stack.
 %autosetup -n %{name}-%{version}
 
 %build
-cargo --offline build --release --locked --bin galaxybook-setup
+APP_VERSION_OVERRIDE=%{version} cargo --offline build --release --locked --bin galaxybook-setup
 
 %install
 install -Dm755 target/release/galaxybook-setup %{buildroot}%{_bindir}/galaxybook-setup
@@ -53,7 +54,7 @@ install -Dm644 data/%{app_id}.metainfo.xml %{buildroot}%{_datadir}/metainfo/%{ap
 
 %check
 desktop-file-validate %{app_id}.desktop
-cargo --offline test --locked --lib --bin galaxybook-setup
+APP_VERSION_OVERRIDE=%{version} cargo --offline test --locked --lib --bin galaxybook-setup
 
 %files
 %license LICENSE
