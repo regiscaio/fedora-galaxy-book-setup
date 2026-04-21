@@ -20,37 +20,36 @@ sudo dnf config-manager addrepo --from-repofile=https://packages.caioregis.com/f
 sudo dnf install galaxybook-setup
 ```
 
-Once the repository is configured, the app can already install the main support
-set through the `Install core support` quick action, pulling in the camera app,
-the `OV02C10` driver, and `MAX98390` speaker support. It can also offer the
-installation of `Galaxy Book Sound`, which is responsible for the equalizer,
-profiles, and compatible Atmos mode.
+Once the repository is configured, the app itself can already install the
+notebook's main support set through the `Install core support` quick action,
+pulling in the camera app, the `OV02C10` driver, and `MAX98390` speaker
+support. It can also offer the installation of `Galaxy Book Sound`, which
+handles the equalizer, profiles, and compatible Atmos mode.
 
-`Galaxy Book Setup` is an installation and diagnostics assistant for Samsung
-Galaxy Book laptops on Fedora. Its goal is to organize flows that would
-otherwise be spread across terminal commands, logs, RPM packages, and manual
-validation steps.
+`Galaxy Book Setup` is an installation and diagnostics helper for Samsung
+Galaxy Book laptops on Fedora. The goal of the app is to organize setup flows
+that would otherwise end up scattered across terminal commands, logs, RPM
+packages, and manual validation steps.
 
-The current focus is the **internal camera** of the Galaxy Book4 Ultra, but the
-project already tracks the **internal speakers through MAX98390**, as well as
-GPU, platform profile, and general desktop integration. Fingerprint support
-remains planned, but is not shipped by the current version.
+The initial focus is the **internal camera** of the Galaxy Book4 Ultra, but
+the project already covers the **internal speakers with MAX98390**, as well as
+GPU, fingerprint, platform profile, and broader system integrations.
 
 ## Scope
 
 This app does not replace:
 
 - the kernel driver;
-- the final daily-use camera app;
+- the final camera app;
 - low-level tools such as `akmods`, `modinfo`, or `journalctl`.
 
 Its role is to work as an **installation and validation assistant**, showing
 the current state of the machine and organizing the next steps.
 
-For audio, that means a clear split of responsibilities: `Galaxy Book Setup`
+For audio, that means a clean split of responsibilities: `Galaxy Book Setup`
 validates the internal-speaker path, organizes installation, and opens
-`Galaxy Book Sound`, while equalization, profiles, and `compatible Atmos` live
-in the sound app itself.
+`Galaxy Book Sound`, while equalization, profiles, and `compatible Atmos` stay
+in the sound app.
 
 ## Relationship with the other repositories
 
@@ -63,7 +62,7 @@ This project works together with:
 
 Responsibilities:
 
-- `fedora-galaxy-book-ov02c10`: packaged `ov02c10` kernel module for Fedora;
+- `fedora-galaxy-book-ov02c10`: packaged `ov02c10` module for Fedora;
 - `fedora-galaxy-book-max98390`: packaged internal speaker support through MAX98390;
 - `fedora-galaxy-book-camera`: daily-use camera app;
 - `fedora-galaxy-book-sound`: equalizer, profiles, and compatible Atmos app with its own PipeWire backend;
@@ -71,50 +70,77 @@ Responsibilities:
 
 ## Current capabilities
 
-The current app already organizes the interface into clear areas:
+The current app already organizes the interface into well-defined areas:
 
 - `System`: notebook, Fedora, kernel, and Secure Boot summary;
-- `Diagnostics`: global checklist for camera, browser bridge, audio, `Galaxy Book Sound`, GPU, and desktop integrations, including the GNOME dock profile used on this notebook;
-- `Quick actions`: driver install, repair, priority override, browser camera enablement, speaker enablement, `Galaxy Book Sound` install and launch, NVIDIA flow, balanced profile, dock profile reapply, reboot, and camera or sound app launch;
-- `Future modules`: reserved space for fingerprint and other flows.
+- `Diagnostics`: global checklist showing the state of the camera, browser
+  bridge, audio, `Galaxy Book Sound`, fingerprint reader, GPU, and desktop
+  integrations, including the GNOME dock used on this notebook;
+- `Quick actions`: install, repair, and driver priority adjustments; browser
+  webcam enablement; internal-speaker enablement; `Galaxy Book Sound`
+  installation and launch; fingerprint stack repair; fingerprint-login
+  enablement; opening fingerprint enrollment; NVIDIA flow; balanced profile;
+  dock profile reapply; reboot; and camera-app launch.
 
-Inside `Diagnostics`, each row also opens a **suggested actions** subpage. That
-lets the user jump to the most relevant fixes and validations for the selected
-item without losing the full quick-actions page.
+Inside `Diagnostics`, each row opens a **suggested actions** subsection. That
+allows the user to open the most relevant fixes and validations for the
+selected item without losing the main `Quick actions` page.
 
-The app also exposes a desktop notification summary for warnings and errors. In
-docks and extensions that support launcher counters, the app icon can show the
-total number of diagnostics currently marked as warning or error.
+The app also exposes a summary of warnings and errors through desktop
+notifications. In docks and extensions that support launcher counters, the app
+icon can show the total number of diagnostics currently marked as `Warning` or
+`Error`.
 
 The checklist currently covers:
 
 - main camera packages;
 - driver generation on boot via `akmods`;
 - origin of the active `ov02c10` module;
-- direct `libcamera` detection used by `Galaxy Book Camera`;
+- camera detection through the direct `libcamera` path used by `Galaxy Book
+  Camera`;
 - V4L2 bridge for browsers and communication apps;
 - known boot errors;
-- MAX98390 speaker path, including the case where the package is installed but
-  the current kernel still does not expose `snd-hda-scodec-max98390` through `modinfo`;
+- MAX98390 internal-speaker path, including the case where the package is
+  installed but the current kernel still does not expose
+  `snd-hda-scodec-max98390` via `modinfo`;
 - presence of `Galaxy Book Sound`;
-- NVIDIA driver state and the fact that `nvidia-smi` is optional;
-- platform profile state, with `balanced` as the recommended default;
-- Dash to Dock state, including validation of the dock profile used on this
+- presence of the integrated fingerprint reader;
+- fingerprint-login readiness through `fprintd` and `authselect`;
+- NVIDIA driver state and the note that `nvidia-smi` is optional;
+- platform usage profile, with `balanced` highlighted as the recommended
+  default;
+- `Dash to Dock` state, including validation of the dock profile used on this
   notebook;
 - GNOME extensions such as clipboard history, GSConnect, and desktop icons.
 
 Quick actions do not just copy commands: they execute the main flows directly
-from the UI, requesting administrative privilege when needed.
+through the interface, requesting administrative privilege when needed.
 
-Current quick actions include:
+Today, the available actions include:
 
 - installing the notebook's main support directly from setup, bringing in the
   camera app, the `OV02C10` driver, and `MAX98390` speaker support;
-- installing the `Galaxy Book Sound` app to apply equalization and compatible
-  Atmos mode in the current session through PipeWire;
-- reapplying the notebook's Dash to Dock profile, re-enabling the extension
-  and restoring the expected auto-hiding bottom dock behavior when the desktop
-  configuration drifts;
+- installing the camera's main stack;
+- rebuilding the driver with `akmods`;
+- enabling `ov02c10` loading on boot and loading the module immediately;
+- forcing priority for the fixed driver under `updates/`, with Secure Boot
+  signing when needed and without incompatible compression;
+- restoring the packaged Intel IPU6 stack when the direct `Galaxy Book
+  Camera` path stops seeing the sensor;
+- enabling browser camera support through `icamerasrc`, `v4l2-relayd`, and
+  `v4l2loopback`;
+- enabling internal-speaker support through `MAX98390`, with module rebuild,
+  manual installation fallback on the current kernel, and I2C service at boot;
+- installing `Galaxy Book Sound` to apply equalization and compatible Atmos in
+  the current session through PipeWire;
+- reinstalling the fingerprint stack with `fprintd` and `libfprint`;
+- enabling `with-fingerprint` in `authselect`;
+- opening fingerprint enrollment directly in the user settings;
+- installing or repairing NVIDIA support;
+- applying the `balanced` platform profile;
+- reapplying the GNOME dock profile used on this notebook, re-enabling `Dash
+  to Dock` and restoring the expected auto-hiding bottom-dock behavior;
+- rebooting the system;
 - opening `Galaxy Book Camera`;
 - opening `Galaxy Book Sound`.
 
@@ -122,19 +148,19 @@ Current quick actions include:
 
 ### Via the public DNF repository
 
-The recommended end-user path is:
+The recommended path for end users is:
 
 ```bash
 sudo dnf config-manager addrepo --from-repofile=https://packages.caioregis.com/fedora/caioregis.repo
 sudo dnf install galaxybook-setup
 ```
 
-Then, inside the app itself:
+After that, inside the app itself:
 
 1. open `Quick actions`;
 2. run `Install core support`;
-3. use specific actions if camera, audio, NVIDIA, or the dock still need extra
-   work.
+3. use the specific actions if camera, audio, NVIDIA, or the dock still need
+   adjustment.
 
 ### Via local RPMs
 
@@ -185,20 +211,26 @@ Relevant files:
 - launcher: [`data/com.caioregis.GalaxyBookSetup.desktop`](data/com.caioregis.GalaxyBookSetup.desktop)
 - AppStream metadata: [`data/com.caioregis.GalaxyBookSetup.metainfo.xml`](data/com.caioregis.GalaxyBookSetup.metainfo.xml)
 
-The RPM uses `Recommends` for the most important packages in the workflow:
+The RPM uses `Recommends` to point to the most important packages in the
+workflow:
 
 - `akmod-galaxybook-ov02c10`
 - `akmod-galaxybook-max98390`
 - `galaxybook-camera`
 
+That allows the app to be installed even before the full camera setup, which
+is desirable for an installation helper.
+
 ## Roadmap
 
-Planned modules for future iterations:
+Planned next evolutions:
 
-- fingerprint;
 - broader Galaxy Book compatibility checks on Fedora;
-- more guided flows for GNOME desktop integrations and notebook peripherals.
+- more assisted flows for GNOME desktop integrations and notebook peripherals;
+- deeper fingerprint checks focused on post-suspend validation and busy-sensor
+  scenarios.
 
 ## License
 
-This project is distributed under **GPL-3.0-only**. See [LICENSE](LICENSE).
+This project is distributed under **GPL-3.0-only**. See the [LICENSE](LICENSE)
+file.
