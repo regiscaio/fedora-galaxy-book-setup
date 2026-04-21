@@ -12,6 +12,10 @@ pub(crate) enum ActionKey {
     EnableSpeakers,
     RepairNvidia,
     SetBalancedProfile,
+    ApplyClipboardProfile,
+    ApplyGsconnectProfile,
+    ApplyDesktopIconsProfile,
+    ApplyDockProfile,
     Reboot,
     OpenCamera,
 }
@@ -82,6 +86,30 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
             title: tr_mark("Definir perfil balanceado"),
             subtitle: tr_mark(
                 "Aplica o perfil balanced da plataforma para uso geral, equilibrando ventoinha, temperatura e desempenho.",
+            ),
+        },
+        ActionKey::ApplyClipboardProfile => ActionMetadata {
+            title: tr_mark("Ativar histórico da área de transferência"),
+            subtitle: tr_mark(
+                "Instala e habilita a extensão de clipboard usada como perfil recomendado neste notebook.",
+            ),
+        },
+        ActionKey::ApplyGsconnectProfile => ActionMetadata {
+            title: tr_mark("Ativar GSConnect"),
+            subtitle: tr_mark(
+                "Instala o GSConnect, habilita a extensão e reaplica o perfil usado neste notebook para integração com o celular.",
+            ),
+        },
+        ActionKey::ApplyDesktopIconsProfile => ActionMetadata {
+            title: tr_mark("Ativar ícones na área de trabalho"),
+            subtitle: tr_mark(
+                "Instala o Desktop Icons NG, habilita a extensão e reaplica o perfil usado neste notebook.",
+            ),
+        },
+        ActionKey::ApplyDockProfile => ActionMetadata {
+            title: tr_mark("Aplicar perfil da dock"),
+            subtitle: tr_mark(
+                "Ativa o Dash to Dock e reaplica a dock inferior auto-ocultável, com clique ciclando janelas, prévia, lixeira e unidades montadas visíveis.",
             ),
         },
         ActionKey::Reboot => ActionMetadata {

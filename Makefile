@@ -4,7 +4,10 @@ APP_ID := com.caioregis.GalaxyBookSetup
 BIN := galaxybook-setup
 PACKAGE_NAME := galaxybook-setup
 VERSION_SCRIPT := ./scripts/package-version.sh
+SOURCE_DATE_EPOCH_SCRIPT := ./scripts/source-date-epoch.sh
 VERSION := $(shell $(VERSION_SCRIPT))
+SOURCE_DATE_EPOCH := $(shell $(SOURCE_DATE_EPOCH_SCRIPT))
+export SOURCE_DATE_EPOCH
 IMAGE_NAME := localhost/galaxybook-setup-builder:fedora44
 CACHE_ROOT ?= $(HOME)/.cache/galaxybook-setup
 CARGO_REGISTRY_CACHE := $(CACHE_ROOT)/cargo-registry
@@ -12,6 +15,7 @@ CARGO_GIT_CACHE := $(CACHE_ROOT)/cargo-git
 DIST_DIR := dist
 RPM_SPEC := packaging/fedora/$(PACKAGE_NAME).spec
 RPM_VERSION_DEFINE := --define "pkg_version_override $(VERSION)"
+TAR_REPRO_FLAGS := --sort=name --mtime="@$(SOURCE_DATE_EPOCH)" --owner=0 --group=0 --numeric-owner
 PO_LANGS := en es it
 POT_FILE := po/$(PACKAGE_NAME).pot
 I18N_SOURCES := $(shell find src -name '*.rs' -print | sort)
@@ -49,6 +53,7 @@ build:
 			-w /workspace \
 			-e CARGO_HOME=/cargo \
 			-e APP_VERSION_OVERRIDE="$(VERSION)" \
+			-e SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
 			"$(IMAGE_NAME)" \
 			/bin/bash --noprofile --norc -lc 'cargo build --manifest-path /workspace/Cargo.toml --release --bin $(BIN)'; \
 	fi
@@ -70,6 +75,7 @@ test:
 			-e CARGO_HOME=/cargo \
 			-e CARGO_TARGET_DIR=/tmp/galaxybook-target \
 			-e APP_VERSION_OVERRIDE="$(VERSION)" \
+			-e SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
 			"$(IMAGE_NAME)" \
 			/bin/bash --noprofile --norc -lc 'cargo test --manifest-path /workspace/Cargo.toml --lib --bin $(BIN)'; \
 	fi
@@ -100,6 +106,7 @@ dist: vendor
 		--exclude='./.git' \
 		--exclude='./target' \
 		--exclude='./dist' \
+		$(TAR_REPRO_FLAGS) \
 		--transform='s,^\./,$(PACKAGE_NAME)-$(VERSION)/,' \
 		-czf $(DIST_DIR)/$(PACKAGE_NAME)-$(VERSION).tar.gz \
 		.
@@ -109,12 +116,13 @@ srpm: dist
 	mkdir -p "$(DIST_DIR)" "$(CARGO_REGISTRY_CACHE)" "$(CARGO_GIT_CACHE)"; \
 		podman build -t "$(IMAGE_NAME)" -f Containerfile .; \
 		podman run --rm \
-			--userns=keep-id \
-			--user "$$(id -u):$$(id -g)" \
-			-v "$$(pwd):/workspace:Z" \
-			-w /workspace \
-			"$(IMAGE_NAME)" \
-			/bin/bash --noprofile --norc -lc '\
+		--userns=keep-id \
+		--user "$$(id -u):$$(id -g)" \
+		-v "$$(pwd):/workspace:Z" \
+		-w /workspace \
+		-e SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		"$(IMAGE_NAME)" \
+		/bin/bash --noprofile --norc -lc '\
 				set -euo pipefail; \
 				TOPDIR=/tmp/rpmbuild; \
 				mkdir -p "$$TOPDIR"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}; \
@@ -129,12 +137,13 @@ rpm: dist
 	mkdir -p "$(DIST_DIR)" "$(CARGO_REGISTRY_CACHE)" "$(CARGO_GIT_CACHE)"; \
 		podman build -t "$(IMAGE_NAME)" -f Containerfile .; \
 		podman run --rm \
-			--userns=keep-id \
-			--user "$$(id -u):$$(id -g)" \
-			-v "$$(pwd):/workspace:Z" \
-			-w /workspace \
-			"$(IMAGE_NAME)" \
-			/bin/bash --noprofile --norc -lc '\
+		--userns=keep-id \
+		--user "$$(id -u):$$(id -g)" \
+		-v "$$(pwd):/workspace:Z" \
+		-w /workspace \
+		-e SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		"$(IMAGE_NAME)" \
+		/bin/bash --noprofile --norc -lc '\
 				set -euo pipefail; \
 				TOPDIR=/tmp/rpmbuild; \
 				mkdir -p "$$TOPDIR"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}; \

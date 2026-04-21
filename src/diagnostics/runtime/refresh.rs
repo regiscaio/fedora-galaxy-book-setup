@@ -65,6 +65,7 @@ impl SetupWindow {
         self.gsconnect_row.apply(&snapshot.gsconnect_extension);
         self.desktop_icons_row
             .apply(&snapshot.desktop_icons_extension);
+        self.dock_row.apply(&snapshot.dock_extension);
 
         self.recommendation_title_row
             .set_subtitle(&tr(&snapshot.recommendation_title));

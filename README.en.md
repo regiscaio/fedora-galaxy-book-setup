@@ -21,7 +21,7 @@ sudo dnf install galaxybook-setup
 ```
 
 Once the repository is configured, the app can already install the main support
-set through the `Install main support` quick action, pulling in the camera app,
+set through the `Install core support` quick action, pulling in the camera app,
 the `OV02C10` driver, and `MAX98390` speaker support.
 
 `Galaxy Book Setup` is an installation and diagnostics assistant for Samsung
@@ -65,8 +65,8 @@ Responsibilities:
 The current app already organizes the interface into clear areas:
 
 - `System`: notebook, Fedora, kernel, and Secure Boot summary;
-- `Diagnostics`: global checklist for camera, browser bridge, audio, GPU, and desktop integrations;
-- `Quick actions`: driver install, repair, priority override, browser camera enablement, speaker enablement, NVIDIA flow, balanced profile, reboot, and camera app launch;
+- `Diagnostics`: global checklist for camera, browser bridge, audio, GPU, and desktop integrations, including the GNOME dock profile used on this notebook;
+- `Quick actions`: driver install, repair, priority override, browser camera enablement, speaker enablement, NVIDIA flow, balanced profile, dock profile reapply, reboot, and camera app launch;
 - `Future modules`: reserved space for fingerprint and other flows.
 
 Inside `Diagnostics`, each row also opens a **suggested actions** subpage. That
@@ -89,10 +89,16 @@ The checklist currently covers:
   the current kernel still does not expose `snd-hda-scodec-max98390` through `modinfo`;
 - NVIDIA driver state and the fact that `nvidia-smi` is optional;
 - platform profile state, with `balanced` as the recommended default;
+- Dash to Dock state, including validation of the dock profile used on this
+  notebook;
 - GNOME extensions such as clipboard history, GSConnect, and desktop icons.
 
 Quick actions do not just copy commands: they execute the main flows directly
 from the UI, requesting administrative privilege when needed.
+
+Current quick actions include reapplying the notebook's Dash to Dock profile,
+re-enabling the extension and restoring the expected auto-hiding bottom dock
+behavior when the desktop configuration drifts.
 
 ## User installation
 
@@ -108,8 +114,9 @@ sudo dnf install galaxybook-setup
 Then, inside the app itself:
 
 1. open `Quick actions`;
-2. run `Install main support`;
-3. use specific actions if camera, audio, or NVIDIA still need extra work.
+2. run `Install core support`;
+3. use specific actions if camera, audio, NVIDIA, or the dock still need extra
+   work.
 
 ### Via local RPMs
 
@@ -176,4 +183,4 @@ Planned modules for future iterations:
 
 ## License
 
-This project is distributed under **GPL-2.0-only**. See [LICENSE](LICENSE).
+This project is distributed under **GPL-3.0-only**. See [LICENSE](LICENSE).

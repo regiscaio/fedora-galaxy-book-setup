@@ -1,3 +1,5 @@
 mod commands;
 
-pub(crate) use self::commands::execute_privileged_shell_command;
+pub(crate) use self::commands::{
+    execute_privileged_shell_command, execute_user_shell_command,
+};

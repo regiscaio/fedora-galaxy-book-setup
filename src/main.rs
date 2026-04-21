@@ -54,7 +54,7 @@ mod tests {
         }
     }
 
-    fn snapshot_with_healths(healths: [Health; 12]) -> SetupSnapshot {
+    fn snapshot_with_healths(healths: [Health; 13]) -> SetupSnapshot {
         SetupSnapshot {
             system: SystemSummary {
                 notebook: String::new(),
@@ -74,6 +74,7 @@ mod tests {
             clipboard_extension: item("Histórico da área de transferência", healths[9]),
             gsconnect_extension: item("GSConnect", healths[10]),
             desktop_icons_extension: item("Ícones na área de trabalho", healths[11]),
+            dock_extension: item("Dock do GNOME", healths[12]),
             recommendation_title: String::new(),
             recommendation_body: String::new(),
             install_main_support_command: String::new(),
@@ -86,6 +87,10 @@ mod tests {
             enable_speaker_command: String::new(),
             repair_nvidia_command: String::new(),
             set_balanced_profile_command: String::new(),
+            apply_clipboard_profile_command: String::new(),
+            apply_gsconnect_profile_command: String::new(),
+            apply_desktop_icons_profile_command: String::new(),
+            apply_dock_profile_command: String::new(),
             reboot_command: String::new(),
             camera_app_installed: false,
         }
@@ -105,6 +110,7 @@ mod tests {
             Health::Good,
             Health::Good,
             Health::Warning,
+            Health::Good,
             Health::Good,
         ]);
 
@@ -143,11 +149,39 @@ mod tests {
             Health::Good,
             Health::Good,
             Health::Good,
+            Health::Good,
         ]);
 
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Packages),
             vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera]
+        );
+    }
+
+    #[test]
+    fn clipboard_suggests_clipboard_profile() {
+        let snapshot = snapshot_with_healths([Health::Good; 13]);
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Clipboard),
+            vec![ActionKey::ApplyClipboardProfile]
+        );
+    }
+
+    #[test]
+    fn gsconnect_suggests_gsconnect_profile() {
+        let snapshot = snapshot_with_healths([Health::Good; 13]);
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Gsconnect),
+            vec![ActionKey::ApplyGsconnectProfile]
+        );
+    }
+
+    #[test]
+    fn desktop_icons_suggests_desktop_icons_profile() {
+        let snapshot = snapshot_with_healths([Health::Good; 13]);
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::DesktopIcons),
+            vec![ActionKey::ApplyDesktopIconsProfile]
         );
     }
 }

@@ -29,6 +29,7 @@ pub(crate) enum DiagnosticKey {
     Clipboard,
     Gsconnect,
     DesktopIcons,
+    Dock,
 }
 
 #[derive(Clone)]
@@ -56,6 +57,7 @@ pub(crate) struct SetupWindow {
     pub(crate) clipboard_row: StatusRow,
     pub(crate) gsconnect_row: StatusRow,
     pub(crate) desktop_icons_row: StatusRow,
+    pub(crate) dock_row: StatusRow,
     pub(crate) suggested_title_row: InfoRow,
     pub(crate) suggested_status_row: InfoRow,
     pub(crate) suggested_detail_row: InfoRow,
@@ -71,6 +73,10 @@ pub(crate) struct SetupWindow {
     pub(crate) enable_speakers_button: gtk::Button,
     pub(crate) repair_nvidia_button: gtk::Button,
     pub(crate) balanced_profile_button: gtk::Button,
+    pub(crate) clipboard_profile_button: gtk::Button,
+    pub(crate) gsconnect_profile_button: gtk::Button,
+    pub(crate) desktop_icons_profile_button: gtk::Button,
+    pub(crate) dock_profile_button: gtk::Button,
     pub(crate) reboot_button: gtk::Button,
     pub(crate) open_camera_button: gtk::Button,
     pub(crate) snapshot: Rc<RefCell<Option<SetupSnapshot>>>,
@@ -116,6 +122,7 @@ impl SetupWindow {
             &self.desktop_icons_row,
             DiagnosticKey::DesktopIcons,
         );
+        self.connect_diagnostic_row(&self.dock_row, DiagnosticKey::Dock);
     }
 
     fn connect_diagnostic_row(&self, row: &StatusRow, key: DiagnosticKey) {

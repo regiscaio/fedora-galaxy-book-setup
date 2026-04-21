@@ -34,6 +34,7 @@ pub(super) struct DiagnosticsSections {
     pub(super) clipboard_row: StatusRow,
     pub(super) gsconnect_row: StatusRow,
     pub(super) desktop_icons_row: StatusRow,
+    pub(super) dock_row: StatusRow,
 }
 
 pub(super) struct QuickActionsSection {
@@ -48,6 +49,10 @@ pub(super) struct QuickActionsSection {
     pub(super) enable_speakers_button: gtk::Button,
     pub(super) repair_nvidia_button: gtk::Button,
     pub(super) balanced_profile_button: gtk::Button,
+    pub(super) clipboard_profile_button: gtk::Button,
+    pub(super) gsconnect_profile_button: gtk::Button,
+    pub(super) desktop_icons_profile_button: gtk::Button,
+    pub(super) dock_profile_button: gtk::Button,
     pub(super) reboot_button: gtk::Button,
     pub(super) open_camera_button: gtk::Button,
 }
@@ -120,14 +125,16 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
 
     let integrations_group = adw::PreferencesGroup::builder()
         .title(tr("Integrações do desktop"))
-        .description(tr("Checklist geral de extensões e integrações que o setup pode acompanhar."))
+        .description(tr("Checklist geral de extensões e integrações do desktop, incluindo a dock usada neste notebook."))
         .build();
     let clipboard_row = StatusRow::new("Histórico da área de transferência");
     let gsconnect_row = StatusRow::new("GSConnect");
     let desktop_icons_row = StatusRow::new("Ícones na área de trabalho");
+    let dock_row = StatusRow::new("Dock do GNOME");
     integrations_group.add(&clipboard_row.row);
     integrations_group.add(&gsconnect_row.row);
     integrations_group.add(&desktop_icons_row.row);
+    integrations_group.add(&dock_row.row);
 
     DiagnosticsSections {
         diagnostics_group,
@@ -149,6 +156,7 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
         clipboard_row,
         gsconnect_row,
         desktop_icons_row,
+        dock_row,
     }
 }
 
@@ -168,6 +176,12 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         new_action_button(&tr("Ativar alto-falantes internos"));
     let repair_nvidia_button = new_action_button(&tr("Reparar suporte NVIDIA"));
     let balanced_profile_button = new_action_button(&tr("Definir perfil balanceado"));
+    let clipboard_profile_button =
+        new_action_button(&tr("Ativar histórico da área de transferência"));
+    let gsconnect_profile_button = new_action_button(&tr("Ativar GSConnect"));
+    let desktop_icons_profile_button =
+        new_action_button(&tr("Ativar ícones na área de trabalho"));
+    let dock_profile_button = new_action_button(&tr("Aplicar perfil da dock"));
     let reboot_button = new_action_button(&tr("Reiniciar o sistema"));
     let open_camera_button = new_action_button(&tr("Abrir Galaxy Book Câmera"));
 
@@ -209,6 +223,22 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         ActionKey::SetBalancedProfile,
         &balanced_profile_button,
     ));
+    group.add(&build_action_row(
+        ActionKey::ApplyClipboardProfile,
+        &clipboard_profile_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::ApplyGsconnectProfile,
+        &gsconnect_profile_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::ApplyDesktopIconsProfile,
+        &desktop_icons_profile_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::ApplyDockProfile,
+        &dock_profile_button,
+    ));
     group.add(&build_action_row(ActionKey::Reboot, &reboot_button));
     group.add(&build_action_row(ActionKey::OpenCamera, &open_camera_button));
 
@@ -224,6 +254,10 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         enable_speakers_button,
         repair_nvidia_button,
         balanced_profile_button,
+        clipboard_profile_button,
+        gsconnect_profile_button,
+        desktop_icons_profile_button,
+        dock_profile_button,
         reboot_button,
         open_camera_button,
     }

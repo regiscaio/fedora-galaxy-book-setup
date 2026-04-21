@@ -7,6 +7,26 @@ pub(crate) struct PrivilegedCommandResult {
     pub(crate) success: bool,
 }
 
+fn collect_command_output(output: std::process::Output) -> PrivilegedCommandResult {
+    let mut combined = String::new();
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if !stdout.is_empty() {
+        combined.push_str(&stdout);
+    }
+    if !stderr.is_empty() {
+        if !combined.is_empty() {
+            combined.push_str("\n\n");
+        }
+        combined.push_str(&stderr);
+    }
+
+    PrivilegedCommandResult {
+        output: combined,
+        success: output.status.success(),
+    }
+}
+
 pub(crate) fn execute_privileged_shell_command(
     command: &str,
 ) -> Result<PrivilegedCommandResult, String> {
@@ -24,21 +44,22 @@ pub(crate) fn execute_privileged_shell_command(
             )
         })?;
 
-    let mut combined = String::new();
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-    if !stdout.is_empty() {
-        combined.push_str(&stdout);
-    }
-    if !stderr.is_empty() {
-        if !combined.is_empty() {
-            combined.push_str("\n\n");
-        }
-        combined.push_str(&stderr);
-    }
+    Ok(collect_command_output(output))
+}
 
-    Ok(PrivilegedCommandResult {
-        output: combined,
-        success: output.status.success(),
-    })
+pub(crate) fn execute_user_shell_command(
+    command: &str,
+) -> Result<PrivilegedCommandResult, String> {
+    let output = Command::new("/usr/bin/bash")
+        .arg("-lc")
+        .arg(command)
+        .output()
+        .map_err(|error| {
+            trf(
+                "Falha ao iniciar a ação local: {error}",
+                &[("error", error.to_string())],
+            )
+        })?;
+
+    Ok(collect_command_output(output))
 }

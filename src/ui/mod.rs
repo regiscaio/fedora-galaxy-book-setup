@@ -277,22 +277,46 @@ pub(crate) fn install_css() {
 
         .status-pill-good {
             background-color: alpha(@success_bg_color, 0.18);
+        }
+
+        .status-pill-good,
+        .status-pill-good label,
+        .status-pill-good image {
             color: @success_fg_color;
+            -gtk-icon-palette: success @success_fg_color, warning @success_fg_color, error @success_fg_color;
         }
 
         .status-pill-warning {
             background-color: alpha(@warning_bg_color, 0.20);
+        }
+
+        .status-pill-warning,
+        .status-pill-warning label,
+        .status-pill-warning image {
             color: @warning_fg_color;
+            -gtk-icon-palette: success @warning_fg_color, warning @warning_fg_color, error @warning_fg_color;
         }
 
         .status-pill-error {
             background-color: alpha(@error_bg_color, 0.18);
+        }
+
+        .status-pill-error,
+        .status-pill-error label,
+        .status-pill-error image {
             color: @error_fg_color;
+            -gtk-icon-palette: success @error_fg_color, warning @error_fg_color, error @error_fg_color;
         }
 
         .status-pill-unknown {
-            background-color: alpha(currentColor, 0.10);
-            color: alpha(currentColor, 0.85);
+            background-color: alpha(@window_fg_color, 0.10);
+        }
+
+        .status-pill-unknown,
+        .status-pill-unknown label,
+        .status-pill-unknown image {
+            color: alpha(@window_fg_color, 0.85);
+            -gtk-icon-palette: success alpha(@window_fg_color, 0.85), warning alpha(@window_fg_color, 0.85), error alpha(@window_fg_color, 0.85);
         }
 
         .quick-action-button {

@@ -301,8 +301,64 @@ const CLIPBOARD_EXTENSION_IDS: &[&str] = &[
     "GPaste@gnome-shell-extensions.gnome.org",
     "pano@elhan.io",
 ];
+const CLIPBOARD_PROFILE_EXTENSION_ID: &str = "clipboard-indicator@tudmotu.com";
 const GSCONNECT_EXTENSION_ID: &str = "gsconnect@andyholmes.github.io";
 const DESKTOP_ICONS_EXTENSION_ID: &str = "ding@rastersoft.com";
+const DASH_TO_DOCK_EXTENSION_ID: &str = "dash-to-dock@micxgx.gmail.com";
+const DASH_TO_DOCK_SCHEMA: &str = "org.gnome.shell.extensions.dash-to-dock";
+const DASH_TO_DOCK_PROFILE_SETTINGS: &[(&str, &str, &str)] = &[
+    ("dock-position", "'BOTTOM'", "posição inferior"),
+    ("dock-fixed", "false", "dock flutuante"),
+    ("autohide", "true", "auto-ocultação"),
+    (
+        "autohide-in-fullscreen",
+        "true",
+        "auto-ocultação em tela cheia",
+    ),
+    (
+        "click-action",
+        "'cycle-windows'",
+        "clique para alternar janelas",
+    ),
+    (
+        "shift-click-action",
+        "'minimize'",
+        "Shift+clique minimiza",
+    ),
+    (
+        "middle-click-action",
+        "'launch'",
+        "clique do meio abre nova instância",
+    ),
+    ("dash-max-icon-size", "48", "ícones em 48 px"),
+    ("show-trash", "true", "lixeira visível"),
+    ("show-mounts", "true", "unidades visíveis"),
+    (
+        "show-mounts-only-mounted",
+        "true",
+        "apenas unidades montadas",
+    ),
+    (
+        "show-mounts-network",
+        "false",
+        "ocultar unidades de rede",
+    ),
+    ("isolate-locations", "true", "locais isolados"),
+    ("show-windows-preview", "true", "prévia das janelas"),
+    ("show-icons-emblems", "true", "emblemas dos ícones"),
+    (
+        "show-icons-notifications-counter",
+        "true",
+        "contador de notificações",
+    ),
+    ("show-show-apps-button", "true", "botão de aplicativos"),
+    (
+        "show-apps-always-in-the-edge",
+        "true",
+        "botão de aplicativos na borda",
+    ),
+    ("scroll-action", "'do-nothing'", "rolagem sem ação na dock"),
+];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Health {
@@ -380,6 +436,7 @@ pub struct SetupSnapshot {
     pub clipboard_extension: CheckItem,
     pub gsconnect_extension: CheckItem,
     pub desktop_icons_extension: CheckItem,
+    pub dock_extension: CheckItem,
     pub recommendation_title: String,
     pub recommendation_body: String,
     pub install_main_support_command: String,
@@ -392,6 +449,10 @@ pub struct SetupSnapshot {
     pub enable_speaker_command: String,
     pub repair_nvidia_command: String,
     pub set_balanced_profile_command: String,
+    pub apply_clipboard_profile_command: String,
+    pub apply_gsconnect_profile_command: String,
+    pub apply_desktop_icons_profile_command: String,
+    pub apply_dock_profile_command: String,
     pub reboot_command: String,
     pub camera_app_installed: bool,
 }
@@ -668,6 +729,10 @@ pub fn collect_snapshot() -> SetupSnapshot {
         &installed_extensions,
         "A extensão Desktop Icons NG não está instalada.",
     );
+    let dock_check = detect_dash_to_dock_check(
+        &enabled_extensions,
+        &installed_extensions,
+    );
 
     let (recommendation_title, recommendation_body) = recommend_next_step(
         &packages,
@@ -698,6 +763,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         clipboard_extension: clipboard_check,
         gsconnect_extension: gsconnect_check,
         desktop_icons_extension: desktop_icons_check,
+        dock_extension: dock_check,
         recommendation_title,
         recommendation_body,
         install_main_support_command: INSTALL_MAIN_SUPPORT_COMMAND.into(),
@@ -710,6 +776,10 @@ pub fn collect_snapshot() -> SetupSnapshot {
         enable_speaker_command: ENABLE_SPEAKER_COMMAND.into(),
         repair_nvidia_command: REPAIR_NVIDIA_COMMAND.into(),
         set_balanced_profile_command: SET_BALANCED_PROFILE_COMMAND.into(),
+        apply_clipboard_profile_command: build_clipboard_profile_command(),
+        apply_gsconnect_profile_command: build_gsconnect_profile_command(),
+        apply_desktop_icons_profile_command: build_desktop_icons_profile_command(),
+        apply_dock_profile_command: build_dash_to_dock_profile_command(),
         reboot_command: REBOOT_COMMAND.into(),
         camera_app_installed,
     }
@@ -725,7 +795,7 @@ pub fn run_smoke_test() -> Result<(), String> {
     println!("kernel={}", snapshot.system.kernel);
     println!("secure_boot={}", snapshot.system.secure_boot);
     println!(
-        "checks={},{},{},{},{},{},{},{},{},{},{},{}",
+        "checks={},{},{},{},{},{},{},{},{},{},{},{},{}",
         snapshot.packages.health.icon_name(),
         snapshot.akmods.health.icon_name(),
         snapshot.module.health.icon_name(),
@@ -737,7 +807,8 @@ pub fn run_smoke_test() -> Result<(), String> {
         snapshot.platform_profile.health.icon_name(),
         snapshot.clipboard_extension.health.icon_name(),
         snapshot.gsconnect_extension.health.icon_name(),
-        snapshot.desktop_icons_extension.health.icon_name()
+        snapshot.desktop_icons_extension.health.icon_name(),
+        snapshot.dock_extension.health.icon_name()
     );
     println!("recommendation_title={}", snapshot.recommendation_title);
     println!("camera_app_installed={}", snapshot.camera_app_installed);
@@ -871,6 +942,226 @@ fn extension_check(
         health: Health::Unknown,
         code: "extension-missing",
     }
+}
+
+fn gsettings_value(schema: &str, key: &str) -> Option<String> {
+    command_text("gsettings", &["get", schema, key]).ok()
+}
+
+fn dash_to_dock_profile_mismatches() -> Vec<&'static str> {
+    DASH_TO_DOCK_PROFILE_SETTINGS
+        .iter()
+        .filter_map(|(key, expected, label)| {
+            match gsettings_value(DASH_TO_DOCK_SCHEMA, key) {
+                Some(current) if current == *expected => None,
+                Some(_) | None => Some(*label),
+            }
+        })
+        .collect()
+}
+
+fn dash_to_dock_check_from_state(
+    enabled: bool,
+    installed: bool,
+    mismatches: &[&str],
+) -> CheckItem {
+    if enabled && mismatches.is_empty() {
+        return CheckItem {
+            title: "Dock do GNOME",
+            detail: tr(
+                "Dash to Dock ativo com dock inferior auto-ocultável, clique ciclando janelas, ícones em 48 px, lixeira e unidades montadas visíveis.",
+            ),
+            health: Health::Good,
+            code: "dash-to-dock-ready",
+        };
+    }
+
+    if enabled {
+        return CheckItem {
+            title: "Dock do GNOME",
+            detail: trf(
+                "Dash to Dock ativo, mas fora do perfil recomendado em: {items}",
+                &[("items", mismatches.join(", "))],
+            ),
+            health: Health::Warning,
+            code: "dash-to-dock-mismatch",
+        };
+    }
+
+    if installed {
+        return CheckItem {
+            title: "Dock do GNOME",
+            detail: trf(
+                "Instalada, mas desativada: {extension}",
+                &[("extension", DASH_TO_DOCK_EXTENSION_ID.to_string())],
+            ),
+            health: Health::Warning,
+            code: "dash-to-dock-disabled",
+        };
+    }
+
+    CheckItem {
+        title: "Dock do GNOME",
+        detail: tr("A extensão Dash to Dock não está instalada."),
+        health: Health::Unknown,
+        code: "dash-to-dock-missing",
+    }
+}
+
+fn detect_dash_to_dock_check(
+    enabled_extensions: &[String],
+    installed_extensions: &[String],
+) -> CheckItem {
+    let enabled = enabled_extensions
+        .iter()
+        .any(|id| id == DASH_TO_DOCK_EXTENSION_ID);
+    let installed = installed_extensions
+        .iter()
+        .any(|id| id == DASH_TO_DOCK_EXTENSION_ID);
+    let mismatches = if enabled {
+        dash_to_dock_profile_mismatches()
+    } else {
+        Vec::new()
+    };
+
+    dash_to_dock_check_from_state(enabled, installed, &mismatches)
+}
+
+fn build_gnome_extension_profile_command(
+    extension_id: &str,
+    prelude_commands: &[&str],
+) -> String {
+    let mut command = String::from("set -euo pipefail\n\n");
+
+    for prelude in prelude_commands {
+        command.push_str(prelude);
+        command.push('\n');
+    }
+
+    command.push_str(&format!(
+        r#"
+if ! command -v gnome-extensions >/dev/null 2>&1; then
+  echo "O utilitário gnome-extensions não está disponível neste sistema." >&2
+  exit 1
+fi
+
+python3 - '{extension_id}' <<'PY'
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import urllib.parse
+import urllib.request
+
+uuid = sys.argv[1]
+shell_version = "50"
+
+try:
+    shell_output = subprocess.check_output(
+        ["gnome-shell", "--version"],
+        text=True,
+    ).strip()
+    match = re.search(r"(\d+)", shell_output)
+    if match:
+        shell_version = match.group(1)
+except Exception:
+    pass
+
+info_url = (
+    "https://extensions.gnome.org/extension-info/"
+    "?uuid={{uuid}}&shell_version={{shell_version}}"
+).format(
+    uuid=urllib.parse.quote(uuid),
+    shell_version=urllib.parse.quote(shell_version),
+)
+
+with urllib.request.urlopen(info_url, timeout=20) as response:
+    data = json.load(response)
+
+download_url = urllib.parse.urljoin(
+    "https://extensions.gnome.org",
+    data["download_url"],
+)
+
+fd, archive_path = tempfile.mkstemp(suffix=".shell-extension.zip")
+os.close(fd)
+
+try:
+    urllib.request.urlretrieve(download_url, archive_path)
+    subprocess.check_call(
+        ["gnome-extensions", "install", "--force", archive_path]
+    )
+finally:
+    try:
+        os.unlink(archive_path)
+    except FileNotFoundError:
+        pass
+PY
+
+gnome-extensions enable '{extension_id}'
+gnome-extensions info '{extension_id}' || true
+"#,
+        extension_id = extension_id,
+    ));
+
+    command
+}
+
+fn build_clipboard_profile_command() -> String {
+    build_gnome_extension_profile_command(CLIPBOARD_PROFILE_EXTENSION_ID, &[])
+}
+
+fn build_gsconnect_profile_command() -> String {
+    build_gnome_extension_profile_command(
+        GSCONNECT_EXTENSION_ID,
+        &[r#"pkexec sh -lc 'dnf install -y nautilus-python || true'"#],
+    )
+}
+
+fn build_desktop_icons_profile_command() -> String {
+    build_gnome_extension_profile_command(DESKTOP_ICONS_EXTENSION_ID, &[])
+}
+
+fn build_dash_to_dock_profile_command() -> String {
+    let mut command = format!(
+        r#"set -euo pipefail
+schema="{schema}"
+extension_id="{extension_id}"
+
+if ! rpm -q gnome-shell-extension-dash-to-dock >/dev/null 2>&1; then
+  pkexec sh -lc 'dnf install -y gnome-shell-extension-dash-to-dock'
+fi
+
+if ! gsettings list-schemas | grep -qx "$schema"; then
+  echo "A extensão Dash to Dock não está instalada neste sistema." >&2
+  exit 1
+fi
+
+if command -v gnome-extensions >/dev/null 2>&1; then
+  gnome-extensions enable "$extension_id" >/dev/null 2>&1 || true
+fi
+
+"#,
+        schema = DASH_TO_DOCK_SCHEMA,
+        extension_id = DASH_TO_DOCK_EXTENSION_ID
+    );
+
+    for (key, value, _) in DASH_TO_DOCK_PROFILE_SETTINGS {
+        command.push_str(&format!("gsettings set \"$schema\" {key} {value}\n"));
+    }
+
+    command.push_str(
+        r#"gsettings get "$schema" dock-position
+gsettings get "$schema" autohide
+gsettings get "$schema" click-action
+gsettings get "$schema" show-trash
+gsettings get "$schema" show-mounts
+"#,
+    );
+
+    command
 }
 
 fn detect_nvidia_check() -> CheckItem {
@@ -1552,6 +1843,26 @@ mod tests {
             "missing",
         );
         assert_eq!(item.health, Health::Warning);
+    }
+
+    #[test]
+    fn dash_to_dock_check_is_good_when_profile_matches() {
+        let item = dash_to_dock_check_from_state(true, true, &[]);
+        assert_eq!(item.health, Health::Good);
+        assert_eq!(item.code, "dash-to-dock-ready");
+    }
+
+    #[test]
+    fn dash_to_dock_check_warns_on_profile_drift() {
+        let item = dash_to_dock_check_from_state(
+            true,
+            true,
+            &["auto-ocultação", "lixeira visível"],
+        );
+        assert_eq!(item.health, Health::Warning);
+        assert_eq!(item.code, "dash-to-dock-mismatch");
+        assert!(item.detail.contains("auto-ocultação"));
+        assert!(item.detail.contains("lixeira visível"));
     }
 
     #[test]

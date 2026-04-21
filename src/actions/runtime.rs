@@ -12,7 +12,9 @@ use galaxybook_setup::{
 };
 
 use crate::actions::ActionKey;
-use crate::system::execute_privileged_shell_command;
+use crate::system::{
+    execute_privileged_shell_command, execute_user_shell_command,
+};
 use crate::ui::SetupWindow;
 
 #[derive(Clone)]
@@ -22,6 +24,12 @@ struct CommandResult {
     output: String,
     success: bool,
     refresh_after: bool,
+}
+
+#[derive(Clone, Copy)]
+enum CommandMode {
+    User,
+    Privileged,
 }
 
 impl SetupWindow {
@@ -167,6 +175,64 @@ impl SetupWindow {
                     true,
                 );
             }
+            ActionKey::ApplyClipboardProfile => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.apply_clipboard_profile_command.clone())
+                    .unwrap_or_default();
+                self.run_user_command(
+                    &tr("Ativar histórico da área de transferência"),
+                    command,
+                    &tr("Perfil do histórico da área de transferência aplicado com sucesso."),
+                    true,
+                );
+            }
+            ActionKey::ApplyGsconnectProfile => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.apply_gsconnect_profile_command.clone())
+                    .unwrap_or_default();
+                self.run_user_command(
+                    &tr("Ativar GSConnect"),
+                    command,
+                    &tr("Perfil do GSConnect aplicado com sucesso."),
+                    true,
+                );
+            }
+            ActionKey::ApplyDesktopIconsProfile => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| {
+                        snapshot.apply_desktop_icons_profile_command.clone()
+                    })
+                    .unwrap_or_default();
+                self.run_user_command(
+                    &tr("Ativar ícones na área de trabalho"),
+                    command,
+                    &tr("Perfil dos ícones da área de trabalho aplicado com sucesso."),
+                    true,
+                );
+            }
+            ActionKey::ApplyDockProfile => {
+                let command = self
+                    .snapshot
+                    .borrow()
+                    .as_ref()
+                    .map(|snapshot| snapshot.apply_dock_profile_command.clone())
+                    .unwrap_or_default();
+                self.run_user_command(
+                    &tr("Aplicar perfil da dock"),
+                    command,
+                    &tr("Perfil da dock aplicado com sucesso."),
+                    true,
+                );
+            }
             ActionKey::Reboot => {
                 self.run_privileged_command(
                     &tr("Reiniciar o sistema"),
@@ -201,6 +267,39 @@ impl SetupWindow {
         success_message: &str,
         refresh_after: bool,
     ) {
+        self.run_command(
+            title,
+            command,
+            success_message,
+            refresh_after,
+            CommandMode::Privileged,
+        );
+    }
+
+    fn run_user_command(
+        &self,
+        title: &str,
+        command: String,
+        success_message: &str,
+        refresh_after: bool,
+    ) {
+        self.run_command(
+            title,
+            command,
+            success_message,
+            refresh_after,
+            CommandMode::User,
+        );
+    }
+
+    fn run_command(
+        &self,
+        title: &str,
+        command: String,
+        success_message: &str,
+        refresh_after: bool,
+        mode: CommandMode,
+    ) {
         if command.trim().is_empty() || *self.action_running.borrow() {
             return;
         }
@@ -218,7 +317,11 @@ impl SetupWindow {
         let success_message_owned = success_message.to_string();
         let (sender, receiver) = mpsc::channel();
         std::thread::spawn(move || {
-            let result = match execute_privileged_shell_command(&command) {
+            let command_result = match mode {
+                CommandMode::User => execute_user_shell_command(&command),
+                CommandMode::Privileged => execute_privileged_shell_command(&command),
+            };
+            let result = match command_result {
                 Ok(output) => CommandResult {
                     title: title_owned,
                     success_message: success_message_owned,

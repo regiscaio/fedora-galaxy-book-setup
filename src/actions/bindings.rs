@@ -61,6 +61,26 @@ impl SetupWindow {
         });
 
         let this = self.clone();
+        self.clipboard_profile_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::ApplyClipboardProfile);
+        });
+
+        let this = self.clone();
+        self.gsconnect_profile_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::ApplyGsconnectProfile);
+        });
+
+        let this = self.clone();
+        self.desktop_icons_profile_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::ApplyDesktopIconsProfile);
+        });
+
+        let this = self.clone();
+        self.dock_profile_button.connect_clicked(move |_| {
+            this.invoke_action(ActionKey::ApplyDockProfile);
+        });
+
+        let this = self.clone();
         self.reboot_button.connect_clicked(move |_| {
             this.invoke_action(ActionKey::Reboot);
         });
@@ -84,6 +104,10 @@ impl SetupWindow {
         self.enable_speakers_button.set_sensitive(allowed);
         self.repair_nvidia_button.set_sensitive(allowed);
         self.balanced_profile_button.set_sensitive(allowed);
+        self.clipboard_profile_button.set_sensitive(allowed);
+        self.gsconnect_profile_button.set_sensitive(allowed);
+        self.desktop_icons_profile_button.set_sensitive(allowed);
+        self.dock_profile_button.set_sensitive(allowed);
         self.reboot_button.set_sensitive(allowed);
         let open_allowed = self
             .snapshot

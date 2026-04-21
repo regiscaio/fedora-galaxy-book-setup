@@ -66,10 +66,12 @@ A versão atual do app já organiza a interface em áreas bem definidas:
 
 - `Sistema`: resumo do notebook, Fedora, kernel e Secure Boot;
 - `Diagnósticos`: checklist geral com o estado da câmera, do bridge para
-  navegador, do áudio, da GPU e de integrações do desktop;
+  navegador, do áudio, da GPU e das integrações do desktop, incluindo a dock
+  do GNOME usada neste notebook;
 - `Ações rápidas`: instalação, reparo e ajuste de prioridade do driver,
   ativação da webcam para navegador, ativação dos alto-falantes internos,
-  fluxo NVIDIA, perfil balanceado, reboot e abertura do app da câmera;
+  fluxo NVIDIA, perfil balanceado, reaplicação do perfil da dock, reboot e
+  abertura do app da câmera;
 - `Módulos futuros`: espaço reservado para fingerprint e outros fluxos.
 
 Dentro de `Diagnósticos`, cada linha leva para uma subseção de **ações
@@ -92,6 +94,8 @@ O checklist cobre hoje:
   instalado, mas o kernel atual ainda não expõe `snd-hda-scodec-max98390` via `modinfo`;
 - estado do driver NVIDIA e observação de que `nvidia-smi` é opcional;
 - perfil de uso da plataforma, com destaque para `balanced`;
+- estado do `Dash to Dock`, com checagem do perfil da dock usado neste
+  notebook;
 - extensões do GNOME como histórico da área de transferência, GSConnect e
   ícones na área de trabalho.
 
@@ -117,6 +121,9 @@ Hoje, as ações disponíveis incluem:
   no boot;
 - instalar ou reparar o suporte NVIDIA;
 - aplicar o perfil `balanced` da plataforma;
+- reaplicar o perfil da dock do GNOME usado neste notebook, reativando o
+  `Dash to Dock` e restaurando o comportamento esperado da dock inferior
+  auto-ocultável;
 - reiniciar o sistema;
 - abrir o `Galaxy Book Câmera`.
 
@@ -135,7 +142,8 @@ Depois disso, dentro do próprio app:
 
 1. abra `Ações rápidas`;
 2. execute `Instalar suporte principal`;
-3. use as ações específicas se câmera, áudio ou NVIDIA ainda precisarem de ajuste.
+3. use as ações específicas se câmera, áudio, NVIDIA ou a dock ainda
+   precisarem de ajuste.
 
 ### Via RPM local
 
@@ -205,5 +213,5 @@ Módulos planejados para próximas etapas:
 
 ## Licença
 
-Este projeto é distribuído sob a licença **GPL-2.0-only**. Veja o arquivo
+Este projeto é distribuído sob a licença **GPL-3.0-only**. Veja o arquivo
 [LICENSE](LICENSE).

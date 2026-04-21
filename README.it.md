@@ -21,7 +21,7 @@ sudo dnf install galaxybook-setup
 ```
 
 Con il repository configurato, l'app può già installare il supporto principale
-tramite l'azione rapida `Instalar suporte principal`, richiamando l'app della
+tramite l'azione rapida `Installa supporto principale`, richiamando l'app della
 fotocamera, il driver `OV02C10` e il supporto `MAX98390` per gli altoparlanti.
 
 `Galaxy Book Setup` è un assistente di installazione e diagnostica per notebook
@@ -64,13 +64,16 @@ Responsabilità:
 La versione attuale organizza già l'interfaccia in aree chiare:
 
 - `Sistema`: riepilogo di notebook, Fedora, kernel e Secure Boot;
-- `Diagnósticos`: checklist globale sullo stato di fotocamera, bridge per browser, audio, GPU e integrazioni desktop;
-- `Ações rápidas`: installazione, riparazione e priorità del driver, attivazione della fotocamera per browser, attivazione degli altoparlanti interni, flusso NVIDIA, profilo bilanciato, riavvio e apertura dell'app fotocamera;
+- `Diagnostica`: checklist globale sullo stato di fotocamera, bridge per browser, audio, GPU e integrazioni desktop, incluso il profilo della dock di GNOME usato su questo notebook;
+- `Azioni rapide`: installazione, riparazione e priorità del driver, attivazione della fotocamera per browser, attivazione degli altoparlanti interni, flusso NVIDIA, profilo bilanciato, riapplicazione del profilo della dock, riavvio e apertura dell'app fotocamera;
 - `Módulos futuros`: spazio riservato per fingerprint e altri flussi.
 
 Dentro `Diagnósticos`, ogni riga apre anche una sottosezione di **azioni
 suggerite**, utile per saltare alle correzioni più rilevanti per l'elemento
 selezionato senza perdere la pagina generale delle azioni rapide.
+
+La checklist copre ora anche lo stato di `Dash to Dock`, verificando se la
+dock inferiore auto-nascosta mantiene il profilo usato su questo notebook.
 
 ## Installazione per utenti
 
@@ -85,9 +88,10 @@ sudo dnf install galaxybook-setup
 
 Dopo di che, dall'interno dell'app:
 
-1. apri `Ações rápidas`;
-2. esegui `Instalar suporte principal`;
-3. usa le azioni specifiche se fotocamera, audio o NVIDIA richiedono ancora interventi.
+1. apri `Azioni rapide`;
+2. esegui `Installa supporto principale`;
+3. usa le azioni specifiche se fotocamera, audio, NVIDIA o la dock richiedono
+   ancora interventi.
 
 ### Tramite RPM locali
 
@@ -148,4 +152,4 @@ Moduli pianificati per le prossime fasi:
 
 ## Licenza
 
-Questo progetto è distribuito con licenza **GPL-2.0-only**. Vedi [LICENSE](LICENSE).
+Questo progetto è distribuito con licenza **GPL-3.0-only**. Vedi [LICENSE](LICENSE).

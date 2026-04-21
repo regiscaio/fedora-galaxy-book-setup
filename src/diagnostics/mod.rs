@@ -34,10 +34,11 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
         DiagnosticKey::Clipboard => &snapshot.clipboard_extension,
         DiagnosticKey::Gsconnect => &snapshot.gsconnect_extension,
         DiagnosticKey::DesktopIcons => &snapshot.desktop_icons_extension,
+        DiagnosticKey::Dock => &snapshot.dock_extension,
     }
 }
 
-fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 12] {
+fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 13] {
     [
         &snapshot.packages,
         &snapshot.akmods,
@@ -51,6 +52,7 @@ fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 12] {
         &snapshot.clipboard_extension,
         &snapshot.gsconnect_extension,
         &snapshot.desktop_icons_extension,
+        &snapshot.dock_extension,
     ]
 }
 
@@ -177,8 +179,9 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         }
         DiagnosticKey::Gpu => vec![ActionKey::RepairNvidia, ActionKey::Reboot],
         DiagnosticKey::PlatformProfile => vec![ActionKey::SetBalancedProfile],
-        DiagnosticKey::Clipboard | DiagnosticKey::Gsconnect | DiagnosticKey::DesktopIcons => {
-            Vec::new()
-        }
+        DiagnosticKey::Clipboard => vec![ActionKey::ApplyClipboardProfile],
+        DiagnosticKey::Gsconnect => vec![ActionKey::ApplyGsconnectProfile],
+        DiagnosticKey::DesktopIcons => vec![ActionKey::ApplyDesktopIconsProfile],
+        DiagnosticKey::Dock => vec![ActionKey::ApplyDockProfile],
     }
 }
