@@ -28,6 +28,7 @@ pub(crate) enum DiagnosticKey {
     FingerprintReader,
     FingerprintLogin,
     Gpu,
+    SecureBootKey,
     PlatformProfile,
     Clipboard,
     Gsconnect,
@@ -59,6 +60,7 @@ pub(crate) struct SetupWindow {
     pub(crate) fingerprint_reader_row: StatusRow,
     pub(crate) fingerprint_login_row: StatusRow,
     pub(crate) gpu_row: StatusRow,
+    pub(crate) secure_boot_key_row: StatusRow,
     pub(crate) platform_profile_row: StatusRow,
     pub(crate) clipboard_row: StatusRow,
     pub(crate) gsconnect_row: StatusRow,
@@ -78,6 +80,7 @@ pub(crate) struct SetupWindow {
     pub(crate) restore_camera_button: gtk::Button,
     pub(crate) enable_browser_camera_button: gtk::Button,
     pub(crate) enable_speakers_button: gtk::Button,
+    pub(crate) prepare_secure_boot_key_button: gtk::Button,
     pub(crate) repair_fingerprint_button: gtk::Button,
     pub(crate) enable_fingerprint_auth_button: gtk::Button,
     pub(crate) open_fingerprint_settings_button: gtk::Button,
@@ -132,6 +135,10 @@ impl SetupWindow {
             DiagnosticKey::FingerprintLogin,
         );
         self.connect_diagnostic_row(&self.gpu_row, DiagnosticKey::Gpu);
+        self.connect_diagnostic_row(
+            &self.secure_boot_key_row,
+            DiagnosticKey::SecureBootKey,
+        );
         self.connect_diagnostic_row(
             &self.platform_profile_row,
             DiagnosticKey::PlatformProfile,

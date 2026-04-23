@@ -1,6 +1,6 @@
 pub(crate) mod runtime;
 
-use crate::actions::ActionKey;
+use crate::actions::{ActionKey, dedupe_action_keys};
 use crate::ui::DiagnosticKey;
 use galaxybook_setup::{APP_NAME, CheckItem, Health, SetupSnapshot, tr, trf, trn};
 
@@ -33,6 +33,7 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
         DiagnosticKey::FingerprintReader => &snapshot.fingerprint_reader,
         DiagnosticKey::FingerprintLogin => &snapshot.fingerprint_login,
         DiagnosticKey::Gpu => &snapshot.gpu,
+        DiagnosticKey::SecureBootKey => &snapshot.secure_boot_key,
         DiagnosticKey::PlatformProfile => &snapshot.platform_profile,
         DiagnosticKey::Clipboard => &snapshot.clipboard_extension,
         DiagnosticKey::Gsconnect => &snapshot.gsconnect_extension,
@@ -41,7 +42,7 @@ pub(crate) fn diagnostic_item(snapshot: &SetupSnapshot, key: DiagnosticKey) -> &
     }
 }
 
-fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 16] {
+fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 17] {
     [
         &snapshot.packages,
         &snapshot.akmods,
@@ -54,12 +55,31 @@ fn diagnostic_items(snapshot: &SetupSnapshot) -> [&CheckItem; 16] {
         &snapshot.fingerprint_reader,
         &snapshot.fingerprint_login,
         &snapshot.gpu,
+        &snapshot.secure_boot_key,
         &snapshot.platform_profile,
         &snapshot.clipboard_extension,
         &snapshot.gsconnect_extension,
         &snapshot.desktop_icons_extension,
         &snapshot.dock_extension,
     ]
+}
+
+fn with_secure_boot_actions(
+    snapshot: &SetupSnapshot,
+    mut actions: Vec<ActionKey>,
+) -> Vec<ActionKey> {
+    match snapshot.secure_boot_key.code {
+        "mok-key-missing" | "mok-not-enrolled" => {
+            actions.insert(0, ActionKey::PrepareSecureBootKey);
+            actions.push(ActionKey::Reboot);
+        }
+        "mok-pending-enrollment" => {
+            actions.insert(0, ActionKey::Reboot);
+        }
+        _ => {}
+    }
+
+    dedupe_action_keys(&actions)
 }
 
 pub(crate) fn diagnostic_alert_counts(snapshot: &SetupSnapshot) -> DiagnosticAlertCounts {
@@ -128,10 +148,16 @@ pub(crate) fn diagnostic_counts_summary(counts: DiagnosticAlertCounts) -> String
 pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) -> Vec<ActionKey> {
     let item = diagnostic_item(snapshot, key);
     match key {
-        DiagnosticKey::Packages => vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera],
-        DiagnosticKey::Akmods => vec![ActionKey::RepairDriver, ActionKey::Reboot],
+        DiagnosticKey::Packages => with_secure_boot_actions(
+            snapshot,
+            vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera],
+        ),
+        DiagnosticKey::Akmods => with_secure_boot_actions(
+            snapshot,
+            vec![ActionKey::RepairDriver, ActionKey::Reboot],
+        ),
         DiagnosticKey::Module => {
-            if item.code == "module-not-loaded" {
+            let actions = if item.code == "module-not-loaded" {
                 vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
             } else if item.code == "module-manual-override" {
                 vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
@@ -139,10 +165,11 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
             } else {
                 vec![ActionKey::RepairDriver, ActionKey::Reboot]
-            }
+            };
+            with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::Libcamera => {
-            if item.health == Health::Good {
+            let actions = if item.health == Health::Good {
                 vec![ActionKey::EnableBrowserCamera, ActionKey::OpenCamera]
             } else {
                 let mut actions = vec![ActionKey::RepairDriver, ActionKey::Reboot];
@@ -154,7 +181,8 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                     actions.insert(0, ActionKey::RestoreIntelIpu6);
                 }
                 actions
-            }
+            };
+            with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::BrowserCamera => {
             if item.health == Health::Good {
@@ -164,7 +192,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             }
         }
         DiagnosticKey::Boot => {
-            if item.health == Health::Good {
+            let actions = if item.health == Health::Good {
                 vec![ActionKey::OpenCamera]
             } else {
                 vec![
@@ -172,10 +200,11 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                     ActionKey::ForceDriverPriority,
                     ActionKey::Reboot,
                 ]
-            }
+            };
+            with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::Speakers => {
-            if item.health == Health::Good {
+            let actions = if item.health == Health::Good {
                 if snapshot.sound_app_installed {
                     vec![ActionKey::OpenSoundApp]
                 } else {
@@ -185,7 +214,8 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![ActionKey::EnableSpeakers]
             } else {
                 vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
-            }
+            };
+            with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::SoundApp => {
             if item.code == "sound-app-ready" {
@@ -218,7 +248,15 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 ActionKey::OpenFingerprintSettings,
             ],
         },
-        DiagnosticKey::Gpu => vec![ActionKey::RepairNvidia, ActionKey::Reboot],
+        DiagnosticKey::Gpu => with_secure_boot_actions(
+            snapshot,
+            vec![ActionKey::RepairNvidia, ActionKey::Reboot],
+        ),
+        DiagnosticKey::SecureBootKey => match item.code {
+            "mok-enrolled" | "mok-not-needed" => vec![],
+            "mok-pending-enrollment" => vec![ActionKey::Reboot],
+            _ => vec![ActionKey::PrepareSecureBootKey, ActionKey::Reboot],
+        },
         DiagnosticKey::PlatformProfile => vec![ActionKey::SetBalancedProfile],
         DiagnosticKey::Clipboard => vec![ActionKey::ApplyClipboardProfile],
         DiagnosticKey::Gsconnect => vec![ActionKey::ApplyGsconnectProfile],

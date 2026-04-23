@@ -96,15 +96,16 @@ La versione attuale dell'app organizza già l'interfaccia in aree ben definite:
 
 - `Sistema`: riepilogo di notebook, Fedora, kernel e Secure Boot;
 - `Diagnostica`: checklist generale con lo stato di fotocamera, bridge per
-  browser, audio, `Galaxy Book Sound`, lettore di impronte, GPU e integrazioni
-  desktop, inclusa la dock GNOME usata su questo notebook;
+  browser, audio, `Galaxy Book Sound`, lettore di impronte, GPU, chiave MOK
+  di `akmods` e integrazioni desktop, inclusa la dock GNOME usata su questo
+  notebook;
 - `Azioni rapide`: installazione, riparazione e regolazione di priorità del
   driver; attivazione della webcam per browser; attivazione degli altoparlanti
-  interni; installazione e apertura di `Galaxy Book Sound`; riparazione dello
-  stack fingerprint; attivazione del login con impronta; apertura della
-  registrazione delle impronte; flusso NVIDIA; profilo bilanciato;
-  riapplicazione del profilo della dock; riavvio e apertura dell'app
-  fotocamera.
+  interni; preparazione della chiave di `Secure Boot` per `MOK`; installazione
+  e apertura di `Galaxy Book Sound`; riparazione dello stack fingerprint;
+  attivazione del login con impronta; apertura della registrazione delle
+  impronte; flusso NVIDIA; profilo bilanciato; riapplicazione del profilo
+  della dock; riavvio e apertura dell'app fotocamera.
 
 Dentro `Diagnostica`, ogni riga porta a una sottosezione di **azioni
 suggerite**. Questo permette di aprire correzioni e validazioni più rilevanti
@@ -131,6 +132,8 @@ La checklist copre oggi:
 - presenza del lettore di impronte integrato;
 - preparazione del login con impronta tramite `fprintd` e `authselect`;
 - stato del driver NVIDIA e l'osservazione che `nvidia-smi` è opzionale;
+- stato di preparazione della chiave pubblica di `akmods` in `MOK` quando
+  `Secure Boot` è attivo;
 - profilo d'uso della piattaforma, con `balanced` in evidenza come
   raccomandazione;
 - stato di `Dash to Dock`, con verifica del profilo della dock usato su questo
@@ -159,6 +162,9 @@ Oggi, le azioni disponibili includono:
 - attivare il supporto agli altoparlanti interni via `MAX98390`, con
   ricostruzione dei moduli, fallback manuale di installazione sul kernel
   attuale e servizio I2C al boot;
+- preparare la chiave di `Secure Boot` per `akmods`, generando la chiave
+  locale, creando la richiesta di importazione in `MOK` e lasciando il
+  riavvio pronto per `Enroll MOK` all'avvio;
 - installare `Galaxy Book Sound` per applicare equalizzazione e Atmos
   compatibile nella sessione via PipeWire;
 - reinstallare lo stack fingerprint con `fprintd` e `libfprint`;
@@ -173,6 +179,46 @@ Oggi, le azioni disponibili includono:
 - riavviare il sistema;
 - aprire `Galaxy Book Câmera`;
 - aprire `Galaxy Book Sound`.
+
+## Secure Boot e MOK
+
+Se un'azione rapida fallisce con qualcosa del tipo:
+
+```text
+modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service
+modprobe: ERROR: could not insert 'snd_hda_scodec_max98390': Key was rejected by service
+```
+
+il problema non è la compilazione del modulo in sé. Questo errore significa
+che il kernel continua a girare con `Secure Boot` attivo, ma la chiave usata
+per firmare il modulo non è stata ancora accettata in `MOK`.
+
+Il percorso atteso è:
+
+```bash
+mokutil --test-key /etc/pki/akmods/certs/public_key.der
+sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+```
+
+Lo stesso `Galaxy Book Setup` ora espone l'azione rapida
+`Preparare la chiave di Secure Boot`, che:
+
+- genera la chiave locale di `akmods` con `kmodgenca` quando serve;
+- chiede una password temporanea di `MOK` nell'interfaccia;
+- crea la richiesta di importazione tramite `mokutil`;
+- aggiorna la diagnostica per mostrare se la chiave è pronta, in attesa di
+  riavvio o se richiede ancora attenzione.
+
+Dopo di questo:
+
+1. riavvia il notebook;
+2. entra in `Enroll MOK` nella schermata blu di boot;
+3. conferma la password definita durante `mokutil --import`;
+4. torna in Fedora ed esegui di nuovo l'azione rapida.
+
+Il flusso di priorità di `ov02c10` e il flusso di attivazione di `MAX98390`
+ora eseguono questo controllo prima di provare a caricare il modulo, così
+l'errore non appare più come un fallimento opaco o un falso successo.
 
 ## Installazione per utenti
 

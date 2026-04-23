@@ -11,6 +11,7 @@ pub(crate) enum ActionKey {
     RestoreIntelIpu6,
     EnableBrowserCamera,
     EnableSpeakers,
+    PrepareSecureBootKey,
     RepairFingerprintStack,
     EnableFingerprintAuth,
     OpenFingerprintSettings,
@@ -85,6 +86,12 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
             title: tr_mark("Ativar alto-falantes internos"),
             subtitle: tr_mark(
                 "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
+            ),
+        },
+        ActionKey::PrepareSecureBootKey => ActionMetadata {
+            title: tr_mark("Preparar chave do Secure Boot"),
+            subtitle: tr_mark(
+                "Gera a chave local do akmods quando necessário, cria o pedido de importação no MOK e deixa o reboot pronto para concluir o Enroll MOK no boot.",
             ),
         },
         ActionKey::RepairFingerprintStack => ActionMetadata {

@@ -10,6 +10,8 @@ pub const APP_NAME: &str = "Galaxy Book Setup";
 pub use i18n::{init_i18n, tr, trf, tr_mark, trn};
 pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
 pub const SOUND_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookSound.desktop";
+pub const AKMODS_PUBLIC_KEY_PATH: &str = "/etc/pki/akmods/certs/public_key.der";
+pub const AKMODS_PRIVATE_KEY_PATH: &str = "/etc/pki/akmods/private/private_key.priv";
 const CAMERA_APP_TUNING_FILE: &str =
     "/usr/share/galaxybook-camera/libcamera/simple/ov02c10.yaml";
 pub const INSTALL_MAIN_SUPPORT_COMMAND: &str = "dnf install -y galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-max98390-kmod-common akmod-galaxybook-max98390 i2c-tools";
@@ -26,6 +28,15 @@ EOF
 cat > /etc/modprobe.d/galaxybook-ov02c10.conf <<'EOF'
 softdep intel_ipu6_isys pre: ov02c10
 EOF
+module_path="$(modinfo -n ov02c10 2>/dev/null || true)"
+secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
+if printf '%s' "$secure_boot_state" | grep -qi 'enabled' \
+  && printf '%s' "$module_path" | grep -Eq '/(updates|extra)/' \
+  && [ -r /etc/pki/akmods/certs/public_key.der ] \
+  && ! mokutil --test-key /etc/pki/akmods/certs/public_key.der >/dev/null 2>&1; then
+  echo "Secure Boot está ativo, mas a chave do akmods ainda não foi inscrita no MOK. Execute 'sudo mokutil --import /etc/pki/akmods/certs/public_key.der', defina a senha, reinicie e conclua 'Enroll MOK' antes de tentar carregar o módulo novamente." >&2
+  exit 1
+fi
 modprobe ov02c10
 lsmod | grep '^ov02c10 '
 "#;
@@ -36,6 +47,18 @@ cleanup() {
   rm -rf "$workdir"
 }
 trap cleanup EXIT
+
+ensure_akmods_secure_boot_ready() {
+  if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
+    echo "Secure Boot está ativo, mas a chave do akmods não está disponível para assinar o módulo." >&2
+    exit 1
+  fi
+
+  if ! mokutil --test-key /etc/pki/akmods/certs/public_key.der >/dev/null 2>&1; then
+    echo "Secure Boot está ativo, mas a chave do akmods ainda não foi inscrita no MOK. Execute 'sudo mokutil --import /etc/pki/akmods/certs/public_key.der', defina a senha, reinicie e conclua 'Enroll MOK' antes de tentar carregar o módulo novamente." >&2
+    exit 1
+  fi
+}
 
 akmods --force --akmod galaxybook-ov02c10 --kernels "$kernel"
 
@@ -72,6 +95,7 @@ rm -f \
 
 secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
 if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
+  ensure_akmods_secure_boot_ready
   sign_file="/usr/src/kernels/$kernel/scripts/sign-file"
   if [ ! -x "$sign_file" ]; then
     sign_file="/lib/modules/$kernel/build/scripts/sign-file"
@@ -79,11 +103,6 @@ if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
 
   if [ ! -x "$sign_file" ]; then
     echo "O utilitário sign-file do kernel não foi encontrado para $kernel." >&2
-    exit 1
-  fi
-
-  if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
-    echo "Secure Boot está ativo, mas a chave do akmods não está disponível para assinar o módulo." >&2
     exit 1
   fi
 
@@ -102,7 +121,8 @@ depmod -a "$kernel"
 if lsmod | grep -q '^ov02c10 '; then
   modprobe -r ov02c10 || true
 fi
-modprobe ov02c10 || true
+modprobe ov02c10
+lsmod | grep '^ov02c10 '
 modinfo -n ov02c10
 modinfo -F signer "/lib/modules/$kernel/updates/ov02c10.ko" || true
 "#;
@@ -129,7 +149,8 @@ depmod -a "$kernel"
 if lsmod | grep -q '^ov02c10 '; then
   modprobe -r ov02c10 || true
 fi
-modprobe ov02c10 || true
+modprobe ov02c10
+lsmod | grep '^ov02c10 '
 modinfo -n ov02c10
 "#;
 pub const ENABLE_BROWSER_CAMERA_COMMAND: &str = r#"set -euo pipefail
@@ -200,6 +221,18 @@ cleanup() {
 }
 trap cleanup EXIT
 
+ensure_akmods_secure_boot_ready() {
+  if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
+    echo "Secure Boot está ativo, mas a chave do akmods não está disponível para assinar os módulos MAX98390." >&2
+    exit 1
+  fi
+
+  if ! mokutil --test-key /etc/pki/akmods/certs/public_key.der >/dev/null 2>&1; then
+    echo "Secure Boot está ativo, mas a chave do akmods ainda não foi inscrita no MOK. Execute 'sudo mokutil --import /etc/pki/akmods/certs/public_key.der', defina a senha, reinicie e conclua 'Enroll MOK' antes de tentar carregar os módulos MAX98390 novamente." >&2
+    exit 1
+  fi
+}
+
 dnf install -y \
   galaxybook-max98390-kmod-common \
   akmod-galaxybook-max98390 \
@@ -244,6 +277,7 @@ rm -f \
 
 secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
 if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
+  ensure_akmods_secure_boot_ready
   sign_file="/usr/src/kernels/$kernel/scripts/sign-file"
   if [ ! -x "$sign_file" ]; then
     sign_file="/lib/modules/$kernel/build/scripts/sign-file"
@@ -251,11 +285,6 @@ if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
 
   if [ ! -x "$sign_file" ]; then
     echo "O utilitário sign-file do kernel não foi encontrado para $kernel." >&2
-    exit 1
-  fi
-
-  if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
-    echo "Secure Boot está ativo, mas a chave do akmods não está disponível para assinar os módulos MAX98390." >&2
     exit 1
   fi
 
@@ -292,6 +321,52 @@ systemctl start max98390-hda-check-upstream.service || true
 lsmod | grep '^snd_hda_scodec_max98390' || true
 modinfo -n snd-hda-scodec-max98390
 modinfo -n snd-hda-scodec-max98390-i2c
+"#;
+pub const PREPARE_SECURE_BOOT_KEY_COMMAND: &str = r#"set -euo pipefail
+public_key="/etc/pki/akmods/certs/public_key.der"
+private_key="/etc/pki/akmods/private/private_key.priv"
+
+if ! command -v mokutil >/dev/null 2>&1; then
+  echo "O utilitário mokutil não está disponível neste sistema." >&2
+  exit 1
+fi
+
+if ! command -v kmodgenca >/dev/null 2>&1; then
+  echo "O utilitário kmodgenca não está disponível neste sistema." >&2
+  exit 1
+fi
+
+install -d /etc/pki/akmods/certs /etc/pki/akmods/private
+
+if [ ! -r "$public_key" ] || [ ! -r "$private_key" ]; then
+  kmodgenca -a -f
+fi
+
+if [ ! -r "$public_key" ] || [ ! -r "$private_key" ]; then
+  echo "Não foi possível gerar a chave local do akmods." >&2
+  exit 1
+fi
+
+if mokutil --test-key "$public_key" >/dev/null 2>&1; then
+  echo "A chave do akmods já está inscrita no MOK." >&2
+  exit 0
+fi
+
+hash_file="$(mktemp)"
+cleanup() {
+  rm -f "$hash_file"
+}
+trap cleanup EXIT
+chmod 600 "$hash_file"
+
+mokutil --generate-hash | tail -n1 > "$hash_file"
+mokutil --import "$public_key" --hash-file "$hash_file"
+
+if mokutil --list-new 2>/dev/null | grep -q .; then
+  echo "O pedido de importação da chave do akmods foi criado. Reinicie o notebook e conclua 'Enroll MOK' na tela azul do boot usando a senha definida nesta etapa."
+else
+  echo "A chave do akmods foi preparada, mas o mokutil não listou nenhum pedido pendente. Revise a saída acima antes de continuar." >&2
+fi
 "#;
 pub const REPAIR_NVIDIA_COMMAND: &str =
     r#"dnf install -y akmod-nvidia && akmods --force --kernels "$(uname -r)" && depmod -a && dracut --force"#;
@@ -452,6 +527,7 @@ pub struct SetupSnapshot {
     pub fingerprint_reader: CheckItem,
     pub fingerprint_login: CheckItem,
     pub gpu: CheckItem,
+    pub secure_boot_key: CheckItem,
     pub platform_profile: CheckItem,
     pub clipboard_extension: CheckItem,
     pub gsconnect_extension: CheckItem,
@@ -467,6 +543,7 @@ pub struct SetupSnapshot {
     pub restore_intel_camera_command: String,
     pub enable_browser_camera_command: String,
     pub enable_speaker_command: String,
+    pub prepare_secure_boot_key_command: String,
     pub install_sound_app_command: String,
     pub repair_nvidia_command: String,
     pub set_balanced_profile_command: String,
@@ -512,6 +589,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         kernel: command_text("uname", &["-r"]).unwrap_or_else(|_| "Desconhecido".into()),
         secure_boot: detect_secure_boot(),
     };
+    let secure_boot_key_check = detect_secure_boot_key_check();
 
     let packages = package_presence(&[
         "galaxybook-ov02c10-kmod-common",
@@ -782,6 +860,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
     );
 
     let (recommendation_title, recommendation_body) = recommend_next_step(
+        &secure_boot_key_check,
         &packages,
         akmods_failed,
         module_origin,
@@ -810,6 +889,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         fingerprint_reader: fingerprint_reader_check,
         fingerprint_login: fingerprint_login_check,
         gpu: gpu_check,
+        secure_boot_key: secure_boot_key_check,
         platform_profile: platform_profile_check,
         clipboard_extension: clipboard_check,
         gsconnect_extension: gsconnect_check,
@@ -825,6 +905,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         restore_intel_camera_command: RESTORE_INTEL_CAMERA_COMMAND.into(),
         enable_browser_camera_command: ENABLE_BROWSER_CAMERA_COMMAND.into(),
         enable_speaker_command: ENABLE_SPEAKER_COMMAND.into(),
+        prepare_secure_boot_key_command: PREPARE_SECURE_BOOT_KEY_COMMAND.into(),
         install_sound_app_command: INSTALL_SOUND_APP_COMMAND.into(),
         repair_nvidia_command: REPAIR_NVIDIA_COMMAND.into(),
         set_balanced_profile_command: SET_BALANCED_PROFILE_COMMAND.into(),
@@ -851,7 +932,7 @@ pub fn run_smoke_test() -> Result<(), String> {
     println!("kernel={}", snapshot.system.kernel);
     println!("secure_boot={}", snapshot.system.secure_boot);
     println!(
-        "checks={},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
+        "checks={},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{}",
         snapshot.packages.health.icon_name(),
         snapshot.akmods.health.icon_name(),
         snapshot.module.health.icon_name(),
@@ -863,6 +944,7 @@ pub fn run_smoke_test() -> Result<(), String> {
         snapshot.fingerprint_reader.health.icon_name(),
         snapshot.fingerprint_login.health.icon_name(),
         snapshot.gpu.health.icon_name(),
+        snapshot.secure_boot_key.health.icon_name(),
         snapshot.platform_profile.health.icon_name(),
         snapshot.clipboard_extension.health.icon_name(),
         snapshot.gsconnect_extension.health.icon_name(),
@@ -901,6 +983,15 @@ fn detect_secure_boot() -> String {
     match command_text("mokutil", &["--sb-state"]) {
         Ok(output) => parse_secure_boot(&output).into(),
         Err(_) => tr("Não foi possível verificar"),
+    }
+}
+
+fn secure_boot_enabled() -> Option<bool> {
+    let output = command_text("mokutil", &["--sb-state"]).ok()?;
+    match parse_secure_boot(&output) {
+        "Ativado" => Some(true),
+        "Desativado" => Some(false),
+        _ => None,
     }
 }
 
@@ -1265,6 +1356,70 @@ fn detect_nvidia_check() -> CheckItem {
         ),
         health: Health::Unknown,
         code: "nvidia-missing",
+    }
+}
+
+fn detect_secure_boot_key_check() -> CheckItem {
+    let title = "Chave do Secure Boot";
+
+    let Some(secure_boot_enabled) = secure_boot_enabled() else {
+        return CheckItem {
+            title,
+            detail: tr("O setup não conseguiu consultar o estado do Secure Boot/MOK neste sistema."),
+            health: Health::Unknown,
+            code: "mok-unavailable",
+        };
+    };
+
+    if !secure_boot_enabled {
+        return CheckItem {
+            title,
+            detail: tr("Secure Boot está desativado. O MOK do akmods não é necessário para carregar módulos externos neste boot."),
+            health: Health::Good,
+            code: "mok-not-needed",
+        };
+    }
+
+    let public_key_exists = Path::new(AKMODS_PUBLIC_KEY_PATH).is_file();
+    let private_key_exists = Path::new(AKMODS_PRIVATE_KEY_PATH).is_file();
+    if !public_key_exists || !private_key_exists {
+        return CheckItem {
+            title,
+            detail: tr("Secure Boot está ativo, mas o akmods ainda não tem a chave local pronta em /etc/pki/akmods. Prepare a chave do Secure Boot antes de instalar ou carregar módulos externos."),
+            health: Health::Error,
+            code: "mok-key-missing",
+        };
+    }
+
+    let test_status = Command::new("mokutil")
+        .args(["--test-key", AKMODS_PUBLIC_KEY_PATH])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .ok();
+    if matches!(test_status, Some(status) if status.success()) {
+        return CheckItem {
+            title,
+            detail: tr("A chave pública do akmods já está inscrita no MOK. Os módulos externos podem ser assinados e aceitos pelo Secure Boot neste host."),
+            health: Health::Good,
+            code: "mok-enrolled",
+        };
+    }
+
+    if mok_pending_request_exists() {
+        return CheckItem {
+            title,
+            detail: tr("A chave do akmods já foi preparada e o pedido de importação está pendente no MOK. Reinicie o notebook e conclua 'Enroll MOK' na tela azul do boot."),
+            health: Health::Warning,
+            code: "mok-pending-enrollment",
+        };
+    }
+
+    CheckItem {
+        title,
+        detail: tr("Secure Boot está ativo e a chave local do akmods existe, mas ainda não foi aceita no MOK. Use a ação rápida dedicada antes de tentar carregar módulos externos."),
+        health: Health::Error,
+        code: "mok-not-enrolled",
     }
 }
 
@@ -1712,6 +1867,7 @@ fn detect_fingerprint_login_check(context: &FingerprintContext) -> CheckItem {
 }
 
 fn recommend_next_step(
+    secure_boot_key: &CheckItem,
     packages: &PackagePresence,
     akmods_failed: bool,
     module_origin: ModuleOrigin,
@@ -1726,6 +1882,20 @@ fn recommend_next_step(
     speaker_ready: bool,
     sound_app_installed: bool,
 ) -> (String, String) {
+    if matches!(secure_boot_key.code, "mok-key-missing" | "mok-not-enrolled") {
+        return (
+            tr("Prepare a chave do Secure Boot"),
+            tr("O Secure Boot está ativo, mas a chave usada pelo akmods ainda não está pronta ou inscrita no MOK. Use a ação rápida dedicada antes de instalar ou carregar módulos externos do notebook."),
+        );
+    }
+
+    if secure_boot_key.code == "mok-pending-enrollment" {
+        return (
+            tr("Concluir inscrição do MOK"),
+            tr("O pedido de importação da chave do akmods já foi criado. Reinicie o notebook e conclua 'Enroll MOK' na tela azul do boot antes de repetir as ações do driver."),
+        );
+    }
+
     if !packages.missing.is_empty() {
         return (
             tr("Instalação pendente"),
@@ -2020,6 +2190,18 @@ fn parse_secure_boot(output: &str) -> &'static str {
     }
 }
 
+fn mok_pending_request_exists() -> bool {
+    Command::new("mokutil")
+        .arg("--list-new")
+        .output()
+        .ok()
+        .map(|output| {
+            output.status.success()
+                && !String::from_utf8_lossy(&output.stdout).trim().is_empty()
+        })
+        .unwrap_or(false)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2066,6 +2248,15 @@ mod tests {
         assert_eq!(parse_secure_boot("whatever"), "Não foi possível verificar");
     }
 
+    fn ok_secure_boot_key_item() -> CheckItem {
+        CheckItem {
+            title: "Chave do Secure Boot",
+            detail: String::new(),
+            health: Health::Good,
+            code: "mok-enrolled",
+        }
+    }
+
     #[test]
     fn recommendation_prefers_install_when_packages_are_missing() {
         let packages = PackagePresence {
@@ -2073,6 +2264,7 @@ mod tests {
             missing: vec!["akmod-galaxybook-ov02c10".into()],
         };
         let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
             &packages,
             false,
             ModuleOrigin::Missing,
@@ -2097,6 +2289,7 @@ mod tests {
             missing: vec![],
         };
         let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
             &packages,
             false,
             ModuleOrigin::Patched,
@@ -2189,6 +2382,7 @@ mod tests {
             missing: vec![],
         };
         let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
             &packages,
             false,
             ModuleOrigin::Patched,
@@ -2213,6 +2407,7 @@ mod tests {
             missing: vec![],
         };
         let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
             &packages,
             false,
             ModuleOrigin::Patched,
@@ -2237,6 +2432,7 @@ mod tests {
             missing: vec![],
         };
         let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
             &packages,
             false,
             ModuleOrigin::Patched,
@@ -2252,6 +2448,37 @@ mod tests {
             false,
         );
         assert_eq!(title, "Painel de som opcional ainda não instalado");
+    }
+
+    #[test]
+    fn recommendation_prioritizes_secure_boot_key_before_packages() {
+        let secure_boot_key = CheckItem {
+            title: "Chave do Secure Boot",
+            detail: String::new(),
+            health: Health::Error,
+            code: "mok-not-enrolled",
+        };
+        let packages = PackagePresence {
+            installed: vec![],
+            missing: vec!["akmod-galaxybook-ov02c10".into()],
+        };
+        let (title, _) = recommend_next_step(
+            &secure_boot_key,
+            &packages,
+            false,
+            ModuleOrigin::Missing,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+        );
+        assert_eq!(title, "Prepare a chave do Secure Boot");
     }
 
     #[test]

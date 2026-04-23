@@ -92,14 +92,15 @@ A versão atual do app já organiza a interface em áreas bem definidas:
 
 - `Sistema`: resumo do notebook, Fedora, kernel e Secure Boot;
 - `Diagnósticos`: checklist geral com o estado da câmera, do bridge para
-  navegador, do áudio, do `Galaxy Book Sound`, do leitor de digital, da GPU e
-  das integrações do desktop, incluindo a dock do GNOME usada neste notebook;
+  navegador, do áudio, do `Galaxy Book Sound`, do leitor de digital, da GPU,
+  da chave MOK do `akmods` e das integrações do desktop, incluindo a dock do
+  GNOME usada neste notebook;
 - `Ações rápidas`: instalação, reparo e ajuste de prioridade do driver,
   ativação da webcam para navegador, ativação dos alto-falantes internos,
-  instalação e abertura do `Galaxy Book Sound`, reparo do stack de fingerprint,
-  ativação do login por digital, abertura do cadastro de digitais, fluxo
-  NVIDIA, perfil balanceado, reaplicação do perfil da dock, reboot e abertura
-  do app da câmera.
+  preparação da chave do `Secure Boot` para o `MOK`, instalação e abertura do
+  `Galaxy Book Sound`, reparo do stack de fingerprint, ativação do login por
+  digital, abertura do cadastro de digitais, fluxo NVIDIA, perfil balanceado,
+  reaplicação do perfil da dock, reboot e abertura do app da câmera.
 
 Dentro de `Diagnósticos`, cada linha leva para uma subseção de **ações
 sugeridas**. Isso permite abrir correções e validações mais relevantes para o
@@ -123,6 +124,7 @@ O checklist cobre hoje:
 - presença do leitor de digital integrado;
 - prontidão do login por digital com `fprintd` e `authselect`;
 - estado do driver NVIDIA e observação de que `nvidia-smi` é opcional;
+- prontidão da chave pública do `akmods` no `MOK` quando `Secure Boot` está ativo;
 - perfil de uso da plataforma, com destaque para `balanced`;
 - estado do `Dash to Dock`, com checagem do perfil da dock usado neste
   notebook;
@@ -149,6 +151,9 @@ Hoje, as ações disponíveis incluem:
 - ativar o suporte aos alto-falantes internos via `MAX98390`, com reconstrução
   dos módulos, fallback manual de instalação no kernel atual e serviço de I2C
   no boot;
+- preparar a chave do `Secure Boot` para o `akmods`, gerando a chave local,
+  criando o pedido de importação no `MOK` e deixando o reboot pronto para o
+  `Enroll MOK` no boot;
 - instalar o `Galaxy Book Sound` para aplicar equalização e Atmos compatível na
   sessão via PipeWire;
 - reinstalar o stack de fingerprint com `fprintd` e `libfprint`;
@@ -162,6 +167,46 @@ Hoje, as ações disponíveis incluem:
 - reiniciar o sistema;
 - abrir o `Galaxy Book Câmera`;
 - abrir o `Galaxy Book Sound`.
+
+## Secure Boot e MOK
+
+Se alguma ação rápida falhar com algo como:
+
+```text
+modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service
+modprobe: ERROR: could not insert 'snd_hda_scodec_max98390': Key was rejected by service
+```
+
+o problema não é compilação do módulo em si. Esse erro significa que o kernel
+continuou com `Secure Boot` ativo, mas a chave usada para assinar o módulo
+ainda não foi aceita no `MOK`.
+
+O caminho esperado é:
+
+```bash
+mokutil --test-key /etc/pki/akmods/certs/public_key.der
+sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+```
+
+O próprio `Galaxy Book Setup` agora expõe a ação rápida
+`Preparar chave do Secure Boot`, que:
+
+- gera a chave local do `akmods` com `kmodgenca` quando necessário;
+- pede uma senha temporária do `MOK` na interface;
+- cria o pedido de importação no `mokutil`;
+- atualiza o diagnóstico para mostrar se a chave ficou pronta, pendente de
+  reboot ou ainda precisa de atenção.
+
+Depois disso:
+
+1. reinicie o notebook;
+2. entre em `Enroll MOK` na tela azul do boot;
+3. confirme a senha definida no `mokutil --import`;
+4. volte ao Fedora e execute a ação rápida novamente.
+
+As ações rápidas de prioridade do `ov02c10` e de ativação do `MAX98390` agora
+fazem essa checagem antes de tentar carregar o módulo, para não deixar o erro
+passar como sucesso ou aparecer sem contexto.
 
 ## Instalação para usuários
 

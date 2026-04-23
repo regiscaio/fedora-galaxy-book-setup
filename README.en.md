@@ -92,13 +92,15 @@ The current app already organizes the interface into well-defined areas:
 
 - `System`: notebook, Fedora, kernel, and Secure Boot summary;
 - `Diagnostics`: global checklist showing the state of the camera, browser
-  bridge, audio, `Galaxy Book Sound`, fingerprint reader, GPU, and desktop
-  integrations, including the GNOME dock used on this notebook;
+  bridge, audio, `Galaxy Book Sound`, fingerprint reader, GPU, the `akmods`
+  MOK key, and desktop integrations, including the GNOME dock used on this
+  notebook;
 - `Quick actions`: install, repair, and driver priority adjustments; browser
-  webcam enablement; internal-speaker enablement; `Galaxy Book Sound`
-  installation and launch; fingerprint stack repair; fingerprint-login
-  enablement; opening fingerprint enrollment; NVIDIA flow; balanced profile;
-  dock profile reapply; reboot; and camera-app launch.
+  webcam enablement; internal-speaker enablement; Secure Boot key
+  preparation for `MOK`; `Galaxy Book Sound` installation and launch;
+  fingerprint stack repair; fingerprint-login enablement; opening
+  fingerprint enrollment; NVIDIA flow; balanced profile; dock profile
+  reapply; reboot; and camera-app launch.
 
 Inside `Diagnostics`, each row opens a **suggested actions** subsection. That
 allows the user to open the most relevant fixes and validations for the
@@ -125,6 +127,7 @@ The checklist currently covers:
 - presence of the integrated fingerprint reader;
 - fingerprint-login readiness through `fprintd` and `authselect`;
 - NVIDIA driver state and the note that `nvidia-smi` is optional;
+- readiness of the `akmods` public key in `MOK` when Secure Boot is enabled;
 - platform usage profile, with `balanced` highlighted as the recommended
   default;
 - `Dash to Dock` state, including validation of the dock profile used on this
@@ -149,6 +152,9 @@ Today, the available actions include:
   `v4l2loopback`;
 - enabling internal-speaker support through `MAX98390`, with module rebuild,
   manual installation fallback on the current kernel, and I2C service at boot;
+- preparing the Secure Boot key for `akmods`, generating the local key,
+  creating the import request in `MOK`, and leaving the reboot ready for
+  `Enroll MOK` at boot;
 - installing `Galaxy Book Sound` to apply equalization and compatible Atmos in
   the current session through PipeWire;
 - reinstalling the fingerprint stack with `fprintd` and `libfprint`;
@@ -161,6 +167,46 @@ Today, the available actions include:
 - rebooting the system;
 - opening `Galaxy Book Camera`;
 - opening `Galaxy Book Sound`.
+
+## Secure Boot and MOK
+
+If a quick action fails with something like:
+
+```text
+modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service
+modprobe: ERROR: could not insert 'snd_hda_scodec_max98390': Key was rejected by service
+```
+
+the problem is not the module build itself. This means the kernel is still
+running with `Secure Boot` enabled, but the key used to sign the module has
+not yet been accepted by `MOK`.
+
+The expected path is:
+
+```bash
+mokutil --test-key /etc/pki/akmods/certs/public_key.der
+sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+```
+
+`Galaxy Book Setup` itself now exposes the `Prepare Secure Boot key` quick
+action, which:
+
+- generates the local `akmods` key with `kmodgenca` when needed;
+- asks for a temporary `MOK` password in the interface;
+- creates the import request through `mokutil`;
+- updates diagnostics to show whether the key is ready, pending reboot, or
+  still needs attention.
+
+After that:
+
+1. reboot the notebook;
+2. enter `Enroll MOK` on the blue boot screen;
+3. confirm the password set during `mokutil --import`;
+4. return to Fedora and run the quick action again.
+
+The `ov02c10` priority flow and the `MAX98390` enablement flow now perform
+this check before trying to load the module, so the error no longer appears as
+an opaque failure or a false success.
 
 ## User installation
 

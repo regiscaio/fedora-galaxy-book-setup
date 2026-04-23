@@ -1,4 +1,5 @@
-use std::process::Command;
+use std::io::Write;
+use std::process::{Command, Stdio};
 
 use galaxybook_setup::trf;
 
@@ -27,39 +28,82 @@ fn collect_command_output(output: std::process::Output) -> PrivilegedCommandResu
     }
 }
 
+fn run_shell_command_with_optional_input(
+    program: &str,
+    args: &[&str],
+    stdin_data: Option<&str>,
+) -> Result<PrivilegedCommandResult, std::io::Error> {
+    let mut command = Command::new(program);
+    command.args(args);
+    if stdin_data.is_some() {
+        command.stdin(Stdio::piped());
+    }
+
+    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+
+    if let Some(input) = stdin_data {
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(input.as_bytes())?;
+        }
+    }
+
+    let output = child.wait_with_output()?;
+    Ok(collect_command_output(output))
+}
+
 pub(crate) fn execute_privileged_shell_command(
     command: &str,
 ) -> Result<PrivilegedCommandResult, String> {
-    let output = Command::new("pkexec")
-        .arg("/usr/bin/env")
-        .arg("PATH=/usr/sbin:/usr/bin:/sbin:/bin")
-        .arg("/usr/bin/bash")
-        .arg("-lc")
-        .arg(command)
-        .output()
-        .map_err(|error| {
-            trf(
-                "Falha ao iniciar a ação privilegiada: {error}",
-                &[("error", error.to_string())],
-            )
-        })?;
+    run_shell_command_with_optional_input(
+        "pkexec",
+        &[
+            "/usr/bin/env",
+            "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+            "/usr/bin/bash",
+            "-lc",
+            command,
+        ],
+        None,
+    )
+    .map_err(|error| {
+        trf(
+            "Falha ao iniciar a ação privilegiada: {error}",
+            &[("error", error.to_string())],
+        )
+    })
+}
 
-    Ok(collect_command_output(output))
+pub(crate) fn execute_privileged_shell_command_with_input(
+    command: &str,
+    stdin_data: &str,
+) -> Result<PrivilegedCommandResult, String> {
+    run_shell_command_with_optional_input(
+        "pkexec",
+        &[
+            "/usr/bin/env",
+            "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+            "/usr/bin/bash",
+            "-lc",
+            command,
+        ],
+        Some(stdin_data),
+    )
+    .map_err(|error| {
+        trf(
+            "Falha ao iniciar a ação privilegiada: {error}",
+            &[("error", error.to_string())],
+        )
+    })
 }
 
 pub(crate) fn execute_user_shell_command(
     command: &str,
 ) -> Result<PrivilegedCommandResult, String> {
-    let output = Command::new("/usr/bin/bash")
-        .arg("-lc")
-        .arg(command)
-        .output()
+    run_shell_command_with_optional_input("/usr/bin/bash", &["-lc", command], None)
         .map_err(|error| {
             trf(
                 "Falha ao iniciar a ação local: {error}",
                 &[("error", error.to_string())],
             )
-        })?;
-
-    Ok(collect_command_output(output))
+        })
 }

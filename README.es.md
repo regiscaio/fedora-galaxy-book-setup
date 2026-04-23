@@ -96,14 +96,15 @@ La versión actual de la app ya organiza la interfaz en áreas bien definidas:
 - `Sistema`: resumen del portátil, Fedora, kernel y Secure Boot;
 - `Diagnósticos`: checklist general con el estado de la cámara, del bridge para
   navegador, del audio, de `Galaxy Book Sound`, del lector de huellas, de la
-  GPU y de las integraciones del escritorio, incluida la dock de GNOME usada
-  en este portátil;
+  GPU, de la clave MOK de `akmods` y de las integraciones del escritorio,
+  incluida la dock de GNOME usada en este portátil;
 - `Acciones rápidas`: instalación, reparación y ajuste de prioridad del
   driver; activación de la webcam para navegador; activación de los altavoces
-  internos; instalación y apertura de `Galaxy Book Sound`; reparación del
-  stack de fingerprint; activación del inicio de sesión por huella; apertura
-  del registro de huellas; flujo NVIDIA; perfil equilibrado; reaplicación del
-  perfil de la dock; reinicio y apertura de la app de cámara.
+  internos; preparación de la clave de `Secure Boot` para `MOK`; instalación
+  y apertura de `Galaxy Book Sound`; reparación del stack de fingerprint;
+  activación del inicio de sesión por huella; apertura del registro de
+  huellas; flujo NVIDIA; perfil equilibrado; reaplicación del perfil de la
+  dock; reinicio y apertura de la app de cámara.
 
 Dentro de `Diagnósticos`, cada línea lleva a una subsección de **acciones
 sugeridas**. Eso permite abrir correcciones y validaciones más relevantes para
@@ -130,6 +131,8 @@ La checklist cubre hoy:
 - presencia del lector de huellas integrado;
 - preparación del inicio de sesión por huella con `fprintd` y `authselect`;
 - estado del driver NVIDIA y la observación de que `nvidia-smi` es opcional;
+- preparación de la clave pública de `akmods` en `MOK` cuando `Secure Boot`
+  está activo;
 - perfil de uso de la plataforma, con destaque para `balanced`;
 - estado de `Dash to Dock`, con comprobación del perfil de dock usado en este
   portátil;
@@ -157,6 +160,9 @@ Hoy, las acciones disponibles incluyen:
 - activar el soporte a los altavoces internos vía `MAX98390`, con
   reconstrucción de módulos, fallback manual de instalación en el kernel
   actual y servicio de I2C en el arranque;
+- preparar la clave de `Secure Boot` para `akmods`, generando la clave local,
+  creando la solicitud de importación en `MOK` y dejando el reinicio listo
+  para `Enroll MOK` en el arranque;
 - instalar `Galaxy Book Sound` para aplicar ecualización y Atmos compatible en
   la sesión vía PipeWire;
 - reinstalar el stack de fingerprint con `fprintd` y `libfprint`;
@@ -170,6 +176,46 @@ Hoy, las acciones disponibles incluyen:
 - reiniciar el sistema;
 - abrir `Galaxy Book Câmera`;
 - abrir `Galaxy Book Sound`.
+
+## Secure Boot y MOK
+
+Si alguna acción rápida falla con algo como:
+
+```text
+modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service
+modprobe: ERROR: could not insert 'snd_hda_scodec_max98390': Key was rejected by service
+```
+
+el problema no es la compilación del módulo en sí. Ese error significa que el
+kernel sigue con `Secure Boot` activo, pero la clave usada para firmar el
+módulo todavía no fue aceptada en `MOK`.
+
+La ruta esperada es:
+
+```bash
+mokutil --test-key /etc/pki/akmods/certs/public_key.der
+sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+```
+
+El propio `Galaxy Book Setup` ahora expone la acción rápida
+`Preparar clave de Secure Boot`, que:
+
+- genera la clave local de `akmods` con `kmodgenca` cuando hace falta;
+- pide una contraseña temporal de `MOK` en la interfaz;
+- crea la solicitud de importación en `mokutil`;
+- actualiza el diagnóstico para mostrar si la clave quedó lista, pendiente de
+  reinicio o si todavía necesita atención.
+
+Después de eso:
+
+1. reinicia el portátil;
+2. entra en `Enroll MOK` en la pantalla azul del arranque;
+3. confirma la contraseña definida en `mokutil --import`;
+4. vuelve a Fedora y ejecuta la acción rápida otra vez.
+
+Las acciones rápidas de prioridad del `ov02c10` y de activación del
+`MAX98390` ahora hacen esta comprobación antes de intentar cargar el módulo,
+para que el error no aparezca como un fallo opaco ni como un falso éxito.
 
 ## Instalación para usuarios
 

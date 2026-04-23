@@ -64,6 +64,7 @@ impl SetupWindow {
             .apply(&snapshot.fingerprint_reader);
         self.fingerprint_login_row.apply(&snapshot.fingerprint_login);
         self.gpu_row.apply(&snapshot.gpu);
+        self.secure_boot_key_row.apply(&snapshot.secure_boot_key);
         self.platform_profile_row.apply(&snapshot.platform_profile);
         self.clipboard_row.apply(&snapshot.clipboard_extension);
         self.gsconnect_row.apply(&snapshot.gsconnect_extension);

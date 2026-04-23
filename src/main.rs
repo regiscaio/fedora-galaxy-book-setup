@@ -54,7 +54,7 @@ mod tests {
         }
     }
 
-    fn snapshot_with_healths(healths: [Health; 16]) -> SetupSnapshot {
+    fn snapshot_with_healths(healths: [Health; 17]) -> SetupSnapshot {
         SetupSnapshot {
             system: SystemSummary {
                 notebook: String::new(),
@@ -73,14 +73,15 @@ mod tests {
             fingerprint_reader: item("Leitor de digital", healths[8]),
             fingerprint_login: item("Login por digital", healths[9]),
             gpu: item("Driver NVIDIA", healths[10]),
-            platform_profile: item("Perfil de uso", healths[11]),
+            secure_boot_key: item("Chave do Secure Boot", healths[11]),
+            platform_profile: item("Perfil de uso", healths[12]),
             clipboard_extension: item(
                 "Histórico da área de transferência",
-                healths[12],
+                healths[13],
             ),
-            gsconnect_extension: item("GSConnect", healths[13]),
-            desktop_icons_extension: item("Ícones na área de trabalho", healths[14]),
-            dock_extension: item("Dock do GNOME", healths[15]),
+            gsconnect_extension: item("GSConnect", healths[14]),
+            desktop_icons_extension: item("Ícones na área de trabalho", healths[15]),
+            dock_extension: item("Dock do GNOME", healths[16]),
             recommendation_title: String::new(),
             recommendation_body: String::new(),
             install_main_support_command: String::new(),
@@ -92,6 +93,7 @@ mod tests {
             restore_intel_camera_command: String::new(),
             enable_browser_camera_command: String::new(),
             enable_speaker_command: String::new(),
+            prepare_secure_boot_key_command: String::new(),
             repair_nvidia_command: String::new(),
             set_balanced_profile_command: String::new(),
             repair_fingerprint_command: String::new(),
@@ -122,6 +124,7 @@ mod tests {
             Health::Good,
             Health::Good,
             Health::Warning,
+            Health::Good,
             Health::Good,
             Health::Good,
             Health::Good,
@@ -167,6 +170,7 @@ mod tests {
             Health::Good,
             Health::Good,
             Health::Good,
+            Health::Good,
         ]);
 
         assert_eq!(
@@ -177,7 +181,7 @@ mod tests {
 
     #[test]
     fn clipboard_suggests_clipboard_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 16]);
+        let snapshot = snapshot_with_healths([Health::Good; 17]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Clipboard),
             vec![ActionKey::ApplyClipboardProfile]
@@ -186,7 +190,7 @@ mod tests {
 
     #[test]
     fn gsconnect_suggests_gsconnect_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 16]);
+        let snapshot = snapshot_with_healths([Health::Good; 17]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Gsconnect),
             vec![ActionKey::ApplyGsconnectProfile]
@@ -195,7 +199,7 @@ mod tests {
 
     #[test]
     fn desktop_icons_suggests_desktop_icons_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 16]);
+        let snapshot = snapshot_with_healths([Health::Good; 17]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::DesktopIcons),
             vec![ActionKey::ApplyDesktopIconsProfile]
@@ -221,6 +225,7 @@ mod tests {
             Health::Good,
             Health::Good,
             Health::Good,
+            Health::Good,
         ]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Speakers),
@@ -230,7 +235,7 @@ mod tests {
 
     #[test]
     fn sound_app_ready_suggests_open() {
-        let mut snapshot = snapshot_with_healths([Health::Good; 16]);
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.sound_app.code = "sound-app-ready";
         snapshot.sound_app_installed = true;
         assert_eq!(
@@ -241,7 +246,7 @@ mod tests {
 
     #[test]
     fn fingerprint_login_missing_enrollment_suggests_settings_first() {
-        let mut snapshot = snapshot_with_healths([Health::Good; 16]);
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.fingerprint_login.code = "fingerprint-enrollment-missing";
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::FingerprintLogin),
@@ -249,6 +254,17 @@ mod tests {
                 ActionKey::OpenFingerprintSettings,
                 ActionKey::EnableFingerprintAuth,
             ]
+        );
+    }
+
+    #[test]
+    fn secure_boot_key_suggests_prepare_then_reboot() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.secure_boot_key.health = Health::Error;
+        snapshot.secure_boot_key.code = "mok-not-enrolled";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
+            vec![ActionKey::PrepareSecureBootKey, ActionKey::Reboot]
         );
     }
 }

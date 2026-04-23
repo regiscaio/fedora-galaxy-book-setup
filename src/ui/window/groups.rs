@@ -33,6 +33,7 @@ pub(super) struct DiagnosticsSections {
     pub(super) fingerprint_login_row: StatusRow,
     pub(super) gpu_group: adw::PreferencesGroup,
     pub(super) gpu_row: StatusRow,
+    pub(super) secure_boot_key_row: StatusRow,
     pub(super) platform_profile_row: StatusRow,
     pub(super) integrations_group: adw::PreferencesGroup,
     pub(super) clipboard_row: StatusRow,
@@ -52,6 +53,7 @@ pub(super) struct QuickActionsSection {
     pub(super) restore_camera_button: gtk::Button,
     pub(super) enable_browser_camera_button: gtk::Button,
     pub(super) enable_speakers_button: gtk::Button,
+    pub(super) prepare_secure_boot_key_button: gtk::Button,
     pub(super) repair_fingerprint_button: gtk::Button,
     pub(super) enable_fingerprint_auth_button: gtk::Button,
     pub(super) open_fingerprint_settings_button: gtk::Button,
@@ -135,12 +137,14 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     fingerprint_group.add(&fingerprint_login_row.row);
 
     let gpu_group = adw::PreferencesGroup::builder()
-        .title(tr("GPU e plataforma"))
-        .description(tr("Estabilidade do driver NVIDIA e perfil de uso balanceado da plataforma."))
+        .title(tr("GPU, Secure Boot e plataforma"))
+        .description(tr("Estabilidade do driver NVIDIA, prontidão da chave MOK do akmods e perfil de uso balanceado da plataforma."))
         .build();
     let gpu_row = StatusRow::new("Driver NVIDIA");
+    let secure_boot_key_row = StatusRow::new("Chave do Secure Boot");
     let platform_profile_row = StatusRow::new("Perfil de uso");
     gpu_group.add(&gpu_row.row);
+    gpu_group.add(&secure_boot_key_row.row);
     gpu_group.add(&platform_profile_row.row);
 
     let integrations_group = adw::PreferencesGroup::builder()
@@ -175,6 +179,7 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
         fingerprint_login_row,
         gpu_group,
         gpu_row,
+        secure_boot_key_row,
         platform_profile_row,
         integrations_group,
         clipboard_row,
@@ -199,6 +204,8 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         new_action_button(&tr("Ativar câmera para navegador"));
     let enable_speakers_button =
         new_action_button(&tr("Ativar alto-falantes internos"));
+    let prepare_secure_boot_key_button =
+        new_action_button(&tr("Preparar chave do Secure Boot"));
     let repair_fingerprint_button =
         new_action_button(&tr("Reinstalar stack de fingerprint"));
     let enable_fingerprint_auth_button =
@@ -252,6 +259,10 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         &enable_speakers_button,
     ));
     group.add(&build_action_row(
+        ActionKey::PrepareSecureBootKey,
+        &prepare_secure_boot_key_button,
+    ));
+    group.add(&build_action_row(
         ActionKey::RepairFingerprintStack,
         &repair_fingerprint_button,
     ));
@@ -302,6 +313,7 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         restore_camera_button,
         enable_browser_camera_button,
         enable_speakers_button,
+        prepare_secure_boot_key_button,
         repair_fingerprint_button,
         enable_fingerprint_auth_button,
         open_fingerprint_settings_button,

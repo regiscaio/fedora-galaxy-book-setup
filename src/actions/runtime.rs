@@ -8,14 +8,15 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    CAMERA_APP_DESKTOP_ID, OPEN_FINGERPRINT_SETTINGS_COMMAND, REBOOT_COMMAND,
-    RESTORE_INTEL_CAMERA_COMMAND,
-    SOUND_APP_DESKTOP_ID, tr, trf,
+    AKMODS_PUBLIC_KEY_PATH, CAMERA_APP_DESKTOP_ID,
+    OPEN_FINGERPRINT_SETTINGS_COMMAND, REBOOT_COMMAND,
+    RESTORE_INTEL_CAMERA_COMMAND, SOUND_APP_DESKTOP_ID, tr, trf,
 };
 
 use crate::actions::ActionKey;
 use crate::system::{
-    execute_privileged_shell_command, execute_user_shell_command,
+    execute_privileged_shell_command, execute_privileged_shell_command_with_input,
+    execute_user_shell_command,
 };
 use crate::ui::SetupWindow;
 
@@ -32,6 +33,78 @@ struct CommandResult {
 enum CommandMode {
     User,
     Privileged,
+}
+
+fn output_mentions_secure_boot_key_rejection(output: &str) -> bool {
+    output.contains("Key was rejected by service")
+        || output.contains("key was rejected by service")
+}
+
+fn format_command_output(output: &str) -> String {
+    let fallback_output = tr("A ação falhou, mas não retornou saída textual.");
+    let output_text = if output.trim().is_empty() {
+        fallback_output
+    } else {
+        output.to_string()
+    };
+
+    if !output_mentions_secure_boot_key_rejection(&output_text) {
+        return output_text;
+    }
+
+    let remediation = if std::path::Path::new(AKMODS_PUBLIC_KEY_PATH).is_file() {
+        trf(
+            "O kernel rejeitou o módulo porque o Secure Boot continua ativo, mas a chave usada pelo akmods não foi aceita pelo MOK.\n\nVerifique com:\n  mokutil --test-key {path}\n\nSe a chave ainda não estiver inscrita, execute:\n  sudo mokutil --import {path}\n\nDepois reinicie, entre em \"Enroll MOK\" na tela azul do boot, confirme a senha definida no import e só então repita a ação.",
+            &[("path", AKMODS_PUBLIC_KEY_PATH.to_string())],
+        )
+    } else {
+        tr(
+            "O kernel rejeitou o módulo porque o Secure Boot continua ativo, mas o sistema não encontrou a chave pública do akmods em /etc/pki/akmods/certs/public_key.der. Gere ou reinstale a chave do akmods antes de repetir a ação.",
+        )
+    };
+
+    format!("{remediation}\n\n---\n\n{output_text}")
+}
+
+fn secure_boot_password_error(
+    password: &str,
+    confirmation: &str,
+) -> Option<String> {
+    if password.trim().is_empty() || confirmation.trim().is_empty() {
+        return Some(tr("Defina e confirme a senha temporária do MOK para continuar."));
+    }
+
+    if password != confirmation {
+        return Some(tr("As duas senhas do MOK precisam ser idênticas."));
+    }
+
+    None
+}
+
+fn update_secure_boot_password_state(
+    password_entry: &gtk::PasswordEntry,
+    confirmation_entry: &gtk::PasswordEntry,
+    error_label: &gtk::Label,
+    confirm_button: &gtk::Button,
+) {
+    let password = password_entry.text().to_string();
+    let confirmation = confirmation_entry.text().to_string();
+
+    if password.is_empty() && confirmation.is_empty() {
+        error_label.set_visible(false);
+        confirm_button.set_sensitive(false);
+        return;
+    }
+
+    if let Some(error) = secure_boot_password_error(&password, &confirmation) {
+        error_label.set_label(&error);
+        error_label.set_visible(true);
+        confirm_button.set_sensitive(false);
+        return;
+    }
+
+    error_label.set_visible(false);
+    confirm_button.set_sensitive(true);
 }
 
 impl SetupWindow {
@@ -162,6 +235,9 @@ impl SetupWindow {
                     &tr("Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema continuar preso ao estado anterior."),
                     true,
                 );
+            }
+            ActionKey::PrepareSecureBootKey => {
+                self.present_secure_boot_password_dialog();
             }
             ActionKey::RepairFingerprintStack => {
                 let command = self
@@ -348,6 +424,25 @@ impl SetupWindow {
         self.run_command(
             title,
             command,
+            None,
+            success_message,
+            refresh_after,
+            CommandMode::Privileged,
+        );
+    }
+
+    fn run_privileged_command_with_input(
+        &self,
+        title: &str,
+        command: String,
+        stdin_data: String,
+        success_message: &str,
+        refresh_after: bool,
+    ) {
+        self.run_command(
+            title,
+            command,
+            Some(stdin_data),
             success_message,
             refresh_after,
             CommandMode::Privileged,
@@ -364,6 +459,7 @@ impl SetupWindow {
         self.run_command(
             title,
             command,
+            None,
             success_message,
             refresh_after,
             CommandMode::User,
@@ -374,6 +470,7 @@ impl SetupWindow {
         &self,
         title: &str,
         command: String,
+        stdin_data: Option<String>,
         success_message: &str,
         refresh_after: bool,
         mode: CommandMode,
@@ -397,7 +494,13 @@ impl SetupWindow {
         std::thread::spawn(move || {
             let command_result = match mode {
                 CommandMode::User => execute_user_shell_command(&command),
-                CommandMode::Privileged => execute_privileged_shell_command(&command),
+                CommandMode::Privileged => match stdin_data {
+                    Some(stdin) => execute_privileged_shell_command_with_input(
+                        &command,
+                        &stdin,
+                    ),
+                    None => execute_privileged_shell_command(&command),
+                },
             };
             let result = match command_result {
                 Ok(output) => CommandResult {
@@ -455,6 +558,181 @@ impl SetupWindow {
         });
     }
 
+    fn present_secure_boot_password_dialog(&self) {
+        if *self.action_running.borrow() {
+            return;
+        }
+
+        let command = self
+            .snapshot
+            .borrow()
+            .as_ref()
+            .map(|snapshot| snapshot.prepare_secure_boot_key_command.clone())
+            .unwrap_or_default();
+        if command.trim().is_empty() {
+            return;
+        }
+
+        let dialog = adw::Dialog::builder()
+            .title(tr("Preparar chave do Secure Boot"))
+            .content_width(520)
+            .build();
+
+        let header = adw::HeaderBar::new();
+        let window_title = adw::WindowTitle::new(
+            &tr("Preparar chave do Secure Boot"),
+            &tr("Senha temporária para o Enroll MOK"),
+        );
+        header.set_title_widget(Some(&window_title));
+
+        let toolbar = adw::ToolbarView::new();
+        toolbar.add_top_bar(&header);
+
+        let content = gtk::Box::builder()
+            .orientation(gtk::Orientation::Vertical)
+            .spacing(12)
+            .margin_top(18)
+            .margin_bottom(18)
+            .margin_start(18)
+            .margin_end(18)
+            .build();
+
+        let intro = gtk::Label::builder()
+            .wrap(true)
+            .xalign(0.0)
+            .label(tr("Esta ação prepara a chave do akmods para o Secure Boot e cria o pedido de importação no MOK. A senha abaixo será pedida na tela azul do boot quando você escolher 'Enroll MOK'."))
+            .build();
+        content.append(&intro);
+
+        let password_label = gtk::Label::builder()
+            .label(tr("Senha temporária do MOK"))
+            .xalign(0.0)
+            .build();
+        content.append(&password_label);
+
+        let password_entry = gtk::PasswordEntry::builder()
+            .show_peek_icon(true)
+            .build();
+        content.append(&password_entry);
+
+        let confirmation_label = gtk::Label::builder()
+            .label(tr("Confirmar senha"))
+            .xalign(0.0)
+            .build();
+        content.append(&confirmation_label);
+
+        let confirmation_entry = gtk::PasswordEntry::builder()
+            .show_peek_icon(true)
+            .build();
+        content.append(&confirmation_entry);
+
+        let hint = gtk::Label::builder()
+            .wrap(true)
+            .xalign(0.0)
+            .label(tr("Depois de importar a chave, será necessário reiniciar e concluir o 'Enroll MOK' manualmente no boot."))
+            .build();
+        hint.add_css_class("dim-label");
+        content.append(&hint);
+
+        let error_label = gtk::Label::builder()
+            .wrap(true)
+            .xalign(0.0)
+            .visible(false)
+            .build();
+        error_label.add_css_class("error");
+        content.append(&error_label);
+
+        let actions = gtk::Box::builder()
+            .orientation(gtk::Orientation::Horizontal)
+            .spacing(12)
+            .halign(gtk::Align::End)
+            .build();
+        let cancel_button = gtk::Button::with_label(&tr("Cancelar"));
+        let confirm_button = gtk::Button::with_label(&tr("Preparar"));
+        confirm_button.add_css_class("suggested-action");
+        confirm_button.set_sensitive(false);
+        actions.append(&cancel_button);
+        actions.append(&confirm_button);
+        content.append(&actions);
+
+        let password_entry_for_state = password_entry.clone();
+        let confirmation_entry_for_state = confirmation_entry.clone();
+        let error_label_for_state = error_label.clone();
+        let confirm_button_for_state = confirm_button.clone();
+        password_entry.connect_changed(move |_| {
+            update_secure_boot_password_state(
+                &password_entry_for_state,
+                &confirmation_entry_for_state,
+                &error_label_for_state,
+                &confirm_button_for_state,
+            );
+        });
+
+        let password_entry_for_state = password_entry.clone();
+        let confirmation_entry_for_state = confirmation_entry.clone();
+        let error_label_for_state = error_label.clone();
+        let confirm_button_for_state = confirm_button.clone();
+        confirmation_entry.connect_changed(move |_| {
+            update_secure_boot_password_state(
+                &password_entry_for_state,
+                &confirmation_entry_for_state,
+                &error_label_for_state,
+                &confirm_button_for_state,
+            );
+        });
+
+        confirmation_entry.connect_activate({
+            let confirm_button = confirm_button.clone();
+            move |_| {
+                if confirm_button.is_sensitive() {
+                    confirm_button.emit_clicked();
+                }
+            }
+        });
+
+        cancel_button.connect_clicked({
+            let dialog = dialog.clone();
+            move |_| {
+                dialog.close();
+            }
+        });
+
+        confirm_button.connect_clicked({
+            let this = self.clone();
+            let dialog = dialog.clone();
+            let password_entry = password_entry.clone();
+            let confirmation_entry = confirmation_entry.clone();
+            let error_label = error_label.clone();
+            move |_| {
+                let password = password_entry.text().to_string();
+                let confirmation = confirmation_entry.text().to_string();
+
+                if let Some(error) =
+                    secure_boot_password_error(&password, &confirmation)
+                {
+                    error_label.set_label(&error);
+                    error_label.set_visible(true);
+                    return;
+                }
+
+                dialog.close();
+                let stdin_data = format!("{password}\n{confirmation}\n");
+                this.run_privileged_command_with_input(
+                    &tr("Preparar chave do Secure Boot"),
+                    command.clone(),
+                    stdin_data,
+                    &tr("Fluxo do Secure Boot concluído. Se o pedido de importação foi criado agora, reinicie e conclua o Enroll MOK no boot antes de repetir a ação do driver."),
+                    true,
+                );
+            }
+        });
+
+        toolbar.set_content(Some(&content));
+        dialog.set_child(Some(&toolbar));
+        dialog.present(Some(&self.window));
+        password_entry.grab_focus();
+    }
+
     fn present_command_result_dialog(&self, title: &str, output: &str) {
         let dialog = adw::Dialog::builder()
             .title(title)
@@ -479,13 +757,8 @@ impl SetupWindow {
             .left_margin(16)
             .right_margin(16)
             .build();
-        let fallback_output = tr("A ação falhou, mas não retornou saída textual.");
-        let output_text = if output.trim().is_empty() {
-            fallback_output.as_str()
-        } else {
-            output
-        };
-        text_view.buffer().set_text(output_text);
+        let output_text = format_command_output(output);
+        text_view.buffer().set_text(&output_text);
 
         let scroller = gtk::ScrolledWindow::builder()
             .hscrollbar_policy(gtk::PolicyType::Automatic)
@@ -496,5 +769,33 @@ impl SetupWindow {
         toolbar.set_content(Some(&scroller));
         dialog.set_child(Some(&toolbar));
         dialog.present(Some(&self.window));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn secure_boot_rejection_output_is_detected() {
+        assert!(output_mentions_secure_boot_key_rejection(
+            "modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service"
+        ));
+        assert!(!output_mentions_secure_boot_key_rejection(
+            "modprobe: FATAL: Module ov02c10 not found"
+        ));
+    }
+
+    #[test]
+    fn secure_boot_password_validation_requires_matching_values() {
+        assert_eq!(
+            secure_boot_password_error("abc", "xyz"),
+            Some("As duas senhas do MOK precisam ser idênticas.".into())
+        );
+    }
+
+    #[test]
+    fn secure_boot_password_validation_accepts_matching_values() {
+        assert_eq!(secure_boot_password_error("abc", "abc"), None);
     }
 }
