@@ -39,6 +39,8 @@ impl StatusRow {
             .valign(gtk::Align::Center)
             .build();
         next_button.add_css_class("flat");
+        next_button.set_visible(false);
+        next_button.set_sensitive(false);
         row.add_suffix(&next_button);
 
         Self {
@@ -55,6 +57,17 @@ impl StatusRow {
         apply_status_class(&self.icon, item.health);
         self.badge.set_label(&tr(item.health.label()));
         apply_status_class(&self.badge, item.health);
+    }
+
+    pub(crate) fn set_suggested_actions_available(&self, available: bool) {
+        self.next_button.set_visible(available);
+        self.next_button.set_sensitive(available);
+        self.row.set_activatable(available);
+        if available {
+            self.row.set_activatable_widget(Some(&self.next_button));
+        } else {
+            self.row.set_activatable_widget(None::<&gtk::Widget>);
+        }
     }
 
     pub(crate) fn connect_suggested_actions<F>(&self, on_activate: F)
@@ -74,8 +87,6 @@ impl StatusRow {
                 callback();
             });
         }
-        self.row.set_activatable(true);
-        self.row.set_activatable_widget(Some(&self.next_button));
     }
 }
 

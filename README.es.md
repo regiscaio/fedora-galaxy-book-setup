@@ -156,7 +156,7 @@ Hoy, las acciones disponibles incluyen:
 - restaurar el stack Intel IPU6 empaquetado cuando la ruta directa de `Galaxy
   Book Câmera` deja de ver el sensor;
 - activar la cámara para navegador vía `icamerasrc`, `v4l2-relayd` y
-  `v4l2loopback`;
+  `v4l2loopback`, preservando el acceso directo de `libcamera`;
 - activar el soporte a los altavoces internos vía `MAX98390`, con
   reconstrucción de módulos, fallback manual de instalación en el kernel
   actual y servicio de I2C en el arranque;
@@ -196,6 +196,10 @@ La ruta esperada es:
 mokutil --test-key /etc/pki/akmods/certs/public_key.der
 sudo mokutil --import /etc/pki/akmods/certs/public_key.der
 ```
+
+Si `mokutil --test-key` dice que la clave `is already enrolled`, trátalo como
+MOK ya inscrito. En algunas versiones de Fedora, esa verificación puede seguir
+devolviendo un código de shell distinto de cero incluso en ese caso.
 
 El propio `Galaxy Book Setup` ahora expone la acción rápida
 `Preparar clave de Secure Boot`, que:

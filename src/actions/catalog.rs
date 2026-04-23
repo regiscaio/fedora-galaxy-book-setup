@@ -79,7 +79,7 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::EnableBrowserCamera => ActionMetadata {
             title: tr_mark("Ativar câmera para navegador"),
             subtitle: tr_mark(
-                "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema e oculta os nós crus do IPU6 no PipeWire.",
+                "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema, desativa os nós crus do IPU6 só no PipeWire e preserva o acesso direto do libcamera.",
             ),
         },
         ActionKey::EnableSpeakers => ActionMetadata {

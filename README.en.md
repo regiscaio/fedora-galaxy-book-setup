@@ -149,7 +149,7 @@ Today, the available actions include:
 - restoring the packaged Intel IPU6 stack when the direct `Galaxy Book
   Camera` path stops seeing the sensor;
 - enabling browser camera support through `icamerasrc`, `v4l2-relayd`, and
-  `v4l2loopback`;
+  `v4l2loopback` while preserving direct `libcamera` access;
 - enabling internal-speaker support through `MAX98390`, with module rebuild,
   manual installation fallback on the current kernel, and I2C service at boot;
 - preparing the Secure Boot key for `akmods`, generating the local key,
@@ -187,6 +187,10 @@ The expected path is:
 mokutil --test-key /etc/pki/akmods/certs/public_key.der
 sudo mokutil --import /etc/pki/akmods/certs/public_key.der
 ```
+
+If `mokutil --test-key` says the key `is already enrolled`, treat that as MOK
+already configured. On some Fedora versions, this check may still return a
+non-zero shell status in that case.
 
 `Galaxy Book Setup` itself now exposes the `Prepare Secure Boot key` quick
 action, which:

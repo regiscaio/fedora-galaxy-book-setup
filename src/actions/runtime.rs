@@ -54,7 +54,7 @@ fn format_command_output(output: &str) -> String {
 
     let remediation = if std::path::Path::new(AKMODS_PUBLIC_KEY_PATH).is_file() {
         trf(
-            "O kernel rejeitou o módulo porque o Secure Boot continua ativo, mas a chave usada pelo akmods não foi aceita pelo MOK.\n\nVerifique com:\n  mokutil --test-key {path}\n\nSe a chave ainda não estiver inscrita, execute:\n  sudo mokutil --import {path}\n\nDepois reinicie, entre em \"Enroll MOK\" na tela azul do boot, confirme a senha definida no import e só então repita a ação.",
+            "O kernel rejeitou o módulo porque o Secure Boot continua ativo, mas a chave usada pelo akmods não foi aceita pelo MOK.\n\nVerifique com:\n  mokutil --test-key {path}\n\nSe a saída disser que a chave já está inscrita (\"already enrolled\"), o MOK atual já conhece essa chave e o problema precisa ser investigado por outro ponto. Se a chave ainda não estiver inscrita, execute:\n  sudo mokutil --import {path}\n\nDepois reinicie, entre em \"Enroll MOK\" na tela azul do boot, confirme a senha definida no import e só então repita a ação.",
             &[("path", AKMODS_PUBLIC_KEY_PATH.to_string())],
         )
     } else {

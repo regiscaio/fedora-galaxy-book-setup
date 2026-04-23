@@ -68,6 +68,10 @@ fn with_secure_boot_actions(
     snapshot: &SetupSnapshot,
     mut actions: Vec<ActionKey>,
 ) -> Vec<ActionKey> {
+    if actions.is_empty() {
+        return actions;
+    }
+
     match snapshot.secure_boot_key.code {
         "mok-key-missing" | "mok-not-enrolled" => {
             actions.insert(0, ActionKey::PrepareSecureBootKey);
@@ -148,52 +152,81 @@ pub(crate) fn diagnostic_counts_summary(counts: DiagnosticAlertCounts) -> String
 pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) -> Vec<ActionKey> {
     let item = diagnostic_item(snapshot, key);
     match key {
-        DiagnosticKey::Packages => with_secure_boot_actions(
-            snapshot,
-            vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera],
-        ),
-        DiagnosticKey::Akmods => with_secure_boot_actions(
-            snapshot,
-            vec![ActionKey::RepairDriver, ActionKey::Reboot],
-        ),
-        DiagnosticKey::Module => {
-            let actions = if item.code == "module-not-loaded" {
-                vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
-            } else if item.code == "module-manual-override" {
-                vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
-            } else if item.code == "module-in-tree" {
-                vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+        DiagnosticKey::Packages => {
+            let actions = if item.code == "packages-missing" {
+                vec![ActionKey::InstallMainSupport]
             } else {
+                vec![]
+            };
+            with_secure_boot_actions(snapshot, actions)
+        }
+        DiagnosticKey::Akmods => {
+            let actions = if item.code == "akmods-failed" {
                 vec![ActionKey::RepairDriver, ActionKey::Reboot]
+            } else {
+                vec![]
+            };
+            with_secure_boot_actions(snapshot, actions)
+        }
+        DiagnosticKey::Module => {
+            let actions = match item.code {
+                "module-not-loaded" => {
+                    vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
+                }
+                "module-manual-override" => {
+                    vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
+                }
+                "module-in-tree" => {
+                    vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+                }
+                "module-missing"
+                | "module-unknown"
+                | "module-patched-path-missing" => {
+                    vec![ActionKey::RepairDriver, ActionKey::Reboot]
+                }
+                _ => vec![],
             };
             with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::Libcamera => {
             let actions = if item.health == Health::Good {
-                vec![ActionKey::EnableBrowserCamera, ActionKey::OpenCamera]
+                vec![]
             } else {
-                let mut actions = vec![ActionKey::RepairDriver, ActionKey::Reboot];
-                if diagnostic_item(snapshot, DiagnosticKey::Module).code
-                    == "module-not-loaded"
-                {
-                    actions.insert(0, ActionKey::EnableCameraModule);
-                } else {
-                    actions.insert(0, ActionKey::RestoreIntelIpu6);
+                match item.code {
+                    "libcamera-permission-blocked" => {
+                        vec![ActionKey::EnableBrowserCamera]
+                    }
+                    _ => match diagnostic_item(snapshot, DiagnosticKey::Module).code {
+                    "module-not-loaded" => {
+                        vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
+                    }
+                    "module-in-tree" => {
+                        vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+                    }
+                    "module-manual-override" | "module-patched" => {
+                        vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
+                    }
+                    "module-missing"
+                    | "module-unknown"
+                    | "module-patched-path-missing" => {
+                        vec![ActionKey::RepairDriver, ActionKey::Reboot]
+                    }
+                    _ => vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot],
+                    },
                 }
-                actions
             };
             with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::BrowserCamera => {
             if item.health == Health::Good {
-                vec![ActionKey::OpenCamera]
+                vec![]
             } else {
                 vec![ActionKey::EnableBrowserCamera, ActionKey::Reboot]
             }
         }
         DiagnosticKey::Boot => {
             let actions = if item.health == Health::Good {
-                vec![ActionKey::OpenCamera]
+                vec![]
             } else {
                 vec![
                     ActionKey::RepairDriver,
@@ -205,11 +238,9 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         }
         DiagnosticKey::Speakers => {
             let actions = if item.health == Health::Good {
-                if snapshot.sound_app_installed {
-                    vec![ActionKey::OpenSoundApp]
-                } else {
-                    vec![ActionKey::InstallSoundApp]
-                }
+                vec![]
+            } else if item.code == "speaker-unsupported" {
+                vec![]
             } else if item.health == Health::Error {
                 vec![ActionKey::EnableSpeakers]
             } else {
@@ -219,20 +250,20 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         }
         DiagnosticKey::SoundApp => {
             if item.code == "sound-app-ready" {
-                vec![ActionKey::OpenSoundApp]
+                vec![]
             } else {
                 vec![ActionKey::InstallSoundApp]
             }
         }
         DiagnosticKey::FingerprintReader => {
             if item.code == "fingerprint-reader-ready" {
-                vec![ActionKey::OpenFingerprintSettings]
+                vec![]
             } else {
                 vec![ActionKey::RepairFingerprintStack]
             }
         }
         DiagnosticKey::FingerprintLogin => match item.code {
-            "fingerprint-login-ready" => vec![ActionKey::OpenFingerprintSettings],
+            "fingerprint-login-ready" => vec![],
             "fingerprint-auth-disabled" => vec![
                 ActionKey::EnableFingerprintAuth,
                 ActionKey::OpenFingerprintSettings,
@@ -250,17 +281,51 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         },
         DiagnosticKey::Gpu => with_secure_boot_actions(
             snapshot,
-            vec![ActionKey::RepairNvidia, ActionKey::Reboot],
+            if item.health == Health::Good {
+                vec![]
+            } else {
+                vec![ActionKey::RepairNvidia, ActionKey::Reboot]
+            },
         ),
         DiagnosticKey::SecureBootKey => match item.code {
             "mok-enrolled" | "mok-not-needed" => vec![],
             "mok-pending-enrollment" => vec![ActionKey::Reboot],
             _ => vec![ActionKey::PrepareSecureBootKey, ActionKey::Reboot],
         },
-        DiagnosticKey::PlatformProfile => vec![ActionKey::SetBalancedProfile],
-        DiagnosticKey::Clipboard => vec![ActionKey::ApplyClipboardProfile],
-        DiagnosticKey::Gsconnect => vec![ActionKey::ApplyGsconnectProfile],
-        DiagnosticKey::DesktopIcons => vec![ActionKey::ApplyDesktopIconsProfile],
-        DiagnosticKey::Dock => vec![ActionKey::ApplyDockProfile],
+        DiagnosticKey::PlatformProfile => {
+            if item.code == "platform-balanced" {
+                vec![]
+            } else {
+                vec![ActionKey::SetBalancedProfile]
+            }
+        }
+        DiagnosticKey::Clipboard => {
+            if item.health == Health::Good {
+                vec![]
+            } else {
+                vec![ActionKey::ApplyClipboardProfile]
+            }
+        }
+        DiagnosticKey::Gsconnect => {
+            if item.health == Health::Good {
+                vec![]
+            } else {
+                vec![ActionKey::ApplyGsconnectProfile]
+            }
+        }
+        DiagnosticKey::DesktopIcons => {
+            if item.health == Health::Good {
+                vec![]
+            } else {
+                vec![ActionKey::ApplyDesktopIconsProfile]
+            }
+        }
+        DiagnosticKey::Dock => {
+            if item.health == Health::Good {
+                vec![]
+            } else {
+                vec![ActionKey::ApplyDockProfile]
+            }
+        }
     }
 }

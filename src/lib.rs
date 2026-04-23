@@ -28,12 +28,19 @@ EOF
 cat > /etc/modprobe.d/galaxybook-ov02c10.conf <<'EOF'
 softdep intel_ipu6_isys pre: ov02c10
 EOF
+akmods_key_enrolled() {
+  local test_output
+  if test_output="$(mokutil --test-key /etc/pki/akmods/certs/public_key.der 2>&1)"; then
+    return 0
+  fi
+  printf '%s' "$test_output" | grep -qi 'already enrolled'
+}
 module_path="$(modinfo -n ov02c10 2>/dev/null || true)"
 secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
 if printf '%s' "$secure_boot_state" | grep -qi 'enabled' \
   && printf '%s' "$module_path" | grep -Eq '/(updates|extra)/' \
   && [ -r /etc/pki/akmods/certs/public_key.der ] \
-  && ! mokutil --test-key /etc/pki/akmods/certs/public_key.der >/dev/null 2>&1; then
+  && ! akmods_key_enrolled; then
   echo "Secure Boot está ativo, mas a chave do akmods ainda não foi inscrita no MOK. Execute 'sudo mokutil --import /etc/pki/akmods/certs/public_key.der', defina a senha, reinicie e conclua 'Enroll MOK' antes de tentar carregar o módulo novamente." >&2
   exit 1
 fi
@@ -54,7 +61,12 @@ ensure_akmods_secure_boot_ready() {
     exit 1
   fi
 
-  if ! mokutil --test-key /etc/pki/akmods/certs/public_key.der >/dev/null 2>&1; then
+  local test_output
+  if test_output="$(mokutil --test-key /etc/pki/akmods/certs/public_key.der 2>&1)"; then
+    return 0
+  fi
+
+  if ! printf '%s' "$test_output" | grep -qi 'already enrolled'; then
     echo "Secure Boot está ativo, mas a chave do akmods ainda não foi inscrita no MOK. Execute 'sudo mokutil --import /etc/pki/akmods/certs/public_key.der', defina a senha, reinicie e conclua 'Enroll MOK' antes de tentar carregar o módulo novamente." >&2
     exit 1
   fi
@@ -160,7 +172,7 @@ dnf install -y \
   gstreamer1-plugins-icamerasrc \
   v4l-utils
 
-install -d /etc/v4l2-relayd.d /etc/modprobe.d /etc/udev/rules.d /etc/wireplumber/wireplumber.conf.d
+install -d /etc/v4l2-relayd.d /etc/modprobe.d /etc/wireplumber/wireplumber.conf.d
 cat > /etc/v4l2-relayd.d/icamerasrc.conf <<'EOF'
 VIDEOSRC="icamerasrc"
 FORMAT=NV12
@@ -174,10 +186,7 @@ cat > /etc/modprobe.d/galaxybook-v4l2loopback.conf <<'EOF'
 options v4l2loopback exclusive_caps=1 card_label="Intel MIPI Camera"
 EOF
 
-cat > /etc/udev/rules.d/90-hide-ipu6-v4l2.rules <<'EOF'
-SUBSYSTEM=="video4linux", KERNEL=="video*", ATTR{name}=="Intel IPU6 ISYS Capture*", TAG-="uaccess"
-SUBSYSTEM=="video4linux", KERNEL=="video*", ATTR{name}=="Intel IPU6 CSI2*", TAG-="uaccess"
-EOF
+rm -f /etc/udev/rules.d/90-hide-ipu6-v4l2.rules
 
 cat > /etc/wireplumber/wireplumber.conf.d/50-disable-ipu6-v4l2.conf <<'EOF'
 monitor.v4l2.rules = [
@@ -211,7 +220,7 @@ if [ -n "$device" ] && command -v v4l2-ctl >/dev/null 2>&1; then
   v4l2-ctl -D -d "/dev/$device" || true
 fi
 
-echo "As regras para esconder os nós crus do IPU6 foram aplicadas. Faça logout/login ou reinicie a sessão se eles ainda aparecerem na lista de câmeras."
+echo "O bridge V4L2 foi configurado e qualquer regra antiga que removia o acesso direto do libcamera aos nós crus do IPU6 foi descartada. Faça logout/login ou reinicie a sessão se a lista de câmeras ainda não refletir o novo estado."
 "#;
 pub const ENABLE_SPEAKER_COMMAND: &str = r#"set -euo pipefail
 kernel="$(uname -r)"
@@ -227,7 +236,12 @@ ensure_akmods_secure_boot_ready() {
     exit 1
   fi
 
-  if ! mokutil --test-key /etc/pki/akmods/certs/public_key.der >/dev/null 2>&1; then
+  local test_output
+  if test_output="$(mokutil --test-key /etc/pki/akmods/certs/public_key.der 2>&1)"; then
+    return 0
+  fi
+
+  if ! printf '%s' "$test_output" | grep -qi 'already enrolled'; then
     echo "Secure Boot está ativo, mas a chave do akmods ainda não foi inscrita no MOK. Execute 'sudo mokutil --import /etc/pki/akmods/certs/public_key.der', defina a senha, reinicie e conclua 'Enroll MOK' antes de tentar carregar os módulos MAX98390 novamente." >&2
     exit 1
   fi
@@ -347,7 +361,9 @@ if [ ! -r "$public_key" ] || [ ! -r "$private_key" ]; then
   exit 1
 fi
 
-if mokutil --test-key "$public_key" >/dev/null 2>&1; then
+test_output=""
+if test_output="$(mokutil --test-key "$public_key" 2>&1)" \
+  || printf '%s' "$test_output" | grep -qi 'already enrolled'; then
   echo "A chave do akmods já está inscrita no MOK." >&2
   exit 0
 fi
@@ -764,6 +780,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         .as_ref()
         .map(|output| libcamera_output_has_camera(output))
         .unwrap_or(false);
+    let libcamera_permission_blocked = browser_camera_rule_blocks_libcamera();
     let libcamera_check = match libcamera_output {
         Ok(output) if libcamera_detected => CheckItem {
             title: "Caminho direto do Galaxy Book Câmera",
@@ -781,6 +798,12 @@ pub fn collect_snapshot() -> SetupSnapshot {
             detail: tr("A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book Câmera não listou a câmera interna. Isso não significa, por si só, que Snapshot, navegador ou o sistema também falharam."),
             health: Health::Warning,
             code: "libcamera-missing",
+        },
+        Err(_) if libcamera_permission_blocked => CheckItem {
+            title: "Caminho direto do Galaxy Book Câmera",
+            detail: tr("O caminho direto do libcamera perdeu acesso aos nós crus do IPU6 porque uma configuração antiga da câmera para navegador removeu o uaccess desses dispositivos. Reaplique a ação rápida da câmera para navegador para migrar o bridge para o fluxo novo, que mantém o libcamera e a webcam virtual funcionando juntos."),
+            health: Health::Error,
+            code: "libcamera-permission-blocked",
         },
         Err(_) => CheckItem {
             title: "Caminho direto do Galaxy Book Câmera",
@@ -868,6 +891,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         clock_error,
         module_loaded,
         libcamera_detected,
+        libcamera_permission_blocked,
         camera_source_ready,
         browser_camera.health == Health::Good,
         camera_app_installed,
@@ -1391,13 +1415,34 @@ fn detect_secure_boot_key_check() -> CheckItem {
         };
     }
 
-    let test_status = Command::new("mokutil")
+    let enrolled_output = Command::new("mokutil")
+        .arg("--list-enrolled")
+        .output()
+        .ok()
+        .map(|output| command_output_text(&output));
+    if let (Some(key_cn), Some(output)) = (current_akmods_key_cn(), enrolled_output.as_deref()) {
+        if mok_enrolled_list_contains_key(output, &key_cn) {
+            return CheckItem {
+                title,
+                detail: tr("A chave pública do akmods já está inscrita no MOK. Os módulos externos podem ser assinados e aceitos pelo Secure Boot neste host."),
+                health: Health::Good,
+                code: "mok-enrolled",
+            };
+        }
+    }
+
+    let test_output = Command::new("mokutil")
         .args(["--test-key", AKMODS_PUBLIC_KEY_PATH])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
+        .output()
         .ok();
-    if matches!(test_status, Some(status) if status.success()) {
+    if matches!(
+        test_output.as_ref(),
+        Some(output)
+            if mokutil_test_key_reports_enrolled(
+                output.status.success(),
+                &command_output_text(output),
+            )
+    ) {
         return CheckItem {
             title,
             detail: tr("A chave pública do akmods já está inscrita no MOK. Os módulos externos podem ser assinados e aceitos pelo Secure Boot neste host."),
@@ -1875,6 +1920,7 @@ fn recommend_next_step(
     clock_error: bool,
     module_loaded: bool,
     libcamera_detected: bool,
+    libcamera_permission_blocked: bool,
     camera_source_ready: bool,
     browser_camera_ready: bool,
     camera_app_installed: bool,
@@ -1921,6 +1967,13 @@ fn recommend_next_step(
         return (
             tr("O driver corrigido não foi carregado"),
             tr("O módulo ov02c10 corrigido está instalado no sistema, mas não entrou no kernel. Habilite o carregamento automático do driver e reinicie para a câmera voltar a aparecer no grafo de mídia."),
+        );
+    }
+
+    if libcamera_permission_blocked {
+        return (
+            tr("O bridge do navegador bloqueou o libcamera"),
+            tr("Uma configuração antiga da câmera para navegador removeu o acesso do usuário aos nós crus do IPU6. Reaplique a ação rápida da câmera para navegador para migrar o bridge para o fluxo novo, que mantém o libcamera e a webcam virtual funcionando juntos."),
         );
     }
 
@@ -2082,6 +2135,55 @@ fn detect_system_camera_source_ready() -> bool {
         .unwrap_or(false)
 }
 
+fn ipu6_raw_video_devices() -> Vec<String> {
+    let Ok(entries) = fs::read_dir("/sys/class/video4linux") else {
+        return Vec::new();
+    };
+
+    let mut devices = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = path.join("name");
+        let devnode = format!("/dev/{}", entry.file_name().to_string_lossy());
+        let Ok(device_name) = fs::read_to_string(name) else {
+            continue;
+        };
+        if device_name.starts_with("Intel IPU6 ISYS Capture")
+            || device_name.starts_with("Intel IPU6 CSI2")
+        {
+            devices.push(devnode);
+        }
+    }
+
+    devices.sort();
+    devices
+}
+
+fn video_device_has_uaccess(devnode: &str) -> bool {
+    command_text("udevadm", &["info", "-q", "property", "-n", devnode])
+        .ok()
+        .map(|output| {
+            output.lines().any(|line| {
+                line.strip_prefix("CURRENT_TAGS=")
+                    .map(|tags| tags.contains("uaccess"))
+                    .unwrap_or(false)
+            })
+        })
+        .unwrap_or(false)
+}
+
+fn browser_camera_rule_blocks_libcamera() -> bool {
+    if !Path::new("/etc/udev/rules.d/90-hide-ipu6-v4l2.rules").is_file() {
+        return false;
+    }
+
+    let raw_devices = ipu6_raw_video_devices();
+    !raw_devices.is_empty()
+        && raw_devices
+            .iter()
+            .all(|device| !video_device_has_uaccess(device))
+}
+
 fn systemd_unit_enabled_state(unit: &str) -> Option<String> {
     if !systemd_available() {
         return None;
@@ -2190,6 +2292,38 @@ fn parse_secure_boot(output: &str) -> &'static str {
     }
 }
 
+fn command_output_text(output: &std::process::Output) -> String {
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+
+    match (stdout.is_empty(), stderr.is_empty()) {
+        (false, true) => stdout,
+        (true, false) => stderr,
+        (false, false) => format!("{stdout}\n{stderr}"),
+        (true, true) => String::new(),
+    }
+}
+
+fn mokutil_test_key_reports_enrolled(success: bool, output: &str) -> bool {
+    success || output.to_ascii_lowercase().contains("already enrolled")
+}
+
+fn akmods_key_cn_from_path(path: &Path) -> Option<String> {
+    path.file_stem()
+        .and_then(|stem| stem.to_str())
+        .map(str::to_string)
+}
+
+fn current_akmods_key_cn() -> Option<String> {
+    fs::canonicalize(AKMODS_PUBLIC_KEY_PATH)
+        .ok()
+        .and_then(|path| akmods_key_cn_from_path(&path))
+}
+
+fn mok_enrolled_list_contains_key(output: &str, key_cn: &str) -> bool {
+    output.contains(&format!("CN={key_cn}"))
+}
+
 fn mok_pending_request_exists() -> bool {
     Command::new("mokutil")
         .arg("--list-new")
@@ -2248,6 +2382,36 @@ mod tests {
         assert_eq!(parse_secure_boot("whatever"), "Não foi possível verificar");
     }
 
+    #[test]
+    fn mokutil_test_key_parser_accepts_already_enrolled_output() {
+        assert!(mokutil_test_key_reports_enrolled(
+            false,
+            "/etc/pki/akmods/certs/public_key.der is already enrolled"
+        ));
+        assert!(!mokutil_test_key_reports_enrolled(
+            false,
+            "Failed to open /etc/pki/akmods/certs/public_key.der"
+        ));
+    }
+
+    #[test]
+    fn akmods_key_cn_parser_uses_canonical_cert_name() {
+        let path = Path::new("/etc/pki/akmods/certs/fedora_1751571965_c906e85a.der");
+        assert_eq!(
+            akmods_key_cn_from_path(path).as_deref(),
+            Some("fedora_1751571965_c906e85a")
+        );
+    }
+
+    #[test]
+    fn enrolled_list_parser_matches_current_akmods_cn() {
+        let enrolled = "Subject: O=fedora, OU=fedora, emailAddress=akmods@fedora, L=None, ST=None, C=BR, CN=fedora_1751571965_c906e85a";
+        assert!(mok_enrolled_list_contains_key(
+            enrolled,
+            "fedora_1751571965_c906e85a"
+        ));
+    }
+
     fn ok_secure_boot_key_item() -> CheckItem {
         CheckItem {
             title: "Chave do Secure Boot",
@@ -2278,6 +2442,7 @@ mod tests {
             false,
             false,
             false,
+            false,
         );
         assert_eq!(title, "Instalação pendente");
     }
@@ -2293,6 +2458,7 @@ mod tests {
             &packages,
             false,
             ModuleOrigin::Patched,
+            false,
             false,
             false,
             false,
@@ -2390,6 +2556,7 @@ mod tests {
             false,
             true,
             true,
+            false,
             true,
             false,
             true,
@@ -2415,6 +2582,7 @@ mod tests {
             false,
             true,
             true,
+            false,
             true,
             true,
             true,
@@ -2440,6 +2608,7 @@ mod tests {
             false,
             true,
             true,
+            false,
             true,
             true,
             true,
@@ -2477,8 +2646,35 @@ mod tests {
             false,
             false,
             false,
+            false,
         );
         assert_eq!(title, "Prepare a chave do Secure Boot");
+    }
+
+    #[test]
+    fn recommendation_detects_browser_rule_blocking_libcamera() {
+        let packages = PackagePresence {
+            installed: vec!["akmod-galaxybook-ov02c10".into()],
+            missing: vec![],
+        };
+        let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            true,
+            false,
+            true,
+            true,
+            true,
+            true,
+            false,
+            false,
+            false,
+        );
+        assert_eq!(title, "O bridge do navegador bloqueou o libcamera");
     }
 
     #[test]

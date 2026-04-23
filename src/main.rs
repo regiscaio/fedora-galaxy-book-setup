@@ -153,7 +153,7 @@ mod tests {
 
     #[test]
     fn packages_suggest_main_install_first() {
-        let snapshot = snapshot_with_healths([
+        let mut snapshot = snapshot_with_healths([
             Health::Warning,
             Health::Good,
             Health::Good,
@@ -172,16 +172,18 @@ mod tests {
             Health::Good,
             Health::Good,
         ]);
+        snapshot.packages.code = "packages-missing";
 
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Packages),
-            vec![ActionKey::InstallMainSupport, ActionKey::OpenCamera]
+            vec![ActionKey::InstallMainSupport]
         );
     }
 
     #[test]
     fn clipboard_suggests_clipboard_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 17]);
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.clipboard_extension.health = Health::Warning;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Clipboard),
             vec![ActionKey::ApplyClipboardProfile]
@@ -190,7 +192,8 @@ mod tests {
 
     #[test]
     fn gsconnect_suggests_gsconnect_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 17]);
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.gsconnect_extension.health = Health::Warning;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Gsconnect),
             vec![ActionKey::ApplyGsconnectProfile]
@@ -199,7 +202,8 @@ mod tests {
 
     #[test]
     fn desktop_icons_suggests_desktop_icons_profile() {
-        let snapshot = snapshot_with_healths([Health::Good; 17]);
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.desktop_icons_extension.health = Health::Warning;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::DesktopIcons),
             vec![ActionKey::ApplyDesktopIconsProfile]
@@ -207,7 +211,7 @@ mod tests {
     }
 
     #[test]
-    fn speakers_ready_suggests_sound_app_when_missing() {
+    fn speakers_ready_has_no_suggested_actions() {
         let snapshot = snapshot_with_healths([
             Health::Good,
             Health::Good,
@@ -229,7 +233,7 @@ mod tests {
         ]);
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Speakers),
-            vec![ActionKey::InstallSoundApp]
+            Vec::<ActionKey>::new()
         );
     }
 
@@ -240,7 +244,7 @@ mod tests {
         snapshot.sound_app_installed = true;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::SoundApp),
-            vec![ActionKey::OpenSoundApp]
+            Vec::<ActionKey>::new()
         );
     }
 
@@ -265,6 +269,52 @@ mod tests {
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
             vec![ActionKey::PrepareSecureBootKey, ActionKey::Reboot]
+        );
+    }
+
+    #[test]
+    fn good_packages_do_not_expose_secure_boot_actions_by_leak() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.packages.code = "packages-installed";
+        snapshot.secure_boot_key.health = Health::Error;
+        snapshot.secure_boot_key.code = "mok-not-enrolled";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Packages),
+            Vec::<ActionKey>::new()
+        );
+    }
+
+    #[test]
+    fn libcamera_with_in_tree_module_suggests_force_driver_priority() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.libcamera.health = Health::Warning;
+        snapshot.libcamera.code = "libcamera-missing";
+        snapshot.module.health = Health::Warning;
+        snapshot.module.code = "module-in-tree";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Libcamera),
+            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+        );
+    }
+
+    #[test]
+    fn libcamera_permission_block_suggests_browser_camera_repair() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.libcamera.health = Health::Error;
+        snapshot.libcamera.code = "libcamera-permission-blocked";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Libcamera),
+            vec![ActionKey::EnableBrowserCamera]
+        );
+    }
+
+    #[test]
+    fn balanced_platform_profile_has_no_suggested_action() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.platform_profile.code = "platform-balanced";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::PlatformProfile),
+            Vec::<ActionKey>::new()
         );
     }
 }

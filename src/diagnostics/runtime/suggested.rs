@@ -50,8 +50,8 @@ impl SetupWindow {
 
         if deduped_actions.is_empty() {
             let row = adw::ActionRow::builder()
-                .title(tr("Sem automação disponível"))
-                .subtitle(tr("Este diagnóstico ainda não tem uma ação rápida dedicada no setup. O painel geral de ações continua disponível sem filtro."))
+                .title(tr("Nenhuma ação necessária agora"))
+                .subtitle(tr("No estado atual deste diagnóstico, o setup não precisa sugerir nenhuma ação rápida específica."))
                 .build();
             row.set_activatable(false);
             self.suggested_actions_group.add(&row);
