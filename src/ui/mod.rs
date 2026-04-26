@@ -63,9 +63,9 @@ pub(crate) fn build_button_row(
     row
 }
 
-pub(crate) fn new_action_button(tooltip: &str) -> gtk::Button {
+pub(crate) fn new_action_button(tooltip: &str, icon_name: &str) -> gtk::Button {
     let button = gtk::Button::builder()
-        .icon_name("media-playback-start-symbolic")
+        .icon_name(icon_name)
         .tooltip_text(tooltip)
         .valign(gtk::Align::Center)
         .halign(gtk::Align::End)

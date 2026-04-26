@@ -3,7 +3,7 @@ use libadwaita::prelude::*;
 
 use galaxybook_setup::tr;
 
-use crate::actions::{ActionKey, build_action_row};
+use crate::actions::{ActionKey, action_icon_name, action_metadata, build_action_row};
 use crate::ui::{InfoRow, StatusRow, new_action_button};
 
 pub(super) struct SystemSection {
@@ -66,6 +66,11 @@ pub(super) struct QuickActionsSection {
     pub(super) reboot_button: gtk::Button,
     pub(super) open_camera_button: gtk::Button,
     pub(super) open_sound_button: gtk::Button,
+}
+
+fn new_quick_action_button(key: ActionKey) -> gtk::Button {
+    let metadata = action_metadata(key);
+    new_action_button(&tr(metadata.title), action_icon_name(key))
 }
 
 pub(super) fn build_system_section() -> SystemSection {
@@ -190,39 +195,39 @@ pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
 }
 
 pub(super) fn build_quick_actions_section() -> QuickActionsSection {
-    let install_main_button = new_action_button(&tr("Instalar suporte principal"));
-    let install_button = new_action_button(&tr("Instalar suporte da câmera"));
-    let install_sound_button = new_action_button(&tr("Instalar Galaxy Book Sound"));
-    let repair_button = new_action_button(&tr("Reparar o driver"));
+    let install_main_button = new_quick_action_button(ActionKey::InstallMainSupport);
+    let install_button = new_quick_action_button(ActionKey::InstallCamera);
+    let install_sound_button = new_quick_action_button(ActionKey::InstallSoundApp);
+    let repair_button = new_quick_action_button(ActionKey::RepairDriver);
     let enable_camera_module_button =
-        new_action_button(&tr("Habilitar driver da câmera"));
+        new_quick_action_button(ActionKey::EnableCameraModule);
     let force_driver_button =
-        new_action_button(&tr("Ajustar prioridade do driver"));
+        new_quick_action_button(ActionKey::ForceDriverPriority);
     let restore_camera_button =
-        new_action_button(&tr("Restaurar stack Intel IPU6"));
+        new_quick_action_button(ActionKey::RestoreIntelIpu6);
     let enable_browser_camera_button =
-        new_action_button(&tr("Ativar câmera para navegador"));
+        new_quick_action_button(ActionKey::EnableBrowserCamera);
     let enable_speakers_button =
-        new_action_button(&tr("Ativar alto-falantes internos"));
+        new_quick_action_button(ActionKey::EnableSpeakers);
     let prepare_secure_boot_key_button =
-        new_action_button(&tr("Preparar chave do Secure Boot"));
+        new_quick_action_button(ActionKey::PrepareSecureBootKey);
     let repair_fingerprint_button =
-        new_action_button(&tr("Reinstalar stack de fingerprint"));
+        new_quick_action_button(ActionKey::RepairFingerprintStack);
     let enable_fingerprint_auth_button =
-        new_action_button(&tr("Ativar login por digital"));
+        new_quick_action_button(ActionKey::EnableFingerprintAuth);
     let open_fingerprint_settings_button =
-        new_action_button(&tr("Abrir cadastro de digitais"));
-    let repair_nvidia_button = new_action_button(&tr("Reparar suporte NVIDIA"));
-    let balanced_profile_button = new_action_button(&tr("Definir perfil balanceado"));
+        new_quick_action_button(ActionKey::OpenFingerprintSettings);
+    let repair_nvidia_button = new_quick_action_button(ActionKey::RepairNvidia);
+    let balanced_profile_button = new_quick_action_button(ActionKey::SetBalancedProfile);
     let clipboard_profile_button =
-        new_action_button(&tr("Ativar histórico da área de transferência"));
-    let gsconnect_profile_button = new_action_button(&tr("Ativar GSConnect"));
+        new_quick_action_button(ActionKey::ApplyClipboardProfile);
+    let gsconnect_profile_button = new_quick_action_button(ActionKey::ApplyGsconnectProfile);
     let desktop_icons_profile_button =
-        new_action_button(&tr("Ativar ícones na área de trabalho"));
-    let dock_profile_button = new_action_button(&tr("Aplicar perfil da dock"));
-    let reboot_button = new_action_button(&tr("Reiniciar o sistema"));
-    let open_camera_button = new_action_button(&tr("Abrir Galaxy Book Câmera"));
-    let open_sound_button = new_action_button(&tr("Abrir Galaxy Book Sound"));
+        new_quick_action_button(ActionKey::ApplyDesktopIconsProfile);
+    let dock_profile_button = new_quick_action_button(ActionKey::ApplyDockProfile);
+    let reboot_button = new_quick_action_button(ActionKey::Reboot);
+    let open_camera_button = new_quick_action_button(ActionKey::OpenCamera);
+    let open_sound_button = new_quick_action_button(ActionKey::OpenSoundApp);
 
     let group = adw::PreferencesGroup::builder()
         .title(tr("Ações rápidas"))
@@ -233,10 +238,6 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         &install_main_button,
     ));
     group.add(&build_action_row(ActionKey::InstallCamera, &install_button));
-    group.add(&build_action_row(
-        ActionKey::InstallSoundApp,
-        &install_sound_button,
-    ));
     group.add(&build_action_row(ActionKey::RepairDriver, &repair_button));
     group.add(&build_action_row(
         ActionKey::EnableCameraModule,
@@ -257,6 +258,10 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
     group.add(&build_action_row(
         ActionKey::EnableSpeakers,
         &enable_speakers_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::InstallSoundApp,
+        &install_sound_button,
     ));
     group.add(&build_action_row(
         ActionKey::PrepareSecureBootKey,

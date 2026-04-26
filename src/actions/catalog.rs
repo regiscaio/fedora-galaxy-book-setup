@@ -169,6 +169,33 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
     }
 }
 
+pub(crate) fn action_icon_name(key: ActionKey) -> &'static str {
+    match key {
+        ActionKey::InstallMainSupport => "system-software-install-symbolic",
+        ActionKey::InstallCamera => "camera-web-symbolic",
+        ActionKey::InstallSoundApp => "audio-speakers-symbolic",
+        ActionKey::RepairDriver => "view-refresh-symbolic",
+        ActionKey::EnableCameraModule => "camera-web-symbolic",
+        ActionKey::ForceDriverPriority => "preferences-system-symbolic",
+        ActionKey::RestoreIntelIpu6 => "edit-undo-symbolic",
+        ActionKey::EnableBrowserCamera => "applications-internet-symbolic",
+        ActionKey::EnableSpeakers => "audio-speakers-symbolic",
+        ActionKey::PrepareSecureBootKey => "dialog-password-symbolic",
+        ActionKey::RepairFingerprintStack => "view-refresh-symbolic",
+        ActionKey::EnableFingerprintAuth => "system-lock-screen-symbolic",
+        ActionKey::OpenFingerprintSettings => "preferences-system-symbolic",
+        ActionKey::RepairNvidia => "video-display-symbolic",
+        ActionKey::SetBalancedProfile => "power-profile-balanced-symbolic",
+        ActionKey::ApplyClipboardProfile => "edit-paste-symbolic",
+        ActionKey::ApplyGsconnectProfile => "phone-symbolic",
+        ActionKey::ApplyDesktopIconsProfile => "user-desktop-symbolic",
+        ActionKey::ApplyDockProfile => "preferences-desktop-symbolic",
+        ActionKey::Reboot => "system-reboot-symbolic",
+        ActionKey::OpenCamera => "camera-web-symbolic",
+        ActionKey::OpenSoundApp => "audio-speakers-symbolic",
+    }
+}
+
 pub(crate) fn dedupe_action_keys(actions: &[ActionKey]) -> Vec<ActionKey> {
     let mut deduped = Vec::with_capacity(actions.len());
     for action in actions {

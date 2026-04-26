@@ -1,7 +1,7 @@
 use gtk::prelude::*;
 use libadwaita as adw;
 
-use crate::actions::{ActionKey, ActionMetadata, action_metadata};
+use crate::actions::{ActionKey, ActionMetadata, action_icon_name, action_metadata};
 use crate::ui::{SetupWindow, build_button_row, new_action_button};
 use galaxybook_setup::tr;
 
@@ -11,7 +11,7 @@ impl SetupWindow {
         key: ActionKey,
     ) -> adw::ActionRow {
         let metadata = action_metadata(key);
-        let button = new_action_button(&tr(metadata.title));
+        let button = new_action_button(&tr(metadata.title), action_icon_name(key));
         button.set_sensitive(!*self.action_running.borrow());
 
         let this = self.clone();
