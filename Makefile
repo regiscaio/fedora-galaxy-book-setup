@@ -101,15 +101,19 @@ vendor:
 	mv "$$tmp_config" .cargo/config.toml
 
 dist: vendor
-	mkdir -p $(DIST_DIR)
+	@set -euo pipefail; \
+	mkdir -p $(DIST_DIR); \
+	manifest="$$(mktemp)"; \
+	trap 'rm -f "$$manifest"' EXIT; \
+	git ls-files -z > "$$manifest"; \
+	printf '.cargo/config.toml\0' >> "$$manifest"; \
+	find vendor -type f -print0 >> "$$manifest"; \
 	tar \
-		--exclude='./.git' \
-		--exclude='./target' \
-		--exclude='./dist' \
 		$(TAR_REPRO_FLAGS) \
-		--transform='s,^\./,$(PACKAGE_NAME)-$(VERSION)/,' \
+		--null \
+		--transform='s,^,$(PACKAGE_NAME)-$(VERSION)/,' \
 		-czf $(DIST_DIR)/$(PACKAGE_NAME)-$(VERSION).tar.gz \
-		.
+		-T "$$manifest"
 
 srpm: dist
 	@set -euo pipefail; \
