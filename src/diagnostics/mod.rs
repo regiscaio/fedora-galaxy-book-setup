@@ -239,7 +239,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         DiagnosticKey::Speakers => {
             let actions = if item.health == Health::Good {
                 vec![]
-            } else if item.code == "speaker-unsupported" {
+            } else if item.code == "speakers-unsupported" {
                 vec![]
             } else if item.health == Health::Error {
                 vec![ActionKey::EnableSpeakers]
@@ -251,6 +251,10 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         DiagnosticKey::SoundApp => {
             if item.code == "sound-app-ready" {
                 vec![]
+            } else if snapshot.speakers.health != Health::Good
+                && snapshot.speakers.code != "speakers-unsupported"
+            {
+                vec![ActionKey::EnableSpeakers, ActionKey::InstallSoundApp]
             } else {
                 vec![ActionKey::InstallSoundApp]
             }
@@ -327,5 +331,95 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![ActionKey::ApplyDockProfile]
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use galaxybook_setup::SystemSummary;
+
+    fn item(health: Health, code: &'static str) -> CheckItem {
+        CheckItem {
+            title: "Teste",
+            detail: String::new(),
+            health,
+            code,
+        }
+    }
+
+    fn test_snapshot() -> SetupSnapshot {
+        let ok = item(Health::Good, "ready");
+        SetupSnapshot {
+            system: SystemSummary {
+                notebook: String::new(),
+                fedora: String::new(),
+                kernel: String::new(),
+                secure_boot: String::new(),
+            },
+            packages: ok.clone(),
+            akmods: ok.clone(),
+            module: ok.clone(),
+            libcamera: ok.clone(),
+            browser_camera: ok.clone(),
+            boot: ok.clone(),
+            speakers: ok.clone(),
+            sound_app: item(Health::Warning, "sound-app-missing"),
+            fingerprint_reader: ok.clone(),
+            fingerprint_login: ok.clone(),
+            gpu: ok.clone(),
+            secure_boot_key: item(Health::Good, "mok-enrolled"),
+            platform_profile: ok.clone(),
+            clipboard_extension: ok.clone(),
+            gsconnect_extension: ok.clone(),
+            desktop_icons_extension: ok.clone(),
+            dock_extension: ok,
+            recommendation_title: String::new(),
+            recommendation_body: String::new(),
+            install_main_support_command: String::new(),
+            install_command: String::new(),
+            repair_command: String::new(),
+            enable_camera_module_command: String::new(),
+            force_camera_command: String::new(),
+            restore_intel_camera_command: String::new(),
+            enable_browser_camera_command: String::new(),
+            enable_speaker_command: String::new(),
+            prepare_secure_boot_key_command: String::new(),
+            install_sound_app_command: String::new(),
+            repair_nvidia_command: String::new(),
+            set_balanced_profile_command: String::new(),
+            repair_fingerprint_command: String::new(),
+            enable_fingerprint_auth_command: String::new(),
+            open_fingerprint_settings_command: String::new(),
+            apply_clipboard_profile_command: String::new(),
+            apply_gsconnect_profile_command: String::new(),
+            apply_desktop_icons_profile_command: String::new(),
+            apply_dock_profile_command: String::new(),
+            reboot_command: String::new(),
+            camera_app_installed: true,
+            sound_app_installed: false,
+        }
+    }
+
+    #[test]
+    fn unsupported_speakers_do_not_offer_privileged_actions() {
+        let mut snapshot = test_snapshot();
+        snapshot.speakers = item(Health::Warning, "speakers-unsupported");
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Speakers),
+            Vec::<ActionKey>::new()
+        );
+    }
+
+    #[test]
+    fn missing_sound_app_suggests_speakers_first_when_speakers_need_work() {
+        let mut snapshot = test_snapshot();
+        snapshot.speakers = item(Health::Error, "speakers-driver-missing");
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SoundApp),
+            vec![ActionKey::EnableSpeakers, ActionKey::InstallSoundApp]
+        );
     }
 }
