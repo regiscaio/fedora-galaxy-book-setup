@@ -119,21 +119,27 @@ impl SetupWindow {
         let window = self.window.clone();
         let toast_overlay = self.toast_overlay.clone();
         let tooltip = tr("Abrir link");
-        build_suffix_action_row(title, uri, "send-to-symbolic", &tooltip, move || {
-            let launcher = gtk::UriLauncher::new(uri);
-            let toast_overlay = toast_overlay.clone();
-            launcher.launch(
-                Some(&window),
-                None::<&gtk::gio::Cancellable>,
-                move |result| {
-                    if let Err(error) = result {
-                        toast_overlay.add_toast(adw::Toast::new(&trf(
-                            "Falha ao abrir o link: {error}",
-                            &[("error", error.to_string())],
-                        )));
-                    }
-                },
-            );
-        })
+        build_suffix_action_row(
+            title,
+            uri,
+            "adw-external-link-symbolic",
+            &tooltip,
+            move || {
+                let launcher = gtk::UriLauncher::new(uri);
+                let toast_overlay = toast_overlay.clone();
+                launcher.launch(
+                    Some(&window),
+                    None::<&gtk::gio::Cancellable>,
+                    move |result| {
+                        if let Err(error) = result {
+                            toast_overlay.add_toast(adw::Toast::new(&trf(
+                                "Falha ao abrir o link: {error}",
+                                &[("error", error.to_string())],
+                            )));
+                        }
+                    },
+                );
+            },
+        )
     }
 }
