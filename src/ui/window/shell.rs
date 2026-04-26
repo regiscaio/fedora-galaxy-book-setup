@@ -9,6 +9,7 @@ pub(super) struct WindowShell {
     pub(super) window: adw::ApplicationWindow,
     pub(super) toast_overlay: adw::ToastOverlay,
     pub(super) navigation_view: adw::NavigationView,
+    pub(super) update_button: gtk::Button,
     pub(super) refresh_button: gtk::Button,
 }
 
@@ -36,6 +37,13 @@ pub(super) fn build_window_shell(app: &adw::Application) -> WindowShell {
     header.set_title_widget(Some(&header_title));
     header.pack_start(&back_button);
 
+    let update_button = gtk::Button::builder()
+        .icon_name("software-update-available-symbolic")
+        .tooltip_text(tr("Baixar e instalar atualizações disponíveis"))
+        .visible(false)
+        .build();
+    update_button.add_css_class("flat");
+
     let refresh_button = gtk::Button::builder()
         .icon_name("view-refresh-symbolic")
         .tooltip_text(tr("Atualizar diagnóstico"))
@@ -49,6 +57,7 @@ pub(super) fn build_window_shell(app: &adw::Application) -> WindowShell {
         .menu_model(&menu)
         .build();
     header.pack_end(&menu_button);
+    header.pack_end(&update_button);
 
     let navigation_view = adw::NavigationView::new();
     navigation_view.set_animate_transitions(true);
@@ -89,6 +98,7 @@ pub(super) fn build_window_shell(app: &adw::Application) -> WindowShell {
         window,
         toast_overlay,
         navigation_view,
+        update_button,
         refresh_button,
     }
 }

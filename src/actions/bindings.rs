@@ -16,6 +16,11 @@ impl SetupWindow {
         });
 
         let this = self.clone();
+        self.update_button.connect_clicked(move |_| {
+            this.install_updates();
+        });
+
+        let this = self.clone();
         self.install_button.connect_clicked(move |_| {
             this.invoke_action(ActionKey::InstallCamera);
         });
@@ -124,6 +129,7 @@ impl SetupWindow {
     pub(crate) fn set_action_buttons_sensitive(&self, sensitive: bool) {
         let busy = *self.action_running.borrow();
         let allowed = sensitive && !busy;
+        self.update_button.set_sensitive(allowed);
         self.install_main_button.set_sensitive(allowed);
         self.install_button.set_sensitive(allowed);
         self.install_sound_button.set_sensitive(allowed);

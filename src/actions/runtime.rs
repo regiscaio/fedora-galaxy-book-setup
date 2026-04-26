@@ -10,7 +10,7 @@ use libadwaita::prelude::*;
 use galaxybook_setup::{
     AKMODS_PUBLIC_KEY_PATH, CAMERA_APP_DESKTOP_ID,
     OPEN_FINGERPRINT_SETTINGS_COMMAND, REBOOT_COMMAND,
-    RESTORE_INTEL_CAMERA_COMMAND, SOUND_APP_DESKTOP_ID, tr, trf,
+    RESTORE_INTEL_CAMERA_COMMAND, SOUND_APP_DESKTOP_ID, package_update_names, tr, trf,
 };
 
 use crate::actions::ActionKey;
@@ -33,6 +33,43 @@ struct CommandResult {
 enum CommandMode {
     User,
     Privileged,
+}
+
+const SETUP_UPDATE_PACKAGES: &[&str] = &[
+    "galaxybook-setup",
+    "galaxybook-camera",
+    "galaxybook-ov02c10-kmod-common",
+    "akmod-galaxybook-ov02c10",
+    "galaxybook-sound",
+    "galaxybook-max98390-kmod-common",
+    "akmod-galaxybook-max98390",
+];
+
+fn update_button_tooltip(packages: &[String]) -> String {
+    trf(
+        "Baixar e instalar atualizações: {packages}",
+        &[("packages", packages.join(", "))],
+    )
+}
+
+fn upgrade_installed_packages_command(packages: &[&str]) -> String {
+    format!(
+        r#"set -euo pipefail
+packages=({packages})
+installed=()
+for package in "${{packages[@]}}"; do
+  if rpm -q "$package" >/dev/null 2>&1; then
+    installed+=("$package")
+  fi
+done
+if [ "${{#installed[@]}}" -eq 0 ]; then
+  echo "Nenhum pacote do Galaxy Book está instalado para atualizar."
+  exit 0
+fi
+dnf upgrade -y "${{installed[@]}}"
+"#,
+        packages = packages.join(" ")
+    )
 }
 
 fn output_mentions_secure_boot_key_rejection(output: &str) -> bool {
@@ -108,6 +145,55 @@ fn update_secure_boot_password_state(
 }
 
 impl SetupWindow {
+    pub(crate) fn refresh_updates(&self) {
+        self.update_button.set_visible(false);
+        self.update_button.set_sensitive(false);
+
+        let (sender, receiver) = mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = sender.send(package_update_names(SETUP_UPDATE_PACKAGES));
+        });
+
+        let this = self.clone();
+        glib::timeout_add_local(Duration::from_millis(150), move || match receiver.try_recv() {
+            Ok(Ok(packages)) => {
+                let has_updates = !packages.is_empty();
+                let allowed = has_updates && !*this.action_running.borrow();
+                this.update_button.set_visible(has_updates);
+                this.update_button.set_sensitive(allowed);
+                if has_updates {
+                    this.update_button
+                        .set_tooltip_text(Some(&update_button_tooltip(&packages)));
+                }
+                glib::ControlFlow::Break
+            }
+            Ok(Err(_error)) => {
+                this.update_button.set_visible(false);
+                this.update_button.set_sensitive(false);
+                glib::ControlFlow::Break
+            }
+            Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+            Err(mpsc::TryRecvError::Disconnected) => {
+                this.update_button.set_visible(false);
+                this.update_button.set_sensitive(false);
+                glib::ControlFlow::Break
+            }
+        });
+    }
+
+    pub(crate) fn install_updates(&self) {
+        if !self.update_button.is_visible() || !self.update_button.is_sensitive() {
+            return;
+        }
+
+        self.run_privileged_command(
+            &tr("Atualizar pacotes"),
+            upgrade_installed_packages_command(SETUP_UPDATE_PACKAGES),
+            &tr("Atualizações instaladas. Reinicie os apps atualizados antes de continuar."),
+            true,
+        );
+    }
+
     pub(super) fn invoke_action(&self, key: ActionKey) {
         match key {
             ActionKey::InstallMainSupport => {

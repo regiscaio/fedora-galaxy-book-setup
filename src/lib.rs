@@ -1,4 +1,5 @@
 mod i18n;
+mod updates;
 
 use std::env;
 use std::fs;
@@ -8,6 +9,7 @@ use std::process::{Command, Stdio};
 pub const APP_ID: &str = "com.caioregis.GalaxyBookSetup";
 pub const APP_NAME: &str = "Galaxy Book Setup";
 pub use i18n::{init_i18n, tr, trf, tr_mark, trn};
+pub use updates::{install_package_updates, package_update_names};
 pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
 pub const SOUND_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookSound.desktop";
 pub const AKMODS_PUBLIC_KEY_PATH: &str = "/etc/pki/akmods/certs/public_key.der";

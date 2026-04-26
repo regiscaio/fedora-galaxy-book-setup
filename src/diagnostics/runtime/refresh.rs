@@ -15,6 +15,7 @@ impl SetupWindow {
     pub(crate) fn refresh(&self) {
         self.refresh_button.set_sensitive(false);
         self.set_action_buttons_sensitive(false);
+        self.refresh_updates();
         self.recommendation_title_row
             .set_subtitle(&tr("Atualizando diagnóstico…"));
         self.recommendation_body_row.set_subtitle(

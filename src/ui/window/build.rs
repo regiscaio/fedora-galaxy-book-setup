@@ -22,6 +22,7 @@ impl SetupWindow {
         let window = shell.window;
         let toast_overlay = shell.toast_overlay;
         let navigation_view = shell.navigation_view;
+        let update_button = shell.update_button;
         let refresh_button = shell.refresh_button;
 
         let system = build_system_section();
@@ -57,6 +58,7 @@ impl SetupWindow {
             window,
             navigation_view,
             toast_overlay,
+            update_button,
             refresh_button,
             recommendation_title_row: diagnostics.recommendation_title_row,
             recommendation_body_row: diagnostics.recommendation_body_row,

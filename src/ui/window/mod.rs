@@ -42,6 +42,7 @@ pub(crate) struct SetupWindow {
     pub(crate) window: adw::ApplicationWindow,
     pub(crate) navigation_view: adw::NavigationView,
     pub(crate) toast_overlay: adw::ToastOverlay,
+    pub(crate) update_button: gtk::Button,
     pub(crate) refresh_button: gtk::Button,
     pub(crate) recommendation_title_row: InfoRow,
     pub(crate) recommendation_body_row: InfoRow,
