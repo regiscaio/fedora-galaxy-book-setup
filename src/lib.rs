@@ -132,6 +132,11 @@ if command -v restorecon >/dev/null 2>&1; then
 fi
 depmod -a "$kernel"
 
+if journalctl -b -k --no-pager 2>/dev/null \
+  | grep -q 'external clock 26000000 is not supported'; then
+  echo "O boot atual já tentou iniciar a câmera com um driver que rejeitou o clock externo de 26 MHz. A prioridade do módulo corrigido foi ajustada, mas reinicie para recriar o grafo IPU6 antes de validar o libcamera."
+fi
+
 if lsmod | grep -q '^ov02c10 '; then
   modprobe -r ov02c10 || true
 fi
@@ -795,6 +800,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
             health: Health::Good,
             code: "libcamera-ready",
         },
+        Ok(_) if clock_error => libcamera_clock_probe_failed_check(),
         Ok(_) => CheckItem {
             title: "Caminho direto do Galaxy Book Câmera",
             detail: tr("A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book Câmera não listou a câmera interna. Isso não significa, por si só, que Snapshot, navegador ou o sistema também falharam."),
@@ -807,6 +813,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
             health: Health::Error,
             code: "libcamera-permission-blocked",
         },
+        Err(_) if clock_error => libcamera_clock_probe_failed_check(),
         Err(_) => CheckItem {
             title: "Caminho direto do Galaxy Book Câmera",
             detail: tr("A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera."),
@@ -1611,6 +1618,15 @@ fn detect_browser_camera_check(
     }
 }
 
+fn libcamera_clock_probe_failed_check() -> CheckItem {
+    CheckItem {
+        title: "Caminho direto do Galaxy Book Câmera",
+        detail: tr("O boot registrou que o ov02c10 rejeitou o clock externo de 26 MHz, então o sensor não entrou no grafo de mídia usado pelo libcamera. Depois de uma atualização de kernel, isso costuma indicar que o módulo corrigido só ficou pronto depois da primeira tentativa do IPU6. Ajuste a prioridade do driver corrigido e reinicie para recriar o grafo com o sensor."),
+        health: Health::Error,
+        code: "libcamera-clock-probe-failed",
+    }
+}
+
 fn detect_speakers_check() -> CheckItem {
     let max98390_present = has_max98390_device();
     if !max98390_present {
@@ -1955,6 +1971,20 @@ fn recommend_next_step(
         return (
             tr("O driver não foi gerado no boot"),
             tr("O akmods falhou ao construir o módulo para o kernel atual. Reexecute o reparo do driver, confira o log do akmods e reinicie antes de testar a câmera novamente."),
+        );
+    }
+
+    if clock_error && !libcamera_detected {
+        if module_origin == ModuleOrigin::InTree {
+            return (
+                tr("O sistema caiu para o driver in-tree"),
+                tr("O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela seção de ações rápidas e reinicie."),
+            );
+        }
+
+        return (
+            tr("Reinicie com o driver corrigido priorizado"),
+            tr("O boot registrou que o ov02c10 rejeitou o clock externo de 26 MHz antes da câmera entrar no grafo de mídia. Depois de atualização de kernel, isso costuma acontecer quando o akmods só termina de gerar o módulo corrigido após a tentativa inicial do IPU6. Ajuste a prioridade do driver corrigido pela seção de ações rápidas e reinicie."),
         );
     }
 
@@ -2677,6 +2707,32 @@ mod tests {
             false,
         );
         assert_eq!(title, "O bridge do navegador bloqueou o libcamera");
+    }
+
+    #[test]
+    fn recommendation_detects_late_driver_after_kernel_update() {
+        let packages = PackagePresence {
+            installed: vec!["akmod-galaxybook-ov02c10".into()],
+            missing: vec![],
+        };
+        let (title, _) = recommend_next_step(
+            &ok_secure_boot_key_item(),
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            true,
+            true,
+            false,
+            false,
+            false,
+            true,
+            true,
+            true,
+            true,
+            true,
+        );
+        assert_eq!(title, "Reinicie com o driver corrigido priorizado");
     }
 
     #[test]

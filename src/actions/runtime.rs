@@ -276,7 +276,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Ajustar prioridade do driver"),
                     command,
-                    &tr("Ajuste concluído. Se o módulo ainda estiver em uso, reinicie o sistema antes de validar a câmera."),
+                    &tr("Ajuste concluído. Reinicie o sistema antes de validar a câmera se o boot atual já registrou falha de clock do ov02c10."),
                     true,
                 );
             }

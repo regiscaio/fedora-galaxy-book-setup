@@ -145,7 +145,8 @@ Today, the available actions include:
 - rebuilding the driver with `akmods`;
 - enabling `ov02c10` loading on boot and loading the module immediately;
 - forcing priority for the fixed driver under `updates/`, with Secure Boot
-  signing when needed and without incompatible compression;
+  signing when needed, without incompatible compression, and with an explicit
+  message when the current kernel already tried to start the camera too early;
 - restoring the packaged Intel IPU6 stack when the direct `Galaxy Book
   Camera` path stops seeing the sensor;
 - enabling browser camera support through `icamerasrc`, `v4l2-relayd`, and
@@ -167,6 +168,25 @@ Today, the available actions include:
 - rebooting the system;
 - opening `Galaxy Book Camera`;
 - opening `Galaxy Book Sound`.
+
+## Camera After Kernel Updates
+
+After a kernel update, boot may try to load `ov02c10` before `akmods` finishes
+building the fixed module for that kernel. In that state, the log records:
+
+```text
+external clock 26000000 is not supported
+probe with driver ov02c10 failed with error -22
+```
+
+Even if `modinfo -n ov02c10` later points to `updates/` after `akmods` finishes,
+the IPU6 media graph for that boot may already have been created without the
+sensor, so `cam -l` does not list the internal camera.
+
+Diagnostics now treat this as a direct-camera path failure and suggest `Adjust
+driver priority` followed by a reboot. The action rebuilds and prioritizes the
+fixed module for the current kernel; the reboot recreates the media graph with
+the correct driver available from the start of boot.
 
 ## Secure Boot and MOK
 

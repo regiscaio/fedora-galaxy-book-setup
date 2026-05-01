@@ -309,6 +309,20 @@ mod tests {
     }
 
     #[test]
+    fn libcamera_clock_probe_failure_suggests_driver_priority() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.libcamera.health = Health::Error;
+        snapshot.libcamera.code = "libcamera-clock-probe-failed";
+        snapshot.module.code = "module-patched";
+        snapshot.boot.health = Health::Error;
+        snapshot.boot.code = "boot-clock-error";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Libcamera),
+            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+        );
+    }
+
+    #[test]
     fn balanced_platform_profile_has_no_suggested_action() {
         let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.platform_profile.code = "platform-balanced";

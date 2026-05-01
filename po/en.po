@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: galaxybook-setup 1.0.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-04-26 11:36-0300\n"
+"POT-Creation-Date: 2026-04-26 17:59-0300\n"
 "PO-Revision-Date: 2026-04-20 18:36-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -83,10 +83,12 @@ msgstr "Prioritize driver"
 #: src/actions/catalog.rs:70
 msgid ""
 "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o "
-"instala em /lib/modules/.../updates sem compressão incompatível."
+"instala em /lib/modules/.../updates para o kernel atual, inclusive após "
+"atualização do sistema."
 msgstr ""
-"Compiles the patched module, signs it when Secure Boot is enabled and "
-"installs it in /lib/modules/.../updates without incompatible compression."
+"Compiles the patched module, signs it when Secure Boot is enabled, and "
+"installs it in /lib/modules/.../updates for the current kernel, including "
+"after a system update."
 
 #: src/actions/catalog.rs:74 src/actions/runtime.rs:291
 msgid "Restaurar stack Intel IPU6"
@@ -357,11 +359,11 @@ msgstr ""
 
 #: src/actions/runtime.rs:279
 msgid ""
-"Ajuste concluído. Se o módulo ainda estiver em uso, reinicie o sistema antes "
-"de validar a câmera."
+"Ajuste concluído. Reinicie o sistema antes de validar a câmera se o boot "
+"atual já registrou falha de clock do ov02c10."
 msgstr ""
-"Adjustment completed. If the module is still in use, reboot the system "
-"before validating the camera."
+"Adjustment completed. Reboot the system before validating the camera if the "
+"current boot already recorded an ov02c10 clock failure."
 
 #: src/actions/runtime.rs:293
 msgid ""
@@ -582,30 +584,30 @@ msgid ""
 "rápida específica."
 msgstr ""
 
-#: src/lib.rs:623
+#: src/lib.rs:628
 #, rust-format
 msgid "Instalados: {packages}"
 msgstr "Installed: {packages}"
 
-#: src/lib.rs:633
+#: src/lib.rs:638
 #, rust-format
 msgid "Faltando: {packages}"
 msgstr "Missing: {packages}"
 
-#: src/lib.rs:654
+#: src/lib.rs:659
 msgid "Falhou ao gerar o módulo para o kernel atual."
 msgstr "Failed to generate the module for the current kernel."
 
-#: src/lib.rs:661
+#: src/lib.rs:666
 msgid "Nenhuma falha do akmods encontrada no boot atual."
 msgstr "No akmods failure found in the current boot."
 
-#: src/lib.rs:670
+#: src/lib.rs:675
 msgid ""
 "O driver ainda não foi instalado, então o akmods não executou esse fluxo."
 msgstr "The driver is not installed yet, so akmods did not run this flow."
 
-#: src/lib.rs:699
+#: src/lib.rs:704
 #, rust-format
 msgid ""
 "O módulo corrigido existe em {path}, mas ainda não foi carregado no kernel. "
@@ -616,7 +618,7 @@ msgstr ""
 "kernel yet. Enable automatic loading and reload the driver from the quick "
 "actions section."
 
-#: src/lib.rs:708
+#: src/lib.rs:713
 #, rust-format
 msgid ""
 "Usando um override manual em {path}. Como esse arquivo não pertence a um "
@@ -626,22 +628,22 @@ msgstr ""
 "RPM, it may diverge from the Intel IPU6 stack expected by the rest of the "
 "system."
 
-#: src/lib.rs:718
+#: src/lib.rs:723
 #, rust-format
 msgid "Usando módulo externo em {path}, fornecido por {owner}."
 msgstr "Using external module at {path}, provided by {owner}."
 
-#: src/lib.rs:721
+#: src/lib.rs:726
 #, rust-format
 msgid "Usando módulo externo: {path}"
 msgstr "Using external module: {path}"
 
-#: src/lib.rs:728
+#: src/lib.rs:733
 msgid "O sistema indicou um módulo externo, mas o caminho não pôde ser lido."
 msgstr ""
 "The system indicated an external module, but the path could not be read."
 
-#: src/lib.rs:735
+#: src/lib.rs:740
 #, rust-format
 msgid ""
 "O sistema está usando o módulo in-tree do kernel: {path}. Use a ação rápida "
@@ -650,7 +652,7 @@ msgstr ""
 "The system is using the kernel in-tree module: {path}. Use the quick action "
 "to prioritize the patched driver."
 
-#: src/lib.rs:748
+#: src/lib.rs:753
 msgid ""
 "O sistema parece ter caído para o módulo in-tree. Use a ação rápida para "
 "ajustar a prioridade do driver corrigido."
@@ -658,26 +660,26 @@ msgstr ""
 "The system appears to have fallen back to the in-tree module. Use the quick "
 "action to prioritize the patched driver."
 
-#: src/lib.rs:759
+#: src/lib.rs:764
 msgid "Não foi possível localizar o módulo ov02c10 via modinfo."
 msgstr "Could not locate the ov02c10 module via modinfo."
 
-#: src/lib.rs:766
+#: src/lib.rs:771
 #, rust-format
 msgid "Módulo localizado, mas sem origem claramente classificada: {path}"
 msgstr "Module located, but without a clearly classified origin: {path}"
 
-#: src/lib.rs:774
+#: src/lib.rs:779
 msgid "Origem do módulo ov02c10 não pôde ser determinada."
 msgstr "The origin of the ov02c10 module could not be determined."
 
-#: src/lib.rs:792
+#: src/lib.rs:797
 msgid ""
 "A câmera interna apareceu no caminho direto usado pelo Galaxy Book Câmera."
 msgstr ""
 "The internal camera appeared in the direct path used by Galaxy Book Camera."
 
-#: src/lib.rs:800
+#: src/lib.rs:806
 msgid ""
 "A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book "
 "Câmera não listou a câmera interna. Isso não significa, por si só, que "
@@ -687,7 +689,7 @@ msgstr ""
 "list the internal camera. That does not necessarily mean Snapshot, the "
 "browser or the system also failed."
 
-#: src/lib.rs:806
+#: src/lib.rs:812
 msgid ""
 "O caminho direto do libcamera perdeu acesso aos nós crus do IPU6 porque uma "
 "configuração antiga da câmera para navegador removeu o uaccess desses "
@@ -696,7 +698,7 @@ msgid ""
 "funcionando juntos."
 msgstr ""
 
-#: src/lib.rs:812
+#: src/lib.rs:819
 msgid ""
 "A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup "
 "não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera."
@@ -704,7 +706,7 @@ msgstr ""
 "The cam tool is unavailable or failed to run, so setup could not validate "
 "the direct path used by Galaxy Book Camera."
 
-#: src/lib.rs:841
+#: src/lib.rs:848
 msgid ""
 "O boot registrou que o driver in-tree não suporta o clock externo de 26 MHz "
 "nesta máquina."
@@ -712,37 +714,37 @@ msgstr ""
 "Boot recorded that the in-tree driver does not support the 26 MHz external "
 "clock on this machine."
 
-#: src/lib.rs:849
+#: src/lib.rs:856
 msgid "Nenhum erro de clock/probe do ov02c10 foi encontrado no boot atual."
 msgstr "No ov02c10 clock/probe error was found in the current boot."
 
-#: src/lib.rs:985
+#: src/lib.rs:992
 msgid "Kernel não pode estar vazio no smoke test."
 msgstr "Kernel cannot be empty in the smoke test."
 
-#: src/lib.rs:999
+#: src/lib.rs:1006
 msgid "Galaxy Book (modelo não identificado)"
 msgstr "Galaxy Book (unidentified model)"
 
-#: src/lib.rs:1005
+#: src/lib.rs:1012
 msgid "Fedora (versão não identificada)"
 msgstr "Fedora (unidentified version)"
 
-#: src/lib.rs:1011
+#: src/lib.rs:1018
 msgid "Não foi possível verificar"
 msgstr "Could not verify"
 
-#: src/lib.rs:1093
+#: src/lib.rs:1100
 #, rust-format
 msgid "Ativa: {extensions}"
 msgstr "Active: {extensions}"
 
-#: src/lib.rs:1108
+#: src/lib.rs:1115
 #, rust-format
 msgid "Instalada, mas desativada: {extensions}"
 msgstr "Installed, but disabled: {extensions}"
 
-#: src/lib.rs:1149
+#: src/lib.rs:1156
 msgid ""
 "Dash to Dock ativo com dock inferior auto-ocultável, clique ciclando "
 "janelas, ícones em 48 px, lixeira e unidades montadas visíveis."
@@ -750,26 +752,26 @@ msgstr ""
 "Dash to Dock active with auto-hiding bottom dock, click cycling windows, 48 "
 "px icons, trash and mounted drives visible."
 
-#: src/lib.rs:1160
+#: src/lib.rs:1167
 #, rust-format
 msgid "Dash to Dock ativo, mas fora do perfil recomendado em: {items}"
 msgstr "Dash to Dock active, but outside the recommended profile for: {items}"
 
-#: src/lib.rs:1172
+#: src/lib.rs:1179
 #, rust-format
 msgid "Instalada, mas desativada: {extension}"
 msgstr "Installed, but disabled: {extension}"
 
-#: src/lib.rs:1182
+#: src/lib.rs:1189
 msgid "A extensão Dash to Dock não está instalada."
 msgstr "The Dash to Dock extension is not installed."
 
-#: src/lib.rs:1353
+#: src/lib.rs:1360
 msgid ""
 "Módulos NVIDIA carregados. O utilitário nvidia-smi também está instalado."
 msgstr "NVIDIA modules loaded. The nvidia-smi utility is also installed."
 
-#: src/lib.rs:1356
+#: src/lib.rs:1363
 msgid ""
 "Módulos NVIDIA carregados. O utilitário nvidia-smi continua opcional e não "
 "está instalado."
@@ -777,7 +779,7 @@ msgstr ""
 "NVIDIA modules loaded. The nvidia-smi utility remains optional and is not "
 "installed."
 
-#: src/lib.rs:1371
+#: src/lib.rs:1378
 msgid ""
 "O pacote akmod-nvidia está instalado, mas os módulos não estão carregados "
 "para o kernel atual."
@@ -785,7 +787,7 @@ msgstr ""
 "The akmod-nvidia package is installed, but the modules are not loaded for "
 "the current kernel."
 
-#: src/lib.rs:1381
+#: src/lib.rs:1388
 msgid ""
 "O suporte NVIDIA ainda não foi instalado. O setup trata o akmod-nvidia como "
 "o pacote principal para esta etapa."
@@ -793,44 +795,44 @@ msgstr ""
 "NVIDIA support has not been installed yet. Setup treats akmod-nvidia as the "
 "main package for this stage."
 
-#: src/lib.rs:1394
+#: src/lib.rs:1401
 msgid ""
 "O setup não conseguiu consultar o estado do Secure Boot/MOK neste sistema."
 msgstr ""
 
-#: src/lib.rs:1403
+#: src/lib.rs:1410
 msgid ""
 "Secure Boot está desativado. O MOK do akmods não é necessário para carregar "
 "módulos externos neste boot."
 msgstr ""
 
-#: src/lib.rs:1414
+#: src/lib.rs:1421
 msgid ""
 "Secure Boot está ativo, mas o akmods ainda não tem a chave local pronta em /"
 "etc/pki/akmods. Prepare a chave do Secure Boot antes de instalar ou carregar "
 "módulos externos."
 msgstr ""
 
-#: src/lib.rs:1429 src/lib.rs:1450
+#: src/lib.rs:1436 src/lib.rs:1457
 msgid ""
 "A chave pública do akmods já está inscrita no MOK. Os módulos externos podem "
 "ser assinados e aceitos pelo Secure Boot neste host."
 msgstr ""
 
-#: src/lib.rs:1459
+#: src/lib.rs:1466
 msgid ""
 "A chave do akmods já foi preparada e o pedido de importação está pendente no "
 "MOK. Reinicie o notebook e conclua 'Enroll MOK' na tela azul do boot."
 msgstr ""
 
-#: src/lib.rs:1467
+#: src/lib.rs:1474
 msgid ""
 "Secure Boot está ativo e a chave local do akmods existe, mas ainda não foi "
 "aceita no MOK. Use a ação rápida dedicada antes de tentar carregar módulos "
 "externos."
 msgstr ""
 
-#: src/lib.rs:1481
+#: src/lib.rs:1488
 #, rust-format
 msgid ""
 "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ruído da "
@@ -839,7 +841,7 @@ msgstr ""
 "Active: balanced. Recommended profile for general use, balancing fan noise, "
 "temperature and performance. Available options: {choices}"
 
-#: src/lib.rs:1490
+#: src/lib.rs:1497
 #, rust-format
 msgid ""
 "Ativo: {current}. Para uso geral, o perfil balanced costuma ser o ponto mais "
@@ -850,7 +852,7 @@ msgstr ""
 "stable point between fan, temperature and performance. Available options: "
 "{choices}"
 
-#: src/lib.rs:1499
+#: src/lib.rs:1506
 msgid ""
 "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ventoinha, "
 "temperatura e desempenho."
@@ -858,7 +860,7 @@ msgstr ""
 "Active: balanced. Recommended profile for general use, balancing fan, "
 "temperature and performance."
 
-#: src/lib.rs:1507
+#: src/lib.rs:1514
 #, rust-format
 msgid ""
 "Ativo: {current}. O perfil balanced é o recomendado para uso geral neste "
@@ -867,16 +869,16 @@ msgstr ""
 "Active: {current}. The balanced profile is recommended for general use on "
 "this notebook."
 
-#: src/lib.rs:1515
+#: src/lib.rs:1522
 msgid "Este sistema não expôs a interface ACPI de platform_profile."
 msgstr "This system did not expose the platform_profile ACPI interface."
 
-#: src/lib.rs:1531
+#: src/lib.rs:1538
 #, rust-format
 msgid "Faltando pacotes do bridge V4L2: {packages}"
 msgstr "Missing V4L2 bridge packages: {packages}"
 
-#: src/lib.rs:1551
+#: src/lib.rs:1558
 #, rust-format
 msgid ""
 "Bridge V4L2 ativo em {device}. A webcam virtual já pode ser usada por Meet, "
@@ -885,7 +887,7 @@ msgstr ""
 "V4L2 bridge active on {device}. The virtual webcam can already be used by "
 "Meet, Discord, Teams and other apps."
 
-#: src/lib.rs:1560
+#: src/lib.rs:1567
 #, rust-format
 msgid ""
 "Bridge ativo em {device}, mas só habilitado para a sessão atual. Ative "
@@ -894,7 +896,7 @@ msgstr ""
 "Bridge active on {device}, but only enabled for the current session. Enable "
 "it again via the quick action to persist after reboot."
 
-#: src/lib.rs:1569
+#: src/lib.rs:1576
 #, rust-format
 msgid ""
 "Bridge ativo em {device}, mas o serviço ainda não está habilitado de forma "
@@ -903,7 +905,7 @@ msgstr ""
 "Bridge active on {device}, but the service is not enabled persistently yet. "
 "Enable browser camera from the quick actions section."
 
-#: src/lib.rs:1578
+#: src/lib.rs:1585
 #, rust-format
 msgid ""
 "A webcam virtual existe em {device}, mas o relay está parado. Ative a câmera "
@@ -913,7 +915,7 @@ msgstr ""
 "The virtual webcam exists on {device}, but the relay is stopped. Enable "
 "browser camera to keep Meet, Discord and other apps working predictably."
 
-#: src/lib.rs:1587
+#: src/lib.rs:1594
 #, rust-format
 msgid ""
 "O relay está ativo, mas {device} ainda não expôs um nó de captura "
@@ -922,7 +924,7 @@ msgstr ""
 "The relay is active, but {device} has not exposed a usable capture node yet. "
 "Reapply the browser camera quick action."
 
-#: src/lib.rs:1595
+#: src/lib.rs:1602
 msgid ""
 "A câmera já aparece nas fontes do sistema, mas a webcam virtual ainda não "
 "foi ativada. Use a ação rápida para expor a câmera como dispositivo V4L2 "
@@ -932,7 +934,7 @@ msgstr ""
 "been enabled yet. Use the quick action to expose the camera as a V4L2 device "
 "for Meet, Discord, Teams and other WebRTC apps."
 
-#: src/lib.rs:1601
+#: src/lib.rs:1608
 msgid ""
 "A câmera base já está funcional no libcamera, mas o bridge V4L2 para "
 "navegador ainda não foi ativado."
@@ -940,7 +942,7 @@ msgstr ""
 "The base camera already works in libcamera, but the V4L2 bridge for browsers "
 "has not been enabled yet."
 
-#: src/lib.rs:1607
+#: src/lib.rs:1614
 msgid ""
 "O bridge V4L2 para navegador ainda não foi ativado e a câmera também não "
 "apareceu nas fontes do sistema. Use a ação rápida para configurar a webcam "
@@ -950,7 +952,21 @@ msgstr ""
 "did not appear in system sources. Use the quick action to configure the "
 "virtual webcam and reassess the base camera if the problem persists."
 
-#: src/lib.rs:1619
+#: src/lib.rs:1624
+msgid ""
+"O boot registrou que o ov02c10 rejeitou o clock externo de 26 MHz, então o "
+"sensor não entrou no grafo de mídia usado pelo libcamera. Depois de uma "
+"atualização de kernel, isso costuma indicar que o módulo corrigido só ficou "
+"pronto depois da primeira tentativa do IPU6. Ajuste a prioridade do driver "
+"corrigido e reinicie para recriar o grafo com o sensor."
+msgstr ""
+"Boot recorded that ov02c10 rejected the 26 MHz external clock, so the sensor "
+"did not enter the media graph used by libcamera. After a kernel update, this "
+"usually means the patched module only became ready after IPU6's first "
+"attempt. Prioritize the patched driver and reboot to recreate the graph with "
+"the sensor."
+
+#: src/lib.rs:1635
 msgid ""
 "Este sistema não expôs amplificadores MAX98390 via ACPI ou I2C, então o "
 "setup não aplicou o fluxo específico dos alto-falantes Galaxy Book."
@@ -958,7 +974,7 @@ msgstr ""
 "This system did not expose MAX98390 amplifiers via ACPI or I2C, so setup did "
 "not apply the Galaxy Book specific speaker flow."
 
-#: src/lib.rs:1650
+#: src/lib.rs:1666
 #, rust-format
 msgid ""
 "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de "
@@ -967,7 +983,7 @@ msgstr ""
 "MAX98390 hardware was detected, but speaker support packages are still "
 "missing: {packages}"
 
-#: src/lib.rs:1660
+#: src/lib.rs:1676
 msgid ""
 "O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os "
 "módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c. O boot já "
@@ -980,7 +996,7 @@ msgstr ""
 "step is to rebuild and manually install the driver from the quick actions "
 "section."
 
-#: src/lib.rs:1662
+#: src/lib.rs:1678
 msgid ""
 "O suporte MAX98390 foi instalado, mas o kernel atual ainda não expõe os "
 "módulos snd-hda-scodec-max98390 e snd-hda-scodec-max98390-i2c via modinfo. "
@@ -992,7 +1008,7 @@ msgstr ""
 "modinfo. Rebuild and manually install the driver from the quick actions "
 "section before testing the Speaker output again."
 
-#: src/lib.rs:1675
+#: src/lib.rs:1691
 msgid ""
 "O suporte MAX98390 está instalado, os módulos dos amplificadores estão "
 "carregados e o serviço de I2C está pronto para o boot."
@@ -1000,7 +1016,7 @@ msgstr ""
 "MAX98390 support is installed, the amplifier modules are loaded and the I2C "
 "service is ready for boot."
 
-#: src/lib.rs:1684
+#: src/lib.rs:1700
 msgid ""
 "Os módulos MAX98390 estão carregados, mas o serviço que cria os dispositivos "
 "I2C no boot ainda não está ativo de forma persistente."
@@ -1008,7 +1024,7 @@ msgstr ""
 "The MAX98390 modules are loaded, but the service that creates the I2C "
 "devices at boot is not persistently active yet."
 
-#: src/lib.rs:1692
+#: src/lib.rs:1708
 msgid ""
 "O hardware MAX98390 foi detectado, mas os módulos dos amplificadores ainda "
 "não estão carregados. Ative o suporte dos alto-falantes pela seção de ações "
@@ -1017,140 +1033,140 @@ msgstr ""
 "MAX98390 hardware was detected, but the amplifier modules are not loaded "
 "yet. Enable speaker support from the quick actions section."
 
-#: src/lib.rs:1749
+#: src/lib.rs:1765
 msgid ""
 "O painel de som está instalado e pronto para equalizador, perfis e Atmos "
 "compatível via PipeWire."
 msgstr ""
 
-#: src/lib.rs:1755
+#: src/lib.rs:1771
 msgid ""
 "O painel de som ainda não está instalado. Use-o para equalizador, perfis "
 "prontos e Atmos compatível depois que o MAX98390 estiver funcional."
 msgstr ""
 
-#: src/lib.rs:1787
+#: src/lib.rs:1803
 msgid ""
 "Nenhum leitor de digital compatível foi detectado via lsusb neste boot. Em "
 "modelos sem sensor integrado, esse estado é esperado."
 msgstr ""
 
-#: src/lib.rs:1797
+#: src/lib.rs:1813
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o stack ainda está incompleto. Faltam "
 "pacotes: {packages}"
 msgstr ""
 
-#: src/lib.rs:1811
+#: src/lib.rs:1827
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}. O stack fprintd/libfprint respondeu "
 "normalmente para o usuário atual."
 msgstr ""
 
-#: src/lib.rs:1819
+#: src/lib.rs:1835
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o leitor respondeu como ocupado. Reaplique "
 "o stack antes de tentar um novo cadastro."
 msgstr ""
 
-#: src/lib.rs:1827
+#: src/lib.rs:1843
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o fprintd não expôs um dispositivo "
 "utilizável nesta sessão."
 msgstr ""
 
-#: src/lib.rs:1835
+#: src/lib.rs:1851
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o setup não conseguiu validar a resposta "
 "do fprintd nesta sessão."
 msgstr ""
 
-#: src/lib.rs:1855
+#: src/lib.rs:1871
 msgid ""
 "Sem leitor de digital detectado neste boot, o setup não avaliou cadastro nem "
 "integração com authselect."
 msgstr ""
 
-#: src/lib.rs:1864
+#: src/lib.rs:1880
 msgid ""
 "O leitor foi detectado, mas o stack de fingerprint ainda não está completo. "
 "Reinstale fprintd/libfprint antes de validar cadastro e login."
 msgstr ""
 
-#: src/lib.rs:1873
+#: src/lib.rs:1889
 msgid ""
 "Authselect já está com with-fingerprint ativo e o usuário atual tem pelo "
 "menos uma digital cadastrada."
 msgstr ""
 
-#: src/lib.rs:1879
+#: src/lib.rs:1895
 msgid ""
 "O stack já responde e o authselect está pronto, mas o usuário atual ainda "
 "não cadastrou nenhuma digital."
 msgstr ""
 
-#: src/lib.rs:1885
+#: src/lib.rs:1901
 msgid ""
 "Há digital cadastrada para o usuário atual, mas o authselect ainda não está "
 "com with-fingerprint habilitado."
 msgstr ""
 
-#: src/lib.rs:1891
+#: src/lib.rs:1907
 msgid ""
 "O leitor já responde, mas ainda faltam dois passos: habilitar with-"
 "fingerprint no authselect e cadastrar a digital do usuário atual."
 msgstr ""
 
-#: src/lib.rs:1897
+#: src/lib.rs:1913
 msgid ""
 "O leitor respondeu como ocupado. Reaplique o stack e depois abra o cadastro "
 "de usuários para refazer a digital com o sensor liberado."
 msgstr ""
 
-#: src/lib.rs:1903
+#: src/lib.rs:1919
 msgid ""
 "O sensor apareceu no USB, mas o fprintd não expôs um dispositivo utilizável "
 "para validar cadastro e autenticação nesta sessão."
 msgstr ""
 
-#: src/lib.rs:1909
+#: src/lib.rs:1925
 msgid ""
 "O leitor foi detectado, mas o setup não conseguiu validar cadastro e "
 "authselect nesta sessão."
 msgstr ""
 
-#: src/lib.rs:1935
+#: src/lib.rs:1951
 msgid "Prepare a chave do Secure Boot"
 msgstr ""
 
-#: src/lib.rs:1936
+#: src/lib.rs:1952
 msgid ""
 "O Secure Boot está ativo, mas a chave usada pelo akmods ainda não está "
 "pronta ou inscrita no MOK. Use a ação rápida dedicada antes de instalar ou "
 "carregar módulos externos do notebook."
 msgstr ""
 
-#: src/lib.rs:1942
+#: src/lib.rs:1958
 msgid "Concluir inscrição do MOK"
 msgstr ""
 
-#: src/lib.rs:1943
+#: src/lib.rs:1959
 msgid ""
 "O pedido de importação da chave do akmods já foi criado. Reinicie o notebook "
 "e conclua 'Enroll MOK' na tela azul do boot antes de repetir as ações do "
 "driver."
 msgstr ""
 
-#: src/lib.rs:1949
+#: src/lib.rs:1965
 msgid "Instalação pendente"
 msgstr "Installation pending"
 
-#: src/lib.rs:1950
+#: src/lib.rs:1966
 msgid ""
 "Instale os pacotes principais da câmera pela própria seção de ações rápidas, "
 "reinicie o sistema e atualize o diagnóstico."
@@ -1158,11 +1174,11 @@ msgstr ""
 "Install the main camera packages from the quick actions section itself, "
 "reboot the system and refresh diagnostics."
 
-#: src/lib.rs:1956
+#: src/lib.rs:1972
 msgid "O driver não foi gerado no boot"
 msgstr "The driver was not generated at boot"
 
-#: src/lib.rs:1957
+#: src/lib.rs:1973
 msgid ""
 "O akmods falhou ao construir o módulo para o kernel atual. Reexecute o "
 "reparo do driver, confira o log do akmods e reinicie antes de testar a "
@@ -1171,11 +1187,11 @@ msgstr ""
 "Akmods failed to build the module for the current kernel. Run driver repair "
 "again, check the akmods log and reboot before testing the camera again."
 
-#: src/lib.rs:1963
+#: src/lib.rs:1980 src/lib.rs:1993
 msgid "O sistema caiu para o driver in-tree"
 msgstr "The system fell back to the in-tree driver"
 
-#: src/lib.rs:1964
+#: src/lib.rs:1981 src/lib.rs:1994
 msgid ""
 "O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o "
 "clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela "
@@ -1185,11 +1201,28 @@ msgstr ""
 "support this hardware’s 26 MHz clock. Prioritize the patched driver from the "
 "quick actions section and reboot."
 
-#: src/lib.rs:1970
+#: src/lib.rs:1986
+msgid "Reinicie com o driver corrigido priorizado"
+msgstr "Reboot with the patched driver prioritized"
+
+#: src/lib.rs:1987
+msgid ""
+"O boot registrou que o ov02c10 rejeitou o clock externo de 26 MHz antes da "
+"câmera entrar no grafo de mídia. Depois de atualização de kernel, isso "
+"costuma acontecer quando o akmods só termina de gerar o módulo corrigido "
+"após a tentativa inicial do IPU6. Ajuste a prioridade do driver corrigido "
+"pela seção de ações rápidas e reinicie."
+msgstr ""
+"Boot recorded that ov02c10 rejected the 26 MHz external clock before the "
+"camera entered the media graph. After a kernel update, this often happens "
+"when akmods only finishes building the patched module after IPU6's first "
+"attempt. Prioritize the patched driver from quick actions and reboot."
+
+#: src/lib.rs:2000
 msgid "O driver corrigido não foi carregado"
 msgstr "The patched driver was not loaded"
 
-#: src/lib.rs:1971
+#: src/lib.rs:2001
 msgid ""
 "O módulo ov02c10 corrigido está instalado no sistema, mas não entrou no "
 "kernel. Habilite o carregamento automático do driver e reinicie para a "
@@ -1199,11 +1232,11 @@ msgstr ""
 "the kernel. Enable automatic driver loading and reboot so the camera appears "
 "again in the media graph."
 
-#: src/lib.rs:1977
+#: src/lib.rs:2007
 msgid "O bridge do navegador bloqueou o libcamera"
 msgstr ""
 
-#: src/lib.rs:1978
+#: src/lib.rs:2008
 msgid ""
 "Uma configuração antiga da câmera para navegador removeu o acesso do usuário "
 "aos nós crus do IPU6. Reaplique a ação rápida da câmera para navegador para "
@@ -1211,11 +1244,11 @@ msgid ""
 "funcionando juntos."
 msgstr ""
 
-#: src/lib.rs:1984
+#: src/lib.rs:2014
 msgid "O override manual da câmera está atrapalhando o libcamera"
 msgstr "The manual camera override is getting in the way of libcamera"
 
-#: src/lib.rs:1985
+#: src/lib.rs:2015
 msgid ""
 "A câmera do kernel parece estável, mas o caminho direto do Galaxy Book "
 "Câmera não encontrou o sensor enquanto um ov02c10 manual em /updates está "
@@ -1226,11 +1259,11 @@ msgstr ""
 "did not find the sensor while a manual ov02c10 in /updates is active. The "
 "next step is to restore the Intel IPU6 stack from the quick actions section."
 
-#: src/lib.rs:1991
+#: src/lib.rs:2021
 msgid "Compatibilidade com navegador pendente"
 msgstr "Browser compatibility pending"
 
-#: src/lib.rs:1992
+#: src/lib.rs:2022
 msgid ""
 "A câmera base já está pronta para uso no sistema, mas a webcam virtual para "
 "Meet, Discord, Teams e outros apps ainda não está ativa. Use a ação rápida "
@@ -1240,11 +1273,11 @@ msgstr ""
 "webcam for Meet, Discord, Teams and other apps is not active yet. Use the "
 "quick action to expose the camera as a V4L2 device."
 
-#: src/lib.rs:1998
+#: src/lib.rs:2028
 msgid "A câmera ainda não apareceu no caminho direto do app"
 msgstr "The camera has not appeared in the app direct path yet"
 
-#: src/lib.rs:1999
+#: src/lib.rs:2029
 msgid ""
 "O driver e os pacotes principais parecem presentes, mas a câmera ainda não "
 "foi detectada nem no caminho direto do Galaxy Book Câmera nem nas fontes do "
@@ -1254,11 +1287,11 @@ msgstr ""
 "detected either in the Galaxy Book Camera direct path or in system sources. "
 "The next step is to review boot logs and the IPU6 stack."
 
-#: src/lib.rs:2005
+#: src/lib.rs:2035
 msgid "Driver pronto, app da câmera ausente"
 msgstr "Driver ready, camera app missing"
 
-#: src/lib.rs:2006
+#: src/lib.rs:2036
 msgid ""
 "A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app "
 "para validar preview, foto e vídeo no fluxo final."
@@ -1266,11 +1299,11 @@ msgstr ""
 "The camera already appears in the Galaxy Book Camera direct path. Install "
 "the app to validate preview, photo and video in the final flow."
 
-#: src/lib.rs:2012
+#: src/lib.rs:2042
 msgid "Suporte dos alto-falantes pendente"
 msgstr "Speaker support pending"
 
-#: src/lib.rs:2013
+#: src/lib.rs:2043
 msgid ""
 "A máquina expõe amplificadores MAX98390, mas o pacote de speakers ainda não "
 "está pronto ou os módulos não foram carregados. Ative o suporte dos alto-"
@@ -1281,21 +1314,21 @@ msgstr ""
 "yet or the modules were not loaded. Enable internal speaker support from the "
 "quick actions section and test the Speaker output again."
 
-#: src/lib.rs:2019
+#: src/lib.rs:2049
 msgid "Painel de som opcional ainda não instalado"
 msgstr ""
 
-#: src/lib.rs:2020
+#: src/lib.rs:2050
 msgid ""
 "O suporte MAX98390 já parece pronto. Se você quiser equalizador, perfis e "
 "Atmos compatível, instale o Galaxy Book Sound pela seção de ações rápidas."
 msgstr ""
 
-#: src/lib.rs:2025
+#: src/lib.rs:2055
 msgid "Fluxo principal da câmera parece pronto"
 msgstr "The main camera flow looks ready"
 
-#: src/lib.rs:2026
+#: src/lib.rs:2056
 #, fuzzy
 msgid ""
 "O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já "
@@ -1365,7 +1398,7 @@ msgstr "Open details"
 msgid "Abrir link"
 msgstr "Open link"
 
-#: src/ui/about.rs:131
+#: src/ui/about.rs:136
 #, rust-format
 msgid "Falha ao abrir o link: {error}"
 msgstr "Failed to open the link: {error}"
@@ -1621,6 +1654,13 @@ msgstr "Failed to start the privileged action: {error}"
 #, fuzzy
 msgid "A atualização falhou, mas não retornou saída textual."
 msgstr "The action failed, but returned no textual output."
+
+#~ msgid ""
+#~ "Ajuste concluído. Se o módulo ainda estiver em uso, reinicie o sistema "
+#~ "antes de validar a câmera."
+#~ msgstr ""
+#~ "Adjustment completed. If the module is still in use, reboot the system "
+#~ "before validating the camera."
 
 #~ msgid "Sem automação disponível"
 #~ msgstr "No automation available"

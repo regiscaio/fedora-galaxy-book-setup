@@ -67,7 +67,7 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::ForceDriverPriority => ActionMetadata {
             title: tr_mark("Ajustar prioridade do driver"),
             subtitle: tr_mark(
-                "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o instala em /lib/modules/.../updates sem compressão incompatível.",
+                "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o instala em /lib/modules/.../updates para o kernel atual, inclusive após atualização do sistema.",
             ),
         },
         ActionKey::RestoreIntelIpu6 => ActionMetadata {

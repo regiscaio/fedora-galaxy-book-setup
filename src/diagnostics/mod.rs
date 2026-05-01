@@ -196,22 +196,25 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                     "libcamera-permission-blocked" => {
                         vec![ActionKey::EnableBrowserCamera]
                     }
-                    _ => match diagnostic_item(snapshot, DiagnosticKey::Module).code {
-                    "module-not-loaded" => {
-                        vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
-                    }
-                    "module-in-tree" => {
+                    "libcamera-clock-probe-failed" => {
                         vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
                     }
-                    "module-manual-override" | "module-patched" => {
-                        vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
-                    }
-                    "module-missing"
-                    | "module-unknown"
-                    | "module-patched-path-missing" => {
-                        vec![ActionKey::RepairDriver, ActionKey::Reboot]
-                    }
-                    _ => vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot],
+                    _ => match diagnostic_item(snapshot, DiagnosticKey::Module).code {
+                        "module-not-loaded" => {
+                            vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
+                        }
+                        "module-in-tree" => {
+                            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+                        }
+                        "module-manual-override" | "module-patched" => {
+                            vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
+                        }
+                        "module-missing"
+                        | "module-unknown"
+                        | "module-patched-path-missing" => {
+                            vec![ActionKey::RepairDriver, ActionKey::Reboot]
+                        }
+                        _ => vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot],
                     },
                 }
             };
