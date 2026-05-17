@@ -24,9 +24,9 @@ BuildRequires:  pkgconfig(gtk4)
 BuildRequires:  pkgconfig(libadwaita-1)
 BuildRequires:  rust
 
-Recommends:     akmod-galaxybook-ov02c10 >= 1.00.09
-Recommends:     galaxybook-ov02c10-kmod-common >= 1.00.09
-Recommends:     kmod-galaxybook-ov02c10 >= 1.00.09
+Recommends:     akmod-galaxybook-ov02c10 >= 1.00.10
+Recommends:     galaxybook-ov02c10-kmod-common >= 1.00.10
+Recommends:     kmod-galaxybook-ov02c10 >= 1.00.10
 Recommends:     akmod-galaxybook-max98390 >= 1.0.0
 Recommends:     galaxybook-camera >= 1.0.0
 

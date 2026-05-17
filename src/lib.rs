@@ -105,6 +105,48 @@ remove_stale_ov02c10_overrides() {
   fi
 }
 
+ensure_ov02c10_depmod_priority() {
+  local config
+  config="/etc/depmod.d/galaxybook-ov02c10.conf"
+
+  install -d /etc/depmod.d
+  cat > "$config" <<'EOF'
+# Prefer the packaged Galaxy Book OV02C10 module over Fedora's in-tree copy.
+override ov02c10 * extra/galaxybook-ov02c10/drivers/media/i2c
+EOF
+}
+
+print_ov02c10_depmod_debug() {
+  local config candidate owner
+
+  echo "Candidatos ov02c10 encontrados para $kernel:" >&2
+  find "/lib/modules/$kernel" -type f -name 'ov02c10.ko*' -print | sort >&2 || true
+
+  echo "Regras depmod do Galaxy Book encontradas:" >&2
+  for config in \
+    /etc/depmod.d/galaxybook-ov02c10.conf \
+    /run/depmod.d/galaxybook-ov02c10.conf \
+    /usr/local/lib/depmod.d/galaxybook-ov02c10.conf \
+    /usr/lib/depmod.d/galaxybook-ov02c10.conf \
+    /lib/depmod.d/galaxybook-ov02c10.conf
+  do
+    [ -r "$config" ] || continue
+    printf '%s: ' "$config" >&2
+    tr '\n' ' ' < "$config" >&2
+    printf '\n' >&2
+  done
+
+  echo "Propriedade RPM dos candidatos ov02c10:" >&2
+  while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
+    owner="$(rpm -qf "$candidate" 2>/dev/null || true)"
+    printf '%s -> %s\n' "$candidate" "${owner:-sem dono RPM}" >&2
+  done < <(find "/lib/modules/$kernel" -type f -name 'ov02c10.ko*' -print | sort)
+
+  echo "Entradas ov02c10 geradas pelo depmod:" >&2
+  depmod -n "$kernel" 2>&1 | grep 'ov02c10' >&2 || true
+}
+
 dnf --refresh install -y \
   galaxybook-ov02c10-kmod-common \
   akmod-galaxybook-ov02c10 \
@@ -130,9 +172,11 @@ fi
 
 remove_stale_ov02c10_overrides
 
+ensure_ov02c10_depmod_priority
 depmod -a "$kernel"
 module_path="$(modinfo -n ov02c10 2>/dev/null || true)"
 if ! printf '%s' "$module_path" | grep -q "/extra/galaxybook-ov02c10/"; then
+  print_ov02c10_depmod_debug
   echo "O depmod ainda está resolvendo ov02c10 para '$module_path', não para o módulo empacotado em extra/galaxybook-ov02c10." >&2
   exit 1
 fi
@@ -2413,6 +2457,15 @@ mod tests {
             )),
             ModuleOrigin::InTree
         );
+    }
+
+    #[test]
+    fn force_camera_driver_command_installs_exact_depmod_override() {
+        assert!(FORCE_CAMERA_DRIVER_COMMAND.contains(
+            "override ov02c10 * extra/galaxybook-ov02c10/drivers/media/i2c"
+        ));
+        assert!(!FORCE_CAMERA_DRIVER_COMMAND
+            .contains("override ov02c10 * extra/galaxybook-ov02c10\n"));
     }
 
     #[test]

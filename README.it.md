@@ -154,9 +154,10 @@ Oggi, le azioni disponibili includono:
 - ricostruire il driver con `akmods`;
 - abilitare il caricamento di `ov02c10` al boot e caricare subito il modulo;
 - regolare la priorità del driver corretto migrando vecchi override in
-  `/updates` al kmod pacchettizzato in `extra/galaxybook-ov02c10`, con controlli
-  di Secure Boot e un messaggio esplicito quando il kernel attuale ha già
-  provato ad avviare la fotocamera troppo presto;
+  `/updates` al kmod pacchettizzato, applicando la regola `depmod.d` che
+  prioritizza `extra/galaxybook-ov02c10/drivers/media/i2c`, con controlli di
+  Secure Boot e un messaggio esplicito quando il kernel attuale ha già provato
+  ad avviare la fotocamera troppo presto;
 - ripristinare lo stack Intel IPU6 pacchettizzato quando il percorso diretto di
   `Galaxy Book Câmera` smette di vedere il sensore;
 - attivare la fotocamera per browser tramite `icamerasrc`, `v4l2-relayd` e
@@ -200,7 +201,7 @@ aggiornamenti successivi. Il flusso attuale installa o aggiorna
 `galaxybook-ov02c10-kmod-common`, `akmod-galaxybook-ov02c10` e
 `kmod-galaxybook-ov02c10`, forza `akmods`, valida il payload
 `kmod-galaxybook-ov02c10-<kernel>` e rimuove vecchi override senza proprietario
-prima di chiedere il riavvio.
+prima di applicare la priorità esatta di `depmod` e chiedere il riavvio.
 
 Anche se `modinfo -n ov02c10` poi punta al modulo corretto dopo la fine di
 `akmods`, il grafo IPU6 di quel boot può già essere stato creato senza il
