@@ -116,6 +116,26 @@ override ov02c10 * extra/galaxybook-ov02c10/drivers/media/i2c
 EOF
 }
 
+refresh_ov02c10_module_indexes() {
+  local kernel_dir target_kernel
+
+  find /lib/modules -mindepth 1 -maxdepth 1 -type d -print | sort | while read -r kernel_dir; do
+    [ -d "$kernel_dir/extra/galaxybook-ov02c10" ] || continue
+    if find "$kernel_dir/extra/galaxybook-ov02c10" -type f \( -name 'ov02c10.ko' -o -name 'ov02c10.ko.xz' -o -name 'ov02c10.ko.zst' \) -print -quit | grep -q .; then
+      target_kernel="$(basename "$kernel_dir")"
+      echo "Atualizando dependências de módulos OV02C10 para $target_kernel"
+      depmod -a "$target_kernel"
+    fi
+  done
+}
+
+refresh_current_initramfs() {
+  if command -v dracut >/dev/null 2>&1 && [ -e "/boot/initramfs-$kernel.img" ]; then
+    echo "Atualizando initramfs do kernel $kernel para preservar a prioridade do ov02c10 no boot"
+    dracut --force "/boot/initramfs-$kernel.img" "$kernel"
+  fi
+}
+
 print_ov02c10_depmod_debug() {
   local config candidate owner
 
@@ -173,6 +193,7 @@ fi
 remove_stale_ov02c10_overrides
 
 ensure_ov02c10_depmod_priority
+refresh_ov02c10_module_indexes
 depmod -a "$kernel"
 module_path="$(modinfo -n ov02c10 2>/dev/null || true)"
 if ! printf '%s' "$module_path" | grep -q "/extra/galaxybook-ov02c10/"; then
@@ -180,6 +201,8 @@ if ! printf '%s' "$module_path" | grep -q "/extra/galaxybook-ov02c10/"; then
   echo "O depmod ainda está resolvendo ov02c10 para '$module_path', não para o módulo empacotado em extra/galaxybook-ov02c10." >&2
   exit 1
 fi
+
+refresh_current_initramfs
 
 if grep -q 'external clock 26000000 is not supported' < <(journalctl -b -k --no-pager 2>/dev/null); then
   echo "O boot atual já tentou iniciar a câmera com um driver que rejeitou o clock externo de 26 MHz. A prioridade do módulo corrigido foi ajustada, mas reinicie para recriar o grafo IPU6 antes de validar o libcamera."
@@ -2464,6 +2487,9 @@ mod tests {
         assert!(FORCE_CAMERA_DRIVER_COMMAND.contains(
             "override ov02c10 * extra/galaxybook-ov02c10/drivers/media/i2c"
         ));
+        assert!(FORCE_CAMERA_DRIVER_COMMAND.contains("refresh_ov02c10_module_indexes"));
+        assert!(FORCE_CAMERA_DRIVER_COMMAND
+            .contains("dracut --force \"/boot/initramfs-$kernel.img\" \"$kernel\""));
         assert!(!FORCE_CAMERA_DRIVER_COMMAND
             .contains("override ov02c10 * extra/galaxybook-ov02c10\n"));
     }

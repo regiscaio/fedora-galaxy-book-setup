@@ -153,7 +153,8 @@ Hoy, las acciones disponibles incluyen:
   inmediatamente;
 - ajustar la prioridad del driver corregido migrando overrides antiguos en
   `/updates` al kmod empaquetado, aplicando la regla `depmod.d` que prioriza
-  `extra/galaxybook-ov02c10/drivers/media/i2c`, con chequeo de Secure Boot y un
+  `extra/galaxybook-ov02c10/drivers/media/i2c`, actualizando los índices de
+  módulos y el initramfs del kernel actual, con chequeo de Secure Boot y un
   mensaje explícito cuando el kernel actual ya intentó iniciar la cámara
   demasiado pronto;
 - restaurar el stack Intel IPU6 empaquetado cuando la ruta directa de `Galaxy
@@ -198,7 +199,8 @@ actualizaciones posteriores. El flujo actual instala o actualiza
 `galaxybook-ov02c10-kmod-common`, `akmod-galaxybook-ov02c10` y
 `kmod-galaxybook-ov02c10`, fuerza `akmods`, valida el payload
 `kmod-galaxybook-ov02c10-<kernel>` y elimina overrides antiguos sin dueño antes
-de aplicar la prioridad exacta de `depmod` y pedir reinicio.
+de aplicar la prioridad exacta de `depmod`, actualizar el initramfs del kernel
+actual y pedir reinicio.
 
 Aunque `modinfo -n ov02c10` pase a apuntar al módulo corregido cuando `akmods`
 termina, el grafo IPU6 de ese arranque ya puede haberse creado sin el sensor,

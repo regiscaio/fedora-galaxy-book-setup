@@ -146,9 +146,9 @@ Today, the available actions include:
 - enabling `ov02c10` loading on boot and loading the module immediately;
 - adjusting priority for the fixed driver by migrating old `/updates`
   overrides to the packaged kmod, applying the `depmod.d` rule that prioritizes
-  `extra/galaxybook-ov02c10/drivers/media/i2c`, with Secure Boot checks and an
-  explicit message when the current kernel already tried to start the camera too
-  early;
+  `extra/galaxybook-ov02c10/drivers/media/i2c`, refreshing module indexes and
+  the current kernel initramfs, with Secure Boot checks and an explicit message
+  when the current kernel already tried to start the camera too early;
 - restoring the packaged Intel IPU6 stack when the direct `Galaxy Book
   Camera` path stops seeing the sensor;
 - enabling browser camera support through `icamerasrc`, `v4l2-relayd`, and
@@ -187,8 +187,8 @@ could later produce `depmod` warnings during upgrades. The current flow
 installs or upgrades `galaxybook-ov02c10-kmod-common`,
 `akmod-galaxybook-ov02c10`, and `kmod-galaxybook-ov02c10`, forces `akmods`,
 validates the `kmod-galaxybook-ov02c10-<kernel>` payload, and removes old
-unowned overrides before applying exact `depmod` priority and asking for a
-reboot.
+unowned overrides before applying exact `depmod` priority, refreshing the
+current kernel initramfs, and asking for a reboot.
 
 Even if `modinfo -n ov02c10` later points to the fixed module after `akmods`
 finishes, the IPU6 media graph for that boot may already have been created
