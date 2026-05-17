@@ -144,9 +144,10 @@ Today, the available actions include:
 - installing the camera's main stack;
 - rebuilding the driver with `akmods`;
 - enabling `ov02c10` loading on boot and loading the module immediately;
-- forcing priority for the fixed driver under `updates/`, with Secure Boot
-  signing when needed, without incompatible compression, and with an explicit
-  message when the current kernel already tried to start the camera too early;
+- adjusting priority for the fixed driver by migrating old `/updates`
+  overrides to the packaged kmod in `extra/galaxybook-ov02c10`, with Secure
+  Boot checks and an explicit message when the current kernel already tried to
+  start the camera too early;
 - restoring the packaged Intel IPU6 stack when the direct `Galaxy Book
   Camera` path stops seeing the sensor;
 - enabling browser camera support through `icamerasrc`, `v4l2-relayd`, and
@@ -179,9 +180,17 @@ external clock 26000000 is not supported
 probe with driver ov02c10 failed with error -22
 ```
 
-Even if `modinfo -n ov02c10` later points to `updates/` after `akmods` finishes,
-the IPU6 media graph for that boot may already have been created without the
-sensor, so `cam -l` does not list the internal camera.
+Older driver repair flows could leave a manual, RPM-unowned
+`/lib/modules/<kernel>/updates/ov02c10.ko`. That recovered module priority, but
+could later produce `depmod` warnings during upgrades. The current flow
+installs or upgrades `galaxybook-ov02c10-kmod-common`,
+`akmod-galaxybook-ov02c10`, and `kmod-galaxybook-ov02c10`, forces `akmods`,
+validates the `kmod-galaxybook-ov02c10-<kernel>` payload, and removes old
+unowned overrides before asking for a reboot.
+
+Even if `modinfo -n ov02c10` later points to the fixed module after `akmods`
+finishes, the IPU6 media graph for that boot may already have been created
+without the sensor, so `cam -l` does not list the internal camera.
 
 Diagnostics now treat this as a direct-camera path failure and suggest `Adjust
 driver priority` followed by a reboot. The action rebuilds and prioritizes the
@@ -302,7 +311,9 @@ Relevant files:
 The RPM uses `Recommends` to point to the most important packages in the
 workflow:
 
+- `galaxybook-ov02c10-kmod-common`
 - `akmod-galaxybook-ov02c10`
+- `kmod-galaxybook-ov02c10`
 - `akmod-galaxybook-max98390`
 - `galaxybook-camera`
 

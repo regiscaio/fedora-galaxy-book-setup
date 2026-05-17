@@ -153,10 +153,10 @@ Oggi, le azioni disponibili includono:
 - installare il set principale della fotocamera;
 - ricostruire il driver con `akmods`;
 - abilitare il caricamento di `ov02c10` al boot e caricare subito il modulo;
-- forzare la priorità del driver corretto in `updates/`, con firma per Secure
-  Boot quando necessario, senza compressione incompatibile e con un messaggio
-  esplicito quando il kernel attuale ha già provato ad avviare la fotocamera
-  troppo presto;
+- regolare la priorità del driver corretto migrando vecchi override in
+  `/updates` al kmod pacchettizzato in `extra/galaxybook-ov02c10`, con controlli
+  di Secure Boot e un messaggio esplicito quando il kernel attuale ha già
+  provato ad avviare la fotocamera troppo presto;
 - ripristinare lo stack Intel IPU6 pacchettizzato quando il percorso diretto di
   `Galaxy Book Câmera` smette di vedere il sensore;
 - attivare la fotocamera per browser tramite `icamerasrc`, `v4l2-relayd` e
@@ -193,9 +193,18 @@ external clock 26000000 is not supported
 probe with driver ov02c10 failed with error -22
 ```
 
-Anche se `modinfo -n ov02c10` poi punta a `updates/` dopo la fine di `akmods`, il
-grafo IPU6 di quel boot può già essere stato creato senza il sensore, quindi
-`cam -l` non elenca la fotocamera interna.
+I vecchi flussi di riparazione del driver potevano lasciare un
+`/lib/modules/<kernel>/updates/ov02c10.ko` manuale e non posseduto da RPM. Questo
+recuperava la priorità del modulo, ma poteva generare avvisi `depmod` negli
+aggiornamenti successivi. Il flusso attuale installa o aggiorna
+`galaxybook-ov02c10-kmod-common`, `akmod-galaxybook-ov02c10` e
+`kmod-galaxybook-ov02c10`, forza `akmods`, valida il payload
+`kmod-galaxybook-ov02c10-<kernel>` e rimuove vecchi override senza proprietario
+prima di chiedere il riavvio.
+
+Anche se `modinfo -n ov02c10` poi punta al modulo corretto dopo la fine di
+`akmods`, il grafo IPU6 di quel boot può già essere stato creato senza il
+sensore, quindi `cam -l` non elenca la fotocamera interna.
 
 La diagnostica ora tratta questo caso come errore del percorso diretto della
 fotocamera e suggerisce `Regolare la priorità del driver` seguito dal riavvio.
@@ -316,7 +325,9 @@ File rilevanti:
 
 L'RPM usa `Recommends` per indicare i pacchetti più importanti del flusso:
 
+- `galaxybook-ov02c10-kmod-common`
 - `akmod-galaxybook-ov02c10`
+- `kmod-galaxybook-ov02c10`
 - `akmod-galaxybook-max98390`
 - `galaxybook-camera`
 

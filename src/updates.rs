@@ -70,6 +70,7 @@ pub fn package_update_names(packages: &[&str]) -> Result<Vec<String>, String> {
 
     let output = Command::new(DNF_COMMAND)
         .arg("-q")
+        .arg("--refresh")
         .arg("check-update")
         .args(&installed_package_refs)
         .output()
@@ -106,6 +107,7 @@ pub fn install_package_updates(packages: &[&str]) -> Result<String, String> {
 
     let output = Command::new("pkexec")
         .arg(DNF_COMMAND)
+        .arg("--refresh")
         .arg("upgrade")
         .arg("-y")
         .args(&installed_package_refs)
@@ -138,6 +140,7 @@ mod tests {
 galaxybook-setup.x86_64 1.1.0-1.fc44 caioregis
 galaxybook-camera.x86_64 1.1.0-1.fc44 caioregis
 akmod-galaxybook-ov02c10.x86_64 1.1.0-1.fc44 caioregis
+kmod-galaxybook-ov02c10.noarch 1.1.0-1.fc44 caioregis
 unrelated.x86_64 1.0-1 fedora
 ";
         assert_eq!(
@@ -149,6 +152,7 @@ unrelated.x86_64 1.0-1 fedora
                     "galaxybook-sound",
                     "akmod-galaxybook-ov02c10",
                     "galaxybook-ov02c10-kmod-common",
+                    "kmod-galaxybook-ov02c10",
                     "akmod-galaxybook-max98390",
                     "galaxybook-max98390-kmod-common",
                 ],
@@ -156,7 +160,8 @@ unrelated.x86_64 1.0-1 fedora
             vec![
                 "galaxybook-setup",
                 "galaxybook-camera",
-                "akmod-galaxybook-ov02c10"
+                "akmod-galaxybook-ov02c10",
+                "kmod-galaxybook-ov02c10",
             ]
         );
     }
@@ -169,6 +174,7 @@ Repositories loaded.
 Available upgrades
 Name                          Arch   Version       Repository
 galaxybook-max98390-kmod-common noarch 1.1.0-1.fc44 caioregis
+kmod-galaxybook-ov02c10       noarch 1.1.0-1.fc44 caioregis
 galaxybook-sound              x86_64 1.1.0-1.fc44 caioregis
 ";
         assert_eq!(
@@ -180,11 +186,16 @@ galaxybook-sound              x86_64 1.1.0-1.fc44 caioregis
                     "galaxybook-sound",
                     "akmod-galaxybook-ov02c10",
                     "galaxybook-ov02c10-kmod-common",
+                    "kmod-galaxybook-ov02c10",
                     "akmod-galaxybook-max98390",
                     "galaxybook-max98390-kmod-common",
                 ],
             ),
-            vec!["galaxybook-max98390-kmod-common", "galaxybook-sound"]
+            vec![
+                "galaxybook-max98390-kmod-common",
+                "kmod-galaxybook-ov02c10",
+                "galaxybook-sound",
+            ]
         );
     }
 }

@@ -142,9 +142,10 @@ Hoje, as ações disponíveis incluem:
 - reconstruir o driver com `akmods`;
 - habilitar o carregamento do `ov02c10` no boot e carregar o módulo
   imediatamente;
-- forçar a prioridade do driver corrigido em `updates/`, com assinatura para
-  Secure Boot quando necessário, sem compressão incompatível e com mensagem
-  explícita quando o kernel atual já tentou iniciar a câmera cedo demais;
+- ajustar a prioridade do driver corrigido migrando overrides antigos em
+  `/updates` para o kmod empacotado em `extra/galaxybook-ov02c10`, com
+  checagem de `Secure Boot` e mensagem explícita quando o kernel atual já
+  tentou iniciar a câmera cedo demais;
 - restaurar o stack Intel IPU6 empacotado quando o caminho direto do
   `Galaxy Book Câmera` deixa de enxergar o sensor;
 - ativar a câmera para navegador via `icamerasrc`, `v4l2-relayd` e
@@ -180,9 +181,17 @@ external clock 26000000 is not supported
 probe with driver ov02c10 failed with error -22
 ```
 
-Mesmo que `modinfo -n ov02c10` passe a apontar para `updates/` depois que o
-`akmods` termina, o grafo IPU6 daquele boot já pode ter sido criado sem o sensor,
-fazendo `cam -l` não listar a câmera interna.
+Em versões antigas do driver, esse reparo podia deixar um
+`/lib/modules/<kernel>/updates/ov02c10.ko` manual e sem dono RPM. Isso recuperava
+a prioridade do módulo, mas podia gerar avisos de `depmod` em upgrades
+posteriores. O fluxo atual instala/atualiza `galaxybook-ov02c10-kmod-common`,
+`akmod-galaxybook-ov02c10` e `kmod-galaxybook-ov02c10`, força o `akmods`, valida
+o payload `kmod-galaxybook-ov02c10-<kernel>` e remove overrides antigos sem dono
+antes de pedir reboot.
+
+Mesmo que `modinfo -n ov02c10` passe a apontar para o módulo corrigido depois
+que o `akmods` termina, o grafo IPU6 daquele boot já pode ter sido criado sem o
+sensor, fazendo `cam -l` não listar a câmera interna.
 
 O diagnóstico agora trata esse caso como falha do caminho direto da câmera e
 sugere `Ajustar prioridade do driver` seguido de reboot. A ação reconstrói e
@@ -302,7 +311,9 @@ Arquivos relevantes:
 
 O RPM usa `Recommends` para apontar os pacotes mais importantes do fluxo:
 
+- `galaxybook-ov02c10-kmod-common`
 - `akmod-galaxybook-ov02c10`
+- `kmod-galaxybook-ov02c10`
 - `akmod-galaxybook-max98390`
 - `galaxybook-camera`
 

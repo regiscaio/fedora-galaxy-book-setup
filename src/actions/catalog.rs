@@ -55,7 +55,7 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::RepairDriver => ActionMetadata {
             title: tr_mark("Reparar o driver"),
             subtitle: tr_mark(
-                "Reconstrói o módulo com akmods para o kernel atual e atualiza a árvore de módulos.",
+                "Atualiza os pacotes OV02C10, reconstrói o kmod para o kernel atual e atualiza a árvore de módulos.",
             ),
         },
         ActionKey::EnableCameraModule => ActionMetadata {
@@ -67,7 +67,7 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::ForceDriverPriority => ActionMetadata {
             title: tr_mark("Ajustar prioridade do driver"),
             subtitle: tr_mark(
-                "Compila o módulo corrigido, assina quando o Secure Boot estiver ativo e o instala em /lib/modules/.../updates para o kernel atual, inclusive após atualização do sistema.",
+                "Migra overrides antigos em /updates para o kmod empacotado, reconstrói o akmod e prioriza o driver corrigido via depmod.",
             ),
         },
         ActionKey::RestoreIntelIpu6 => ActionMetadata {

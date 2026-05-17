@@ -16,12 +16,11 @@ pub const AKMODS_PUBLIC_KEY_PATH: &str = "/etc/pki/akmods/certs/public_key.der";
 pub const AKMODS_PRIVATE_KEY_PATH: &str = "/etc/pki/akmods/private/private_key.priv";
 const CAMERA_APP_TUNING_FILE: &str =
     "/usr/share/galaxybook-camera/libcamera/simple/ov02c10.yaml";
-pub const INSTALL_MAIN_SUPPORT_COMMAND: &str = "dnf install -y galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-max98390-kmod-common akmod-galaxybook-max98390 i2c-tools";
+pub const INSTALL_MAIN_SUPPORT_COMMAND: &str = "dnf --refresh install -y galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10 galaxybook-max98390-kmod-common akmod-galaxybook-max98390 i2c-tools";
 pub const INSTALL_CAMERA_COMMAND: &str =
-    "dnf install -y galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 galaxybook-camera";
+    "dnf --refresh install -y galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10 galaxybook-camera";
 pub const INSTALL_SOUND_APP_COMMAND: &str = "dnf install -y galaxybook-sound";
-pub const REPAIR_CAMERA_COMMAND: &str =
-    r#"akmods --force --akmod galaxybook-ov02c10 --kernels "$(uname -r)" && depmod -a"#;
+pub const REPAIR_CAMERA_COMMAND: &str = FORCE_CAMERA_DRIVER_COMMAND;
 pub const ENABLE_CAMERA_MODULE_COMMAND: &str = r#"set -euo pipefail
 install -d /etc/modules-load.d /etc/modprobe.d
 cat > /etc/modules-load.d/galaxybook-ov02c10.conf <<'EOF'
@@ -51,11 +50,6 @@ lsmod | grep '^ov02c10 '
 "#;
 pub const FORCE_CAMERA_DRIVER_COMMAND: &str = r#"set -euo pipefail
 kernel="$(uname -r)"
-workdir="$(mktemp -d)"
-cleanup() {
-  rm -rf "$workdir"
-}
-trap cleanup EXIT
 
 ensure_akmods_secure_boot_ready() {
   if [ ! -r /etc/pki/akmods/private/private_key.priv ] || [ ! -r /etc/pki/akmods/certs/public_key.der ]; then
@@ -74,66 +68,76 @@ ensure_akmods_secure_boot_ready() {
   fi
 }
 
-akmods --force --akmod galaxybook-ov02c10 --kernels "$kernel"
+remove_stale_ov02c10_overrides() {
+  local kernel_dir kernel candidate owner affected
+  local affected_kernels=()
 
-source_rpm="$(readlink -f /usr/src/akmods/galaxybook-ov02c10-kmod.latest)"
-if [ ! -f "$source_rpm" ]; then
-  echo "O source RPM do akmod não foi encontrado em /usr/src/akmods." >&2
-  exit 1
-fi
+  while IFS= read -r -d '' kernel_dir; do
+    kernel="$(basename "$kernel_dir")"
+    for candidate in \
+      "$kernel_dir/updates/ov02c10.ko" \
+      "$kernel_dir/updates/ov02c10.ko.xz" \
+      "$kernel_dir/updates/ov02c10.ko.zst" \
+      "$kernel_dir/extra/ov02c10.ko" \
+      "$kernel_dir/extra/ov02c10.ko.xz" \
+      "$kernel_dir/extra/ov02c10.ko.zst"
+    do
+      [ -e "$candidate" ] || continue
 
-if [ ! -d "/usr/src/kernels/$kernel" ]; then
-  echo "Os headers do kernel atual não estão instalados: /usr/src/kernels/$kernel" >&2
-  exit 1
-fi
+      owner="$(rpm -qf "$candidate" 2>/dev/null || true)"
+      if [ -n "$owner" ] && ! printf '%s' "$owner" | grep -q 'is not owned by any package'; then
+        echo "Mantendo módulo gerenciado por RPM: $candidate"
+        continue
+      fi
 
-rpm2cpio "$source_rpm" | (cd "$workdir" && cpio -idm --quiet)
-archive="$(find "$workdir" -maxdepth 1 -name 'galaxybook-ov02c10-kmod-*.tar.gz' | head -n1)"
-if [ -z "$archive" ]; then
-  echo "Não foi possível localizar o tarball do driver dentro do source RPM." >&2
-  exit 1
-fi
+      echo "Removendo override ov02c10 legado sem dono RPM: $candidate"
+      rm -f "$candidate"
+      affected_kernels+=("$kernel")
+    done
+  done < <(find /lib/modules -mindepth 1 -maxdepth 1 -type d -print0 | sort -z)
 
-tar -C "$workdir" -xf "$archive"
-srcdir="$(find "$workdir" -maxdepth 1 -mindepth 1 -type d -name 'galaxybook-ov02c10-kmod-*' | head -n1)"
-if [ -z "$srcdir" ]; then
-  echo "Não foi possível extrair a árvore do driver corrigido." >&2
-  exit 1
-fi
+  if [ "${#affected_kernels[@]}" -gt 0 ]; then
+    printf '%s\n' "${affected_kernels[@]}" | sort -u | while read -r affected; do
+      [ -n "$affected" ] || continue
+      echo "Atualizando dependências de módulos para $affected"
+      depmod -a "$affected"
+    done
+  fi
+}
 
-make -C "/usr/src/kernels/$kernel" M="$srcdir/module" modules
-install -d "/lib/modules/$kernel/updates"
-rm -f \
-  "/lib/modules/$kernel/updates/ov02c10.ko" \
-  "/lib/modules/$kernel/updates/ov02c10.ko.xz"
+dnf --refresh install -y \
+  galaxybook-ov02c10-kmod-common \
+  akmod-galaxybook-ov02c10 \
+  kmod-galaxybook-ov02c10 \
+  galaxybook-camera
 
 secure_boot_state="$(mokutil --sb-state 2>/dev/null || true)"
 if printf '%s' "$secure_boot_state" | grep -qi 'enabled'; then
   ensure_akmods_secure_boot_ready
-  sign_file="/usr/src/kernels/$kernel/scripts/sign-file"
-  if [ ! -x "$sign_file" ]; then
-    sign_file="/lib/modules/$kernel/build/scripts/sign-file"
-  fi
-
-  if [ ! -x "$sign_file" ]; then
-    echo "O utilitário sign-file do kernel não foi encontrado para $kernel." >&2
-    exit 1
-  fi
-
-  "$sign_file" sha256 \
-    /etc/pki/akmods/private/private_key.priv \
-    /etc/pki/akmods/certs/public_key.der \
-    "$srcdir/module/ov02c10.ko"
 fi
 
-install -m 0644 "$srcdir/module/ov02c10.ko" "/lib/modules/$kernel/updates/ov02c10.ko"
-if command -v restorecon >/dev/null 2>&1; then
-  restorecon "/lib/modules/$kernel/updates/ov02c10.ko" || true
+akmods --force --akmod galaxybook-ov02c10 --kernels "$kernel"
+
+if [ ! -d "/lib/modules/$kernel/extra/galaxybook-ov02c10" ]; then
+  echo "O akmods não instalou o payload kmod-galaxybook-ov02c10-$kernel. Atualize o pacote akmod-galaxybook-ov02c10 para a versão que gera kmod por kernel e repita a ação." >&2
+  exit 1
 fi
+
+if ! find "/lib/modules/$kernel/extra/galaxybook-ov02c10" -type f \( -name 'ov02c10.ko' -o -name 'ov02c10.ko.xz' -o -name 'ov02c10.ko.zst' \) -print -quit | grep -q .; then
+  echo "O pacote kmod-galaxybook-ov02c10-$kernel foi criado, mas não contém ov02c10.ko." >&2
+  exit 1
+fi
+
+remove_stale_ov02c10_overrides
+
 depmod -a "$kernel"
+module_path="$(modinfo -n ov02c10 2>/dev/null || true)"
+if ! printf '%s' "$module_path" | grep -q "/extra/galaxybook-ov02c10/"; then
+  echo "O depmod ainda está resolvendo ov02c10 para '$module_path', não para o módulo empacotado em extra/galaxybook-ov02c10." >&2
+  exit 1
+fi
 
-if journalctl -b -k --no-pager 2>/dev/null \
-  | grep -q 'external clock 26000000 is not supported'; then
+if grep -q 'external clock 26000000 is not supported' < <(journalctl -b -k --no-pager 2>/dev/null); then
   echo "O boot atual já tentou iniciar a câmera com um driver que rejeitou o clock externo de 26 MHz. A prioridade do módulo corrigido foi ajustada, mas reinicie para recriar o grafo IPU6 antes de validar o libcamera."
 fi
 
@@ -143,7 +147,7 @@ fi
 modprobe ov02c10
 lsmod | grep '^ov02c10 '
 modinfo -n ov02c10
-modinfo -F signer "/lib/modules/$kernel/updates/ov02c10.ko" || true
+modinfo -F signer "$module_path" || true
 "#;
 pub const RESTORE_INTEL_CAMERA_COMMAND: &str = r#"set -euo pipefail
 kernel="$(uname -r)"
@@ -617,6 +621,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let packages = package_presence(&[
         "galaxybook-ov02c10-kmod-common",
         "akmod-galaxybook-ov02c10",
+        "kmod-galaxybook-ov02c10",
         "galaxybook-camera",
     ]);
     let camera_app_installed = packages.installed.iter().any(|pkg| pkg == "galaxybook-camera");
@@ -648,17 +653,35 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let akmods_failed = akmods_log.contains("Building and installing galaxybook-ov02c10-kmod [FAILED]")
         || akmods_log.contains("Building rpms failed")
         || akmods_log.contains("galaxybook-ov02c10/") && akmods_log.contains("failed.log");
-    let akmods_check = if packages
+    let kernel_camera_kmod_package = format!("kmod-galaxybook-ov02c10-{}", system.kernel);
+    let kernel_camera_kmod_installed = Command::new("rpm")
+        .args(["-q", &kernel_camera_kmod_package])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .is_ok_and(|status| status.success());
+    let camera_akmod_installed = packages
         .installed
         .iter()
-        .any(|pkg| pkg == "akmod-galaxybook-ov02c10")
-    {
+        .any(|pkg| pkg == "akmod-galaxybook-ov02c10");
+    let akmods_payload_missing = camera_akmod_installed && !kernel_camera_kmod_installed;
+    let akmods_check = if camera_akmod_installed {
         if akmods_failed {
             CheckItem {
                 title: "Akmods no boot",
                 detail: tr("Falhou ao gerar o módulo para o kernel atual."),
                 health: Health::Error,
                 code: "akmods-failed",
+            }
+        } else if akmods_payload_missing {
+            CheckItem {
+                title: "Akmods no boot",
+                detail: trf(
+                    "O akmods não instalou o pacote {package}; o kernel atual pode cair no ov02c10 in-tree depois de uma atualização.",
+                    &[("package", kernel_camera_kmod_package)],
+                ),
+                health: Health::Warning,
+                code: "akmods-payload-missing",
             }
         } else {
             CheckItem {
@@ -682,18 +705,12 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let module_path = command_text("modinfo", &["-n", "ov02c10"]).ok();
     let module_origin = module_origin_from_path(module_path.as_deref());
     let module_owner = module_path.as_deref().and_then(rpm_owner_for_file);
-    let packaged_camera_driver_installed = packages
-        .installed
-        .iter()
-        .any(|pkg| pkg == "akmod-galaxybook-ov02c10");
     let module_loaded = read_trimmed("/proc/modules")
         .map(|modules| modules.lines().any(|line| line.starts_with("ov02c10 ")))
         .unwrap_or(false);
     let manual_updates_override = module_path
         .as_deref()
-        .map(|path| {
-            path.contains("/updates/") && module_owner.is_none() && !packaged_camera_driver_installed
-        })
+        .map(|path| path.contains("/updates/") && module_owner.is_none())
         .unwrap_or(false);
     let kernel_log = command_text("journalctl", &["-b", "-k", "--no-pager"]).unwrap_or_default();
     let clock_error = detect_clock_error(&kernel_log);
@@ -894,7 +911,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
     let (recommendation_title, recommendation_body) = recommend_next_step(
         &secure_boot_key_check,
         &packages,
-        akmods_failed,
+        akmods_failed || akmods_payload_missing,
         module_origin,
         manual_updates_override,
         clock_error,
@@ -1970,7 +1987,7 @@ fn recommend_next_step(
     if akmods_failed {
         return (
             tr("O driver não foi gerado no boot"),
-            tr("O akmods falhou ao construir o módulo para o kernel atual. Reexecute o reparo do driver, confira o log do akmods e reinicie antes de testar a câmera novamente."),
+            tr("O akmods falhou ou não instalou o payload kmod para o kernel atual. Reexecute o reparo do driver para atualizar os pacotes OV02C10, reconstruir o kmod e reinicie antes de testar a câmera novamente."),
         );
     }
 
@@ -2011,8 +2028,8 @@ fn recommend_next_step(
 
     if manual_updates_override && !libcamera_detected {
         return (
-            tr("O override manual da câmera está atrapalhando o libcamera"),
-            tr("A câmera do kernel parece estável, mas o caminho direto do Galaxy Book Câmera não encontrou o sensor enquanto um ov02c10 manual em /updates está ativo. O próximo passo é restaurar o stack Intel IPU6 pela seção de ações rápidas."),
+            tr("Migre o override manual da câmera"),
+            tr("O sistema ainda está usando um ov02c10 manual em /updates. Use a ação de prioridade do driver para atualizar o pacote OV02C10, remover o override órfão e voltar ao kmod gerenciado por RPM."),
         );
     }
 

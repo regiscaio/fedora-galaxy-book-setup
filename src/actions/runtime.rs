@@ -40,6 +40,7 @@ const SETUP_UPDATE_PACKAGES: &[&str] = &[
     "galaxybook-camera",
     "galaxybook-ov02c10-kmod-common",
     "akmod-galaxybook-ov02c10",
+    "kmod-galaxybook-ov02c10",
     "galaxybook-sound",
     "galaxybook-max98390-kmod-common",
     "akmod-galaxybook-max98390",
@@ -66,7 +67,7 @@ if [ "${{#installed[@]}}" -eq 0 ]; then
   echo "Nenhum pacote do Galaxy Book está instalado para atualizar."
   exit 0
 fi
-dnf upgrade -y "${{installed[@]}}"
+dnf --refresh upgrade -y "${{installed[@]}}"
 "#,
         packages = packages.join(" ")
     )

@@ -151,10 +151,10 @@ Hoy, las acciones disponibles incluyen:
 - reconstruir el driver con `akmods`;
 - habilitar la carga de `ov02c10` en el arranque y cargar el módulo
   inmediatamente;
-- forzar la prioridad del driver corregido en `updates/`, con firma para Secure
-  Boot cuando sea necesario, sin compresión incompatible y con un mensaje
-  explícito cuando el kernel actual ya intentó iniciar la cámara demasiado
-  pronto;
+- ajustar la prioridad del driver corregido migrando overrides antiguos en
+  `/updates` al kmod empaquetado en `extra/galaxybook-ov02c10`, con chequeo de
+  Secure Boot y un mensaje explícito cuando el kernel actual ya intentó iniciar
+  la cámara demasiado pronto;
 - restaurar el stack Intel IPU6 empaquetado cuando la ruta directa de `Galaxy
   Book Câmera` deja de ver el sensor;
 - activar la cámara para navegador vía `icamerasrc`, `v4l2-relayd` y
@@ -190,9 +190,18 @@ external clock 26000000 is not supported
 probe with driver ov02c10 failed with error -22
 ```
 
-Aunque `modinfo -n ov02c10` pase a apuntar a `updates/` cuando `akmods` termina,
-el grafo IPU6 de ese arranque ya puede haberse creado sin el sensor, haciendo
-que `cam -l` no liste la cámara interna.
+Los flujos antiguos de reparación del driver podían dejar un
+`/lib/modules/<kernel>/updates/ov02c10.ko` manual y sin dueño RPM. Eso
+recuperaba la prioridad del módulo, pero podía generar avisos de `depmod` en
+actualizaciones posteriores. El flujo actual instala o actualiza
+`galaxybook-ov02c10-kmod-common`, `akmod-galaxybook-ov02c10` y
+`kmod-galaxybook-ov02c10`, fuerza `akmods`, valida el payload
+`kmod-galaxybook-ov02c10-<kernel>` y elimina overrides antiguos sin dueño antes
+de pedir reinicio.
+
+Aunque `modinfo -n ov02c10` pase a apuntar al módulo corregido cuando `akmods`
+termina, el grafo IPU6 de ese arranque ya puede haberse creado sin el sensor,
+haciendo que `cam -l` no liste la cámara interna.
 
 El diagnóstico ahora trata este caso como fallo de la ruta directa de la cámara
 y sugiere `Ajustar prioridad del driver` seguido de reinicio. La acción reconstruye
@@ -312,7 +321,9 @@ Archivos relevantes:
 
 El RPM usa `Recommends` para señalar los paquetes más importantes del flujo:
 
+- `galaxybook-ov02c10-kmod-common`
 - `akmod-galaxybook-ov02c10`
+- `kmod-galaxybook-ov02c10`
 - `akmod-galaxybook-max98390`
 - `galaxybook-camera`
 

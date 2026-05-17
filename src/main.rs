@@ -298,6 +298,28 @@ mod tests {
     }
 
     #[test]
+    fn manual_ov02c10_override_suggests_packaged_driver_migration() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.module.health = Health::Warning;
+        snapshot.module.code = "module-manual-override";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Module),
+            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+        );
+    }
+
+    #[test]
+    fn missing_akmods_payload_suggests_driver_repair() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.akmods.health = Health::Warning;
+        snapshot.akmods.code = "akmods-payload-missing";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Akmods),
+            vec![ActionKey::RepairDriver, ActionKey::Reboot]
+        );
+    }
+
+    #[test]
     fn libcamera_permission_block_suggests_browser_camera_repair() {
         let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.libcamera.health = Health::Error;

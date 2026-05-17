@@ -161,7 +161,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::Akmods => {
-            let actions = if item.code == "akmods-failed" {
+            let actions = if matches!(item.code, "akmods-failed" | "akmods-payload-missing") {
                 vec![ActionKey::RepairDriver, ActionKey::Reboot]
             } else {
                 vec![]
@@ -174,7 +174,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                     vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
                 }
                 "module-manual-override" => {
-                    vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
+                    vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
                 }
                 "module-in-tree" => {
                     vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
@@ -206,7 +206,10 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                         "module-in-tree" => {
                             vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
                         }
-                        "module-manual-override" | "module-patched" => {
+                        "module-manual-override" => {
+                            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+                        }
+                        "module-patched" => {
                             vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
                         }
                         "module-missing"
