@@ -119,21 +119,23 @@ nei diagnostici.
 La checklist copre oggi:
 
 - pacchetti principali della fotocamera;
-- generazione del driver al boot tramite `akmods`;
+- generazione tramite `akmods` e payload RPM esterno per il kernel in
+  esecuzione e per tutti i kernel `kernel-core` installati;
 - origine del modulo `ov02c10` attivo;
 - rilevamento della fotocamera nel percorso diretto di `libcamera` usato da
   `Galaxy Book Câmera`;
 - bridge V4L2 per browser e applicazioni di comunicazione;
 - errori noti di boot;
-- percorso MAX98390 degli altoparlanti interni, incluso il caso in cui il
-  pacchetto è installato ma il kernel attuale non espone ancora
-  `snd-hda-scodec-max98390` via `modinfo`;
+- percorso MAX98390/MX98390 degli altoparlanti interni, che richiede entrambi i
+  moduli esterni per ciascun kernel, un servizio persistente con risultato
+  `success` e tutti e quattro i collegamenti I2C finali;
 - presenza di `Galaxy Book Sound`;
 - presenza del lettore di impronte integrato;
 - preparazione del login con impronta tramite `fprintd` e `authselect`;
 - stato del driver NVIDIA e l'osservazione che `nvidia-smi` è opzionale;
 - stato di preparazione della chiave pubblica di `akmods` in `MOK` quando
-  `Secure Boot` è attivo;
+  `Secure Boot` è attivo, senza confondere una chiave illeggibile dall'utente
+  non privilegiato con una chiave assente;
 - profilo d'uso della piattaforma, con `balanced` in evidenza come
   raccomandazione;
 - stato di `Dash to Dock`, con verifica del profilo della dock usato su questo
@@ -151,21 +153,28 @@ Oggi, le azioni disponibili includono:
   portando con sé l'app fotocamera, il driver `OV02C10` e il supporto
   `MAX98390`;
 - installare il set principale della fotocamera;
-- ricostruire il driver con `akmods`;
-- abilitare il caricamento di `ov02c10` al boot e caricare subito il modulo;
-- regolare la priorità del driver corretto migrando vecchi override in
-  `/updates` al kmod pacchettizzato, applicando la regola `depmod.d` che
-  prioritizza `extra/galaxybook-ov02c10/drivers/media/i2c`, aggiornando gli
-  indici dei moduli e l'initramfs del kernel attuale, con controlli di Secure
-  Boot e un messaggio esplicito quando il kernel attuale ha già provato ad
-  avviare la fotocamera troppo presto;
-- ripristinare lo stack Intel IPU6 pacchettizzato quando il percorso diretto di
-  `Galaxy Book Câmera` smette di vedere il sensore;
+- ricostruire e convalidare il driver `OV02C10` con `akmods` per tutti i kernel
+  installati;
+- riconciliare `ov02c10` per ogni kernel, richiedendo un payload esterno con il
+  proprietario RPM atteso e un `vermagic` corrispondente, senza scaricare o
+  sostituire dal vivo un modulo in uso;
+- regolare la priorità del driver corretto solo dopo aver convalidato tutte le
+  sostituzioni. Gli helper del pacchetto rimuovono soltanto shadow e override
+  legacy riconosciuti, eseguono `depmod`, ricostruiscono ciascun initramfs e
+  verificano con `lsinitrd` che l'immagine contenga il modulo di
+  `extra/galaxybook-ov02c10`;
 - attivare la fotocamera per browser tramite `icamerasrc`, `v4l2-relayd` e
-  `v4l2loopback`, preservando l'accesso diretto di `libcamera`;
-- attivare il supporto agli altoparlanti interni via `MAX98390`, con
-  ricostruzione dei moduli, fallback manuale di installazione sul kernel
-  attuale e servizio I2C al boot;
+  `v4l2loopback`, preservando symlink e configurazioni amministrative o del
+  vendor, mantenendo l'accesso diretto di `libcamera` e richiedendo una webcam
+  virtuale con capacità di acquisizione prima di terminare. Se esiste la regola
+  amministrativa legacy `/etc/udev/rules.d/90-hide-ipu6-v4l2.rules`, il setup
+  la preserva e si interrompe prima di ricaricare UDev o i servizi; esaminala
+  e, se opportuno, rimuovila manualmente come amministratore prima di eseguire
+  nuovamente l'azione;
+- attivare il supporto agli altoparlanti interni via `MAX98390`, generando
+  entrambi i moduli pacchettizzati per ciascun kernel, convalidandone la
+  proprietà RPM e abilitando il servizio I2C che termina con successo solo
+  quando tutti e quattro gli amplificatori sono collegati;
 - preparare la chiave di `Secure Boot` per `akmods`, generando la chiave
   locale, creando la richiesta di importazione in `MOK` e lasciando il
   riavvio pronto per `Enroll MOK` all'avvio;
@@ -180,7 +189,8 @@ Oggi, le azioni disponibili includono:
 - riapplicare il profilo della dock GNOME usato su questo notebook,
   riattivando `Dash to Dock` e ripristinando il comportamento atteso della
   dock inferiore auto-nascosta;
-- riavviare il sistema;
+- riavviare normalmente, rispettando gli inhibitor di sistema e senza
+  interrompere le compilazioni dei moduli in corso;
 - aprire `Galaxy Book Câmera`;
 - aprire `Galaxy Book Sound`.
 
@@ -198,12 +208,39 @@ probe with driver ov02c10 failed with error -22
 I vecchi flussi di riparazione del driver potevano lasciare un
 `/lib/modules/<kernel>/updates/ov02c10.ko` manuale e non posseduto da RPM. Questo
 recuperava la priorità del modulo, ma poteva generare avvisi `depmod` negli
-aggiornamenti successivi. Il flusso attuale installa o aggiorna
-`galaxybook-ov02c10-kmod-common`, `akmod-galaxybook-ov02c10` e
-`kmod-galaxybook-ov02c10`, forza `akmods`, valida il payload
-`kmod-galaxybook-ov02c10-<kernel>` e rimuove vecchi override senza proprietario
-prima di applicare la priorità esatta di `depmod`, aggiornare l'initramfs del
-kernel attuale e chiedere il riavvio.
+aggiornamenti successivi. Il flusso attuale enumera il kernel in esecuzione e
+tutti i pacchetti `kernel-core` installati. Per ogni versione installa i file
+di sviluppo necessari, forza `akmods` e richiede che il pacchetto
+`kmod-galaxybook-ov02c10-<kernel>` fornisca un payload in
+`extra/galaxybook-ov02c10`, con il proprietario RPM atteso e un `vermagic`
+corrispondente.
+
+Solo dopo che tutte le sostituzioni sono valide, gli helper mantenuti dal
+pacchetto del driver migrano le configurazioni legacy dal contenuto
+riconosciuto, rimuovono gli override orfani riconosciuti, eseguono `depmod` e
+ricostruiscono l'initramfs di ogni kernel. Il finalizzatore restituisce successo
+solo dopo che `modinfo` risolve il modulo esterno e `lsinitrd` conferma la copia
+corretta nell'immagine; un modulo assente, una copia in-tree o un errore di
+`dracut` interrompono l'azione. Questo successo privilegiato è la fonte della
+garanzia sull'initramfs e pubblica un'attestazione `root:root` per kernel con
+fingerprint forti dell'initramfs e del payload. La diagnostica grafica confronta
+l'attestazione con i metadati correnti — e la invalida se uno dei file cambia —
+senza tentare di leggere l'initramfs `0600`; l'attestazione non sostituisce
+l'ispezione del contenuto eseguita dal finalizzatore.
+
+La diagnostica esegue `cam` nell'ambiente normale del sistema. Il tuning del
+sensore è responsabilità del pacchetto della fotocamera nel percorso globale di
+ricerca di libcamera, `/usr/share/libcamera/ipa/simple/ov02c10.yaml`, non di una
+variabile d'ambiente privata del setup.
+
+Esiste un importante limite fisico: `cam -l` e un grafo registrato provano
+l'enumerazione, non la stabilità dell'acquisizione. Una precedente esecuzione di
+`cam -C30` è terminata senza frame registrando `Frame sync`; lo smoke test fisico
+finale dell'app nel boot corrente ha acquisito `1920x1092` e validato foto e
+video. Questo dimostra che la pipeline può funzionare, ma non valida la sequenza
+PLL per 26 MHz né la stabilità tra cold boot, sospensione e un nuovo probe.
+Riconciliazione, initramfs corretto e sensore elencato indicano prontezza di
+registrazione/boot, non una garanzia di acquisizione stabile.
 
 Anche se `modinfo -n ov02c10` poi punta al modulo corretto dopo la fine di
 `akmods`, il grafo IPU6 di quel boot può già essere stato creato senza il
@@ -211,9 +248,34 @@ sensore, quindi `cam -l` non elenca la fotocamera interna.
 
 La diagnostica ora tratta questo caso come errore del percorso diretto della
 fotocamera e suggerisce `Regolare la priorità del driver` seguito dal riavvio.
-L'azione ricostruisce e dà priorità al modulo corretto per il kernel attuale; il
-riavvio ricrea il grafo multimediale con il driver corretto disponibile fin
-dall'inizio del boot.
+L'azione prepara tutti i kernel, ma non tenta di scaricare un modulo in uso né
+afferma che sia stato sostituito dal vivo. Il riavvio ricrea il grafo
+multimediale con il driver corretto disponibile fin dall'inizio del boot.
+
+Durante l'intera riconciliazione, anche dopo la fine della transazione DNF,
+l'helper mantiene un inhibitor systemd bloccante per arresto, sospensione e
+inattività. Il pulsante di riavvio viene abilitato solo quando non è attiva
+alcuna compilazione; esegue il normale riavvio di systemd e quindi rispetta
+anche tutti gli altri inhibitor del sistema.
+
+## Altoparlanti dopo aggiornamenti del kernel
+
+`MAX98390` non usa più una copia manuale in `/updates`. Il setup forza l'akmod
+per ogni kernel installato e richiede che `snd-hda-scodec-max98390` e
+`snd-hda-scodec-max98390-i2c` si risolvano in
+`extra/galaxybook-max98390` e appartengano al pacchetto kmod specifico di quel
+kernel. Solo dopo aver validato entrambe le sostituzioni su tutti i kernel, il
+setup richiama il finalizzatore sincrono del pacchetto MAX98390 per ogni kernel.
+Il finalizzatore si serializza con il worker RPM, rimuove solo le vecchie copie
+senza proprietario RPM, esegue `depmod` e richiede che `modinfo` risolva entrambi
+i moduli esterni.
+
+Sul kernel in esecuzione, il servizio pacchettizzato è l'unica autorità di boot
+per il caricamento dei moduli e la creazione dei client I2C. La diagnostica
+accetta sia gli ID ACPI `MAX98390` sia `MX98390`, richiede
+`ActiveState=active`, `Result=success` e tutti e quattro i collegamenti finali
+al driver. Un `EPROBE_DEFER` transitorio non viene trattato come errore quando
+alla fine sono presenti tutti e quattro i collegamenti.
 
 ## Secure Boot e MOK
 
@@ -235,9 +297,10 @@ mokutil --test-key /etc/pki/akmods/certs/public_key.der
 sudo mokutil --import /etc/pki/akmods/certs/public_key.der
 ```
 
-Se `mokutil --test-key` dice che la chiave `is already enrolled`, trattalo come
-MOK già iscritto. In alcune versioni di Fedora, quel controllo può comunque
-restituire uno stato shell diverso da zero anche in questo caso.
+Il setup considera la chiave iscritta quando `mokutil --test-key` termina con
+stato zero oppure quando l'impronta SHA-1 esatta del certificato corrente
+compare in `mokutil --list-enrolled`. Il solo testo non viene accettato come
+prova perché può provenire da un errore, locale o versione diversa.
 
 Lo stesso `Galaxy Book Setup` ora espone l'azione rapida
 `Preparare la chiave di Secure Boot`, che:
@@ -248,16 +311,45 @@ Lo stesso `Galaxy Book Setup` ora espone l'azione rapida
 - aggiorna la diagnostica per mostrare se la chiave è pronta, in attesa di
   riavvio o se richiede ancora attenzione.
 
+Il processo grafico non deve leggere la chiave privata, che normalmente è
+protetta per `root:akmods`. Quando la lettura è vietata, la diagnostica
+restituisce uno stato sconosciuto invece di dichiarare erroneamente che la
+chiave è assente. Usa il certificato pubblico, un modulo esterno firmato già
+accettato oppure la richiesta esatta elencata da `mokutil --list-new` per
+riconoscere gli stati dimostrabili.
+L'helper privilegiato mantiene le directory del certificato e della chiave
+privata come `root:akmods` con modalità `0750`. Accetta i link simbolici interni
+creati da `kmodgenca` soltanto quando link, gerarchia e destinazione superano le
+verifiche di confinamento, proprietà e permessi; i link interrotti o che escono
+da queste directory vengono rifiutati. Lo stato pubblico scrive ogni artefatto
+atomicamente come file regolare `root:root` `0644` con un solo link: una copia
+del certificato DER pubblico e la sua identità versionata, con CN per la
+visualizzazione, impronta SHA-1 per correlare esattamente MOK e numero di serie
+X.509 per correlare esattamente `modinfo -F sig_key`. La GUI verifica in modo
+incrociato entrambi i file e il modulo firmato; una pubblicazione interrotta o
+divergente fallisce in modo chiuso e converge alla successiva esecuzione
+dell'helper. Nessuna chiave privata viene copiata nello stato dell'app.
+
+Per non confondere un payload appena installato sul disco con un modulo più
+vecchio già caricato, la diagnostica confronta prima la sezione GNU build-id,
+byte per byte. `srcversion` viene usato solo come fallback rigoroso quando né il
+kernel né il modulo espongono un build-id.
+
 Dopo di questo:
 
 1. riavvia il notebook;
 2. entra in `Enroll MOK` nella schermata blu di boot;
 3. conferma la password definita durante `mokutil --import`;
-4. torna in Fedora ed esegui di nuovo l'azione rapida.
+4. torna in Fedora, aggiorna la diagnostica ed esegui di nuovo l'azione rapida
+   se la convalida dal vivo è ancora in sospeso.
 
-Il flusso di priorità di `ov02c10` e il flusso di attivazione di `MAX98390`
-ora eseguono questo controllo prima di provare a caricare il modulo, così
-l'errore non appare più come un fallimento opaco o un falso successo.
+I payload firmati possono essere generati e convalidati su disco prima
+dell'iscrizione della chiave. Se la richiesta esatta è in sospeso, il setup
+abilita le unità, rinvia soltanto la convalida dal vivo di MAX98390 —che il
+kernel rifiuterebbe ancora— e consente il riavvio necessario per completare
+`Enroll MOK`. Senza una richiesta pendente dimostrata, l'azione fallisce in
+modo esplicito e non suggerisce il riavvio come riparazione del driver; il
+pulsante di riavvio generico resta disponibile se nessuna build akmods è attiva.
 
 ## Installazione per utenti
 
@@ -296,11 +388,12 @@ sudo dnf install /percorso/verso/galaxybook-setup-*.rpm
 Dipendenze di build su Fedora:
 
 ```bash
-sudo dnf install cargo rust pkgconf-pkg-config gtk4-devel libadwaita-devel
+sudo dnf install make podman cargo rust pkgconf-pkg-config gtk4-devel libadwaita-devel
 ```
 
-Se l'host non ha il toolchain completo, il `Makefile` usa un container
-rootless con `podman`.
+Se l'host non ha il toolchain grafico completo, il `Makefile` usa un container
+rootless con `podman`; `make` e `podman` sono necessari anche per generare gli
+artefatti RPM riproducibili.
 
 Comandi principali:
 
@@ -326,13 +419,22 @@ File rilevanti:
 - launcher: [`data/com.caioregis.GalaxyBookSetup.desktop`](data/com.caioregis.GalaxyBookSetup.desktop)
 - metadati AppStream: [`data/com.caioregis.GalaxyBookSetup.metainfo.xml`](data/com.caioregis.GalaxyBookSetup.metainfo.xml)
 
-L'RPM usa `Recommends` per indicare i pacchetti più importanti del flusso:
+L'RPM usa dipendenze deboli (`Recommends` e `Suggests`) per indicare i pacchetti
+più importanti del flusso:
 
 - `galaxybook-ov02c10-kmod-common`
 - `akmod-galaxybook-ov02c10`
 - `kmod-galaxybook-ov02c10`
 - `akmod-galaxybook-max98390`
-- `galaxybook-camera`
+- `galaxybook-max98390-kmod-common`
+- `kmod-galaxybook-max98390`
+- `galaxybook-camera >= 1.00.43`
+- `galaxybook-sound >= 1.00.18` (opzionale)
+
+Il ciclo attuale richiede almeno `galaxybook-ov02c10 >= 1.00.23` per la famiglia
+OV02C10, `galaxybook-max98390 >= 1.00.10` per la famiglia MAX98390 e
+`galaxybook-camera >= 1.00.43`. L'azione audio opzionale installa
+`galaxybook-sound >= 1.00.18`.
 
 Questo permette che l'app venga installata anche prima del setup completo della
 fotocamera, cosa desiderabile per un assistente di installazione.
