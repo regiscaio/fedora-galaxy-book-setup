@@ -59,6 +59,10 @@ build:
 
 test:
 	@set -euo pipefail; \
+	find scripts tests -type f -name '*.sh' -exec bash -n '{}' ';'; \
+	bash tests/reconcile-kmods.sh; \
+	bash tests/configure-browser-camera.sh; \
+	bash tests/prepare-secure-boot-key.sh; \
 	if command -v cargo >/dev/null 2>&1 && command -v pkg-config >/dev/null 2>&1 && pkg-config --exists gtk4 libadwaita-1; then \
 		APP_VERSION_OVERRIDE="$(VERSION)" cargo test --manifest-path Cargo.toml --lib --bin $(BIN); \
 	else \
@@ -185,8 +189,34 @@ i18n-update: i18n-extract
 
 i18n-validate:
 	@set -euo pipefail; \
+	temporary_pot="$$(mktemp)"; \
+	trap 'rm -f "$$temporary_pot"' EXIT; \
+	xgettext \
+		--language=Rust \
+		--from-code=UTF-8 \
+		--package-name="$(PACKAGE_NAME)" \
+		--package-version="$(VERSION)" \
+		--keyword=tr \
+		--keyword=trf \
+		--keyword=tr_mark \
+		--keyword=trn:1,2 \
+		-o "$$temporary_pot" \
+		$(I18N_SOURCES) \
+		2> >(sed '/^vc-mtime:/d' >&2); \
+	msgcmp --no-fuzzy-matching --use-fuzzy --use-untranslated \
+		"$(POT_FILE)" "$$temporary_pot"; \
+	msgcmp --no-fuzzy-matching --use-fuzzy --use-untranslated \
+		"$$temporary_pot" "$(POT_FILE)"; \
 	for lang in $(PO_LANGS); do \
-		msgfmt --check-format -o /dev/null "po/$$lang.po"; \
+		statistics="$$(LC_ALL=C msgfmt --check-format --statistics \
+			-o /dev/null "po/$$lang.po" 2>&1)"; \
+		case "$$statistics" in \
+			*fuzzy*|*untranslated*) \
+				printf 'Catálogo incompleto: po/%s.po (%s)\n' "$$lang" "$$statistics" >&2; \
+				exit 1 \
+				;; \
+		esac; \
+		msgcmp --no-fuzzy-matching "po/$$lang.po" "$(POT_FILE)"; \
 	done
 
 clean:

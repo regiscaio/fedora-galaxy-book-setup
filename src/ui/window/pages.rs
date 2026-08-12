@@ -3,9 +3,7 @@ use libadwaita::prelude::*;
 
 use galaxybook_setup::{APP_NAME, tr};
 
-use crate::ui::{
-    InfoRow, build_navigation_row, build_scrolled_navigation_page,
-};
+use crate::ui::{InfoRow, build_navigation_row, build_scrolled_navigation_page};
 
 pub(super) struct SuggestedPage {
     pub(super) page: adw::NavigationPage,
@@ -27,7 +25,9 @@ pub(super) fn build_sections_page(
 
     let sections_group = adw::PreferencesGroup::builder()
         .title(tr("Áreas do assistente"))
-        .description(tr("Acesse as áreas operacionais do auxiliar de instalação e diagnóstico."))
+        .description(tr(
+            "Acesse as áreas operacionais do auxiliar de instalação e diagnóstico.",
+        ))
         .build();
     sections_group.add(&build_navigation_row(
         &tr("Diagnósticos"),
@@ -72,20 +72,14 @@ pub(super) fn build_flow_page(
     build_scrolled_navigation_page(&flow_page_content, &tr("Diagnósticos"), "flow")
 }
 
-pub(super) fn build_actions_page(
-    actions_group: &adw::PreferencesGroup,
-) -> adw::NavigationPage {
+pub(super) fn build_actions_page(actions_group: &adw::PreferencesGroup) -> adw::NavigationPage {
     let actions_page_content = adw::PreferencesPage::builder()
         .name("actions")
         .title(tr("Ações rápidas"))
         .build();
     actions_page_content.add(actions_group);
 
-    build_scrolled_navigation_page(
-        &actions_page_content,
-        &tr("Ações rápidas"),
-        "actions",
-    )
+    build_scrolled_navigation_page(&actions_page_content, &tr("Ações rápidas"), "actions")
 }
 
 pub(super) fn build_suggested_page() -> SuggestedPage {
@@ -102,7 +96,9 @@ pub(super) fn build_suggested_page() -> SuggestedPage {
 
     let actions_group = adw::PreferencesGroup::builder()
         .title(tr("Ações sugeridas"))
-        .description(tr("Ações rápidas filtradas para o diagnóstico selecionado."))
+        .description(tr(
+            "Ações rápidas filtradas para o diagnóstico selecionado.",
+        ))
         .build();
 
     let page_content = adw::PreferencesPage::builder()

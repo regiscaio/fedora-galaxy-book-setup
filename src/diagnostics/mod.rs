@@ -73,30 +73,36 @@ fn with_secure_boot_actions(
     }
 
     match snapshot.secure_boot_key.code {
-        "mok-key-missing" | "mok-not-enrolled" => {
+        "mok-key-missing"
+        | "mok-not-enrolled"
+        | "mok-key-protected"
+        | "mok-legacy-identity"
+        | "mok-key-identity-unverified" => {
+            actions.retain(|action| *action != ActionKey::Reboot);
             actions.insert(0, ActionKey::PrepareSecureBootKey);
-            actions.push(ActionKey::Reboot);
         }
         "mok-pending-enrollment" => {
             actions.insert(0, ActionKey::Reboot);
         }
-        _ => {}
+        "mok-enrolled" | "mok-module-accepted" | "mok-not-needed" => {}
+        _ => actions.retain(|action| *action != ActionKey::Reboot),
     }
 
     dedupe_action_keys(&actions)
 }
 
 pub(crate) fn diagnostic_alert_counts(snapshot: &SetupSnapshot) -> DiagnosticAlertCounts {
-    diagnostic_items(snapshot)
-        .into_iter()
-        .fold(DiagnosticAlertCounts::default(), |mut counts, item| {
+    diagnostic_items(snapshot).into_iter().fold(
+        DiagnosticAlertCounts::default(),
+        |mut counts, item| {
             match item.health {
                 Health::Warning => counts.warnings += 1,
                 Health::Error => counts.errors += 1,
                 Health::Good | Health::Unknown => {}
             }
             counts
-        })
+        },
+    )
 }
 
 pub(crate) fn diagnostic_notification_title(counts: DiagnosticAlertCounts) -> String {
@@ -126,10 +132,10 @@ pub(crate) fn diagnostic_counts_summary(counts: DiagnosticAlertCounts) -> String
     let mut parts = Vec::new();
 
     if counts.errors > 0 {
-        parts.push(trn("{count} erro", "{count} erros", counts.errors).replace(
-            "{count}",
-            &counts.errors.to_string(),
-        ));
+        parts.push(
+            trn("{count} erro", "{count} erros", counts.errors)
+                .replace("{count}", &counts.errors.to_string()),
+        );
     }
 
     if counts.warnings > 0 {
@@ -151,7 +157,7 @@ pub(crate) fn diagnostic_counts_summary(counts: DiagnosticAlertCounts) -> String
 
 pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) -> Vec<ActionKey> {
     let item = diagnostic_item(snapshot, key);
-    match key {
+    let mut actions = match key {
         DiagnosticKey::Packages => {
             let actions = if item.code == "packages-missing" {
                 vec![ActionKey::InstallMainSupport]
@@ -170,6 +176,9 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
         }
         DiagnosticKey::Module => {
             let actions = match item.code {
+                "module-reboot-required" => {
+                    vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+                }
                 "module-not-loaded" => {
                     vec![ActionKey::EnableCameraModule, ActionKey::Reboot]
                 }
@@ -179,9 +188,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 "module-in-tree" => {
                     vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
                 }
-                "module-missing"
-                | "module-unknown"
-                | "module-patched-path-missing" => {
+                "module-missing" | "module-unknown" | "module-patched-path-missing" => {
                     vec![ActionKey::RepairDriver, ActionKey::Reboot]
                 }
                 _ => vec![],
@@ -209,15 +216,14 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                         "module-manual-override" => {
                             vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
                         }
-                        "module-patched" => {
-                            vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot]
+                        "module-patched" if snapshot.driver_reboot_ready => {
+                            vec![ActionKey::Reboot]
                         }
-                        "module-missing"
-                        | "module-unknown"
-                        | "module-patched-path-missing" => {
+                        "module-patched" => vec![ActionKey::ForceDriverPriority],
+                        "module-missing" | "module-unknown" | "module-patched-path-missing" => {
                             vec![ActionKey::RepairDriver, ActionKey::Reboot]
                         }
-                        _ => vec![ActionKey::RestoreIntelIpu6, ActionKey::Reboot],
+                        _ => vec![ActionKey::RepairDriver, ActionKey::Reboot],
                     },
                 }
             };
@@ -227,7 +233,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             if item.health == Health::Good {
                 vec![]
             } else {
-                vec![ActionKey::EnableBrowserCamera, ActionKey::Reboot]
+                vec![ActionKey::EnableBrowserCamera]
             }
         }
         DiagnosticKey::Boot => {
@@ -243,14 +249,12 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::Speakers => {
-            let actions = if item.health == Health::Good {
-                vec![]
-            } else if item.code == "speakers-unsupported" {
-                vec![]
-            } else if item.health == Health::Error {
-                vec![ActionKey::EnableSpeakers]
-            } else {
-                vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
+            let actions = match item.code {
+                "speakers-ready" | "speakers-unsupported" => vec![],
+                "speakers-modules-unloaded" => {
+                    vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
+                }
+                _ => vec![ActionKey::EnableSpeakers],
             };
             with_secure_boot_actions(snapshot, actions)
         }
@@ -278,8 +282,7 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 ActionKey::EnableFingerprintAuth,
                 ActionKey::OpenFingerprintSettings,
             ],
-            "fingerprint-enrollment-missing"
-            | "fingerprint-auth-and-enrollment-missing" => vec![
+            "fingerprint-enrollment-missing" | "fingerprint-auth-and-enrollment-missing" => vec![
                 ActionKey::OpenFingerprintSettings,
                 ActionKey::EnableFingerprintAuth,
             ],
@@ -298,9 +301,10 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             },
         ),
         DiagnosticKey::SecureBootKey => match item.code {
-            "mok-enrolled" | "mok-not-needed" => vec![],
+            "mok-enrolled" | "mok-module-accepted" | "mok-not-needed" => vec![],
             "mok-pending-enrollment" => vec![ActionKey::Reboot],
-            _ => vec![ActionKey::PrepareSecureBootKey, ActionKey::Reboot],
+            "mok-unavailable" => vec![],
+            _ => vec![ActionKey::PrepareSecureBootKey],
         },
         DiagnosticKey::PlatformProfile => {
             if item.code == "platform-balanced" {
@@ -337,7 +341,19 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![ActionKey::ApplyDockProfile]
             }
         }
+    };
+    let driver_related = matches!(
+        key,
+        DiagnosticKey::Akmods
+            | DiagnosticKey::Module
+            | DiagnosticKey::Libcamera
+            | DiagnosticKey::Boot
+            | DiagnosticKey::Speakers
+    );
+    if !snapshot.reboot_ready || (driver_related && !snapshot.driver_reboot_ready) {
+        actions.retain(|action| *action != ActionKey::Reboot);
     }
+    actions
 }
 
 #[cfg(test)]
@@ -387,7 +403,6 @@ mod tests {
             repair_command: String::new(),
             enable_camera_module_command: String::new(),
             force_camera_command: String::new(),
-            restore_intel_camera_command: String::new(),
             enable_browser_camera_command: String::new(),
             enable_speaker_command: String::new(),
             prepare_secure_boot_key_command: String::new(),
@@ -402,6 +417,8 @@ mod tests {
             apply_desktop_icons_profile_command: String::new(),
             apply_dock_profile_command: String::new(),
             reboot_command: String::new(),
+            reboot_ready: true,
+            driver_reboot_ready: true,
             camera_app_installed: true,
             sound_app_installed: false,
         }
@@ -419,6 +436,39 @@ mod tests {
     }
 
     #[test]
+    fn missing_speaker_packages_do_not_offer_a_useless_reboot() {
+        let mut snapshot = test_snapshot();
+        snapshot.speakers = item(Health::Warning, "speakers-packages-missing");
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Speakers),
+            vec![ActionKey::EnableSpeakers]
+        );
+    }
+
+    #[test]
+    fn unloaded_packaged_speaker_modules_can_offer_reboot() {
+        let mut snapshot = test_snapshot();
+        snapshot.speakers = item(Health::Warning, "speakers-modules-unloaded");
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Speakers),
+            vec![ActionKey::EnableSpeakers, ActionKey::Reboot]
+        );
+    }
+
+    #[test]
+    fn missing_browser_bridge_does_not_offer_a_useless_reboot() {
+        let mut snapshot = test_snapshot();
+        snapshot.browser_camera = item(Health::Warning, "browser-missing");
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::BrowserCamera),
+            vec![ActionKey::EnableBrowserCamera]
+        );
+    }
+
+    #[test]
     fn missing_sound_app_suggests_speakers_first_when_speakers_need_work() {
         let mut snapshot = test_snapshot();
         snapshot.speakers = item(Health::Error, "speakers-driver-missing");
@@ -426,6 +476,26 @@ mod tests {
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::SoundApp),
             vec![ActionKey::EnableSpeakers, ActionKey::InstallSoundApp]
+        );
+    }
+
+    #[test]
+    fn driver_suggestion_requires_key_preparation_before_a_reboot() {
+        let mut snapshot = test_snapshot();
+        snapshot.module = item(Health::Warning, "module-reboot-required");
+        snapshot.secure_boot_key = item(Health::Error, "mok-not-enrolled");
+        snapshot.driver_reboot_ready = true;
+
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Module),
+            vec![
+                ActionKey::PrepareSecureBootKey,
+                ActionKey::ForceDriverPriority,
+            ]
+        );
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
+            vec![ActionKey::PrepareSecureBootKey]
         );
     }
 }

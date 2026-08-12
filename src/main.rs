@@ -7,7 +7,7 @@ use gtk::glib;
 use gtk::prelude::*;
 use libadwaita as adw;
 
-use galaxybook_setup::{init_i18n, APP_ID, run_smoke_test};
+use galaxybook_setup::{APP_ID, init_i18n, run_smoke_test};
 use ui::SetupWindow;
 
 fn main() -> glib::ExitCode {
@@ -35,15 +35,15 @@ fn main() -> glib::ExitCode {
 
 #[cfg(test)]
 mod tests {
+    use crate::actions::{
+        ActionKey, action_is_snapshot_eligible, suggested_action_is_snapshot_eligible,
+    };
+    use crate::diagnostics::DiagnosticAlertCounts;
     use crate::diagnostics::{
         diagnostic_alert_counts, diagnostic_counts_summary, suggested_actions,
     };
-    use crate::actions::ActionKey;
-    use crate::diagnostics::DiagnosticAlertCounts;
     use crate::ui::DiagnosticKey;
-    use galaxybook_setup::{
-        CheckItem, Health, SetupSnapshot, SystemSummary,
-    };
+    use galaxybook_setup::{CheckItem, Health, SetupSnapshot, SystemSummary};
 
     fn item(title: &'static str, health: Health) -> CheckItem {
         CheckItem {
@@ -75,10 +75,7 @@ mod tests {
             gpu: item("Driver NVIDIA", healths[10]),
             secure_boot_key: item("Chave do Secure Boot", healths[11]),
             platform_profile: item("Perfil de uso", healths[12]),
-            clipboard_extension: item(
-                "Histórico da área de transferência",
-                healths[13],
-            ),
+            clipboard_extension: item("Histórico da área de transferência", healths[13]),
             gsconnect_extension: item("GSConnect", healths[14]),
             desktop_icons_extension: item("Ícones na área de trabalho", healths[15]),
             dock_extension: item("Dock do GNOME", healths[16]),
@@ -90,7 +87,6 @@ mod tests {
             repair_command: String::new(),
             enable_camera_module_command: String::new(),
             force_camera_command: String::new(),
-            restore_intel_camera_command: String::new(),
             enable_browser_camera_command: String::new(),
             enable_speaker_command: String::new(),
             prepare_secure_boot_key_command: String::new(),
@@ -104,6 +100,8 @@ mod tests {
             apply_desktop_icons_profile_command: String::new(),
             apply_dock_profile_command: String::new(),
             reboot_command: String::new(),
+            reboot_ready: true,
+            driver_reboot_ready: true,
             camera_app_installed: false,
             sound_app_installed: false,
         }
@@ -212,7 +210,7 @@ mod tests {
 
     #[test]
     fn speakers_ready_has_no_suggested_actions() {
-        let snapshot = snapshot_with_healths([
+        let mut snapshot = snapshot_with_healths([
             Health::Good,
             Health::Good,
             Health::Good,
@@ -231,6 +229,7 @@ mod tests {
             Health::Good,
             Health::Good,
         ]);
+        snapshot.speakers.code = "speakers-ready";
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Speakers),
             Vec::<ActionKey>::new()
@@ -262,13 +261,13 @@ mod tests {
     }
 
     #[test]
-    fn secure_boot_key_suggests_prepare_then_reboot() {
+    fn secure_boot_key_requires_prepare_before_reboot() {
         let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.secure_boot_key.health = Health::Error;
         snapshot.secure_boot_key.code = "mok-not-enrolled";
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
-            vec![ActionKey::PrepareSecureBootKey, ActionKey::Reboot]
+            vec![ActionKey::PrepareSecureBootKey]
         );
     }
 
@@ -291,9 +290,23 @@ mod tests {
         snapshot.libcamera.code = "libcamera-missing";
         snapshot.module.health = Health::Warning;
         snapshot.module.code = "module-in-tree";
+        snapshot.driver_reboot_ready = false;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Libcamera),
-            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+            vec![ActionKey::ForceDriverPriority]
+        );
+    }
+
+    #[test]
+    fn patched_camera_without_current_readiness_attestation_suggests_reconciliation() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.libcamera.health = Health::Warning;
+        snapshot.libcamera.code = "libcamera-missing";
+        snapshot.module.code = "module-patched";
+        snapshot.driver_reboot_ready = false;
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Libcamera),
+            vec![ActionKey::ForceDriverPriority]
         );
     }
 
@@ -302,9 +315,10 @@ mod tests {
         let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.module.health = Health::Warning;
         snapshot.module.code = "module-manual-override";
+        snapshot.driver_reboot_ready = false;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Module),
-            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
+            vec![ActionKey::ForceDriverPriority]
         );
     }
 
@@ -313,9 +327,67 @@ mod tests {
         let mut snapshot = snapshot_with_healths([Health::Good; 17]);
         snapshot.akmods.health = Health::Warning;
         snapshot.akmods.code = "akmods-payload-missing";
+        snapshot.driver_reboot_ready = false;
         assert_eq!(
             suggested_actions(&snapshot, DiagnosticKey::Akmods),
-            vec![ActionKey::RepairDriver, ActionKey::Reboot]
+            vec![ActionKey::RepairDriver]
+        );
+    }
+
+    #[test]
+    fn mok_pending_allows_only_safe_reboot() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.secure_boot_key.health = Health::Warning;
+        snapshot.secure_boot_key.code = "mok-pending-enrollment";
+        snapshot.driver_reboot_ready = false;
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
+            vec![ActionKey::Reboot]
+        );
+
+        snapshot.reboot_ready = false;
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
+            Vec::<ActionKey>::new()
+        );
+    }
+
+    #[test]
+    fn generic_reboot_ignores_driver_readiness_but_honors_global_reboot_safety() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.driver_reboot_ready = false;
+        assert!(action_is_snapshot_eligible(ActionKey::Reboot, &snapshot));
+        assert!(!suggested_action_is_snapshot_eligible(
+            ActionKey::Reboot,
+            DiagnosticKey::Module,
+            &snapshot,
+        ));
+        assert!(suggested_action_is_snapshot_eligible(
+            ActionKey::Reboot,
+            DiagnosticKey::SecureBootKey,
+            &snapshot,
+        ));
+
+        snapshot.reboot_ready = false;
+        assert!(!action_is_snapshot_eligible(ActionKey::Reboot, &snapshot));
+    }
+
+    #[test]
+    fn driver_repair_suggestion_only_offers_reboot_after_driver_attestation() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.secure_boot_key.code = "mok-enrolled";
+        snapshot.module.health = Health::Warning;
+        snapshot.module.code = "module-reboot-required";
+        snapshot.driver_reboot_ready = false;
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Module),
+            vec![ActionKey::ForceDriverPriority]
+        );
+
+        snapshot.driver_reboot_ready = true;
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::Module),
+            vec![ActionKey::ForceDriverPriority, ActionKey::Reboot]
         );
     }
 
@@ -331,8 +403,20 @@ mod tests {
     }
 
     #[test]
+    fn unavailable_secure_boot_state_does_not_offer_an_unsafe_action() {
+        let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.secure_boot_key.health = Health::Unknown;
+        snapshot.secure_boot_key.code = "mok-unavailable";
+        assert_eq!(
+            suggested_actions(&snapshot, DiagnosticKey::SecureBootKey),
+            Vec::<ActionKey>::new()
+        );
+    }
+
+    #[test]
     fn libcamera_clock_probe_failure_suggests_driver_priority() {
         let mut snapshot = snapshot_with_healths([Health::Good; 17]);
+        snapshot.secure_boot_key.code = "mok-enrolled";
         snapshot.libcamera.health = Health::Error;
         snapshot.libcamera.code = "libcamera-clock-probe-failed";
         snapshot.module.code = "module-patched";

@@ -1,4 +1,8 @@
-use std::{env, fs, path::{Path, PathBuf}, process::Command};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn version_from_commit_count(commit_count: u64) -> String {
     format!("1.{:02}.{:02}", commit_count / 100, commit_count % 100)

@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use libadwaita as adw;
@@ -48,9 +48,12 @@ impl SetupWindow {
         navigation_view.replace_with_tags(&["home"]);
 
         let snapshot = Rc::new(RefCell::new(None));
+        let update_query_eligible = Rc::new(Cell::new(false));
         let action_running = Rc::new(RefCell::new(false));
+        let refresh_running = Rc::new(RefCell::new(false));
         let selected_diagnostic = Rc::new(RefCell::new(None));
         let suggested_action_rows = Rc::new(RefCell::new(Vec::new()));
+        let suggested_action_buttons = Rc::new(RefCell::new(Vec::new()));
         let notification_counts = Rc::new(RefCell::new(None));
 
         let instance = Self {
@@ -88,13 +91,13 @@ impl SetupWindow {
             suggested_detail_row: suggested_page.detail_row,
             suggested_actions_group: suggested_page.actions_group,
             suggested_action_rows,
+            suggested_action_buttons,
             install_main_button: quick_actions.install_main_button,
             install_button: quick_actions.install_button,
             install_sound_button: quick_actions.install_sound_button,
             repair_button: quick_actions.repair_button,
             enable_camera_module_button: quick_actions.enable_camera_module_button,
             force_driver_button: quick_actions.force_driver_button,
-            restore_camera_button: quick_actions.restore_camera_button,
             enable_browser_camera_button: quick_actions.enable_browser_camera_button,
             enable_speakers_button: quick_actions.enable_speakers_button,
             prepare_secure_boot_key_button: quick_actions.prepare_secure_boot_key_button,
@@ -111,7 +114,9 @@ impl SetupWindow {
             open_camera_button: quick_actions.open_camera_button,
             open_sound_button: quick_actions.open_sound_button,
             snapshot,
+            update_query_eligible,
             action_running,
+            refresh_running,
             selected_diagnostic,
             notification_counts,
         };

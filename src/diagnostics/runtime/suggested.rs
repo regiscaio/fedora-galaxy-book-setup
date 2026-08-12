@@ -9,6 +9,9 @@ use galaxybook_setup::{SetupSnapshot, tr};
 
 impl SetupWindow {
     pub(crate) fn present_suggested_actions(&self, key: DiagnosticKey) {
+        if !self.operation_is_idle() {
+            return;
+        }
         *self.selected_diagnostic.borrow_mut() = Some(key);
         if let Some(snapshot) = self.snapshot.borrow().as_ref().cloned() {
             self.apply_suggested_actions(&snapshot, key);
@@ -17,34 +20,35 @@ impl SetupWindow {
                 .set_subtitle(&tr("Diagnóstico indisponível"));
             self.suggested_status_row
                 .set_subtitle(&tr("Aguardando leitura"));
-            self.suggested_detail_row
-                .set_subtitle(&tr("Atualize o diagnóstico antes de abrir as ações sugeridas."));
-            self.reset_suggested_actions(&[]);
+            self.suggested_detail_row.set_subtitle(&tr(
+                "Atualize o diagnóstico antes de abrir as ações sugeridas.",
+            ));
+            self.reset_suggested_actions(&[], key);
         }
         self.navigation_view.push_by_tag("suggested-actions");
     }
 
-    pub(crate) fn apply_suggested_actions(
-        &self,
-        snapshot: &SetupSnapshot,
-        key: DiagnosticKey,
-    ) {
+    pub(crate) fn apply_suggested_actions(&self, snapshot: &SetupSnapshot, key: DiagnosticKey) {
+        if !self.operation_is_idle() {
+            return;
+        }
         let item = diagnostic_item(snapshot, key);
         self.suggested_title_row.set_subtitle(&tr(item.title));
         self.suggested_status_row
             .set_subtitle(&tr(item.health.label()));
         self.suggested_detail_row.set_subtitle(&item.detail);
         let actions = suggested_actions(snapshot, key);
-        self.reset_suggested_actions(&actions);
+        self.reset_suggested_actions(&actions, key);
     }
 
-    fn reset_suggested_actions(&self, actions: &[ActionKey]) {
+    fn reset_suggested_actions(&self, actions: &[ActionKey], key: DiagnosticKey) {
         {
             let mut rows = self.suggested_action_rows.borrow_mut();
             for widget in rows.drain(..) {
                 self.suggested_actions_group.remove(&widget);
             }
         }
+        self.suggested_action_buttons.borrow_mut().clear();
 
         let deduped_actions = dedupe_action_keys(actions);
 
@@ -55,14 +59,21 @@ impl SetupWindow {
                 .build();
             row.set_activatable(false);
             self.suggested_actions_group.add(&row);
-            self.suggested_action_rows.borrow_mut().push(row.clone().upcast());
+            self.suggested_action_rows
+                .borrow_mut()
+                .push(row.clone().upcast());
             return;
         }
 
         for action in deduped_actions {
-            let row = self.build_suggested_action_row(action);
+            let Some((row, button)) = self.build_suggested_action_row(action, key) else {
+                return;
+            };
             self.suggested_actions_group.add(&row);
-            self.suggested_action_rows.borrow_mut().push(row.clone().upcast());
+            self.suggested_action_rows
+                .borrow_mut()
+                .push(row.clone().upcast());
+            self.suggested_action_buttons.borrow_mut().push(button);
         }
     }
 }

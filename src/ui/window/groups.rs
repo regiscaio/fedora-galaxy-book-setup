@@ -50,7 +50,6 @@ pub(super) struct QuickActionsSection {
     pub(super) repair_button: gtk::Button,
     pub(super) enable_camera_module_button: gtk::Button,
     pub(super) force_driver_button: gtk::Button,
-    pub(super) restore_camera_button: gtk::Button,
     pub(super) enable_browser_camera_button: gtk::Button,
     pub(super) enable_speakers_button: gtk::Button,
     pub(super) prepare_secure_boot_key_button: gtk::Button,
@@ -99,7 +98,9 @@ pub(super) fn build_system_section() -> SystemSection {
 pub(super) fn build_diagnostics_sections() -> DiagnosticsSections {
     let diagnostics_group = adw::PreferencesGroup::builder()
         .title(tr("Diagnóstico atual"))
-        .description(tr("Leitura consolidada do estado do notebook e do próximo passo recomendado."))
+        .description(tr(
+            "Leitura consolidada do estado do notebook e do próximo passo recomendado.",
+        ))
         .build();
     let recommendation_title_row = InfoRow::new("Estado");
     let recommendation_body_row = InfoRow::new("Próximo passo");
@@ -199,31 +200,20 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
     let install_button = new_quick_action_button(ActionKey::InstallCamera);
     let install_sound_button = new_quick_action_button(ActionKey::InstallSoundApp);
     let repair_button = new_quick_action_button(ActionKey::RepairDriver);
-    let enable_camera_module_button =
-        new_quick_action_button(ActionKey::EnableCameraModule);
-    let force_driver_button =
-        new_quick_action_button(ActionKey::ForceDriverPriority);
-    let restore_camera_button =
-        new_quick_action_button(ActionKey::RestoreIntelIpu6);
-    let enable_browser_camera_button =
-        new_quick_action_button(ActionKey::EnableBrowserCamera);
-    let enable_speakers_button =
-        new_quick_action_button(ActionKey::EnableSpeakers);
-    let prepare_secure_boot_key_button =
-        new_quick_action_button(ActionKey::PrepareSecureBootKey);
-    let repair_fingerprint_button =
-        new_quick_action_button(ActionKey::RepairFingerprintStack);
-    let enable_fingerprint_auth_button =
-        new_quick_action_button(ActionKey::EnableFingerprintAuth);
+    let enable_camera_module_button = new_quick_action_button(ActionKey::EnableCameraModule);
+    let force_driver_button = new_quick_action_button(ActionKey::ForceDriverPriority);
+    let enable_browser_camera_button = new_quick_action_button(ActionKey::EnableBrowserCamera);
+    let enable_speakers_button = new_quick_action_button(ActionKey::EnableSpeakers);
+    let prepare_secure_boot_key_button = new_quick_action_button(ActionKey::PrepareSecureBootKey);
+    let repair_fingerprint_button = new_quick_action_button(ActionKey::RepairFingerprintStack);
+    let enable_fingerprint_auth_button = new_quick_action_button(ActionKey::EnableFingerprintAuth);
     let open_fingerprint_settings_button =
         new_quick_action_button(ActionKey::OpenFingerprintSettings);
     let repair_nvidia_button = new_quick_action_button(ActionKey::RepairNvidia);
     let balanced_profile_button = new_quick_action_button(ActionKey::SetBalancedProfile);
-    let clipboard_profile_button =
-        new_quick_action_button(ActionKey::ApplyClipboardProfile);
+    let clipboard_profile_button = new_quick_action_button(ActionKey::ApplyClipboardProfile);
     let gsconnect_profile_button = new_quick_action_button(ActionKey::ApplyGsconnectProfile);
-    let desktop_icons_profile_button =
-        new_quick_action_button(ActionKey::ApplyDesktopIconsProfile);
+    let desktop_icons_profile_button = new_quick_action_button(ActionKey::ApplyDesktopIconsProfile);
     let dock_profile_button = new_quick_action_button(ActionKey::ApplyDockProfile);
     let reboot_button = new_quick_action_button(ActionKey::Reboot);
     let open_camera_button = new_quick_action_button(ActionKey::OpenCamera);
@@ -231,7 +221,9 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
 
     let group = adw::PreferencesGroup::builder()
         .title(tr("Ações rápidas"))
-        .description(tr("Fluxos executáveis diretamente da interface, sem precisar digitar comandos."))
+        .description(tr(
+            "Fluxos executáveis diretamente da interface, sem precisar digitar comandos.",
+        ))
         .build();
     group.add(&build_action_row(
         ActionKey::InstallMainSupport,
@@ -246,10 +238,6 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
     group.add(&build_action_row(
         ActionKey::ForceDriverPriority,
         &force_driver_button,
-    ));
-    group.add(&build_action_row(
-        ActionKey::RestoreIntelIpu6,
-        &restore_camera_button,
     ));
     group.add(&build_action_row(
         ActionKey::EnableBrowserCamera,
@@ -304,8 +292,14 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         &dock_profile_button,
     ));
     group.add(&build_action_row(ActionKey::Reboot, &reboot_button));
-    group.add(&build_action_row(ActionKey::OpenCamera, &open_camera_button));
-    group.add(&build_action_row(ActionKey::OpenSoundApp, &open_sound_button));
+    group.add(&build_action_row(
+        ActionKey::OpenCamera,
+        &open_camera_button,
+    ));
+    group.add(&build_action_row(
+        ActionKey::OpenSoundApp,
+        &open_sound_button,
+    ));
 
     QuickActionsSection {
         group,
@@ -315,7 +309,6 @@ pub(super) fn build_quick_actions_section() -> QuickActionsSection {
         repair_button,
         enable_camera_module_button,
         force_driver_button,
-        restore_camera_button,
         enable_browser_camera_button,
         enable_speakers_button,
         prepare_secure_boot_key_button,

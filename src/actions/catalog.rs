@@ -8,7 +8,6 @@ pub(crate) enum ActionKey {
     RepairDriver,
     EnableCameraModule,
     ForceDriverPriority,
-    RestoreIntelIpu6,
     EnableBrowserCamera,
     EnableSpeakers,
     PrepareSecureBootKey,
@@ -37,13 +36,13 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::InstallMainSupport => ActionMetadata {
             title: tr_mark("Instalar suporte principal"),
             subtitle: tr_mark(
-                "Instala Galaxy Book Câmera, driver OV02C10 e suporte MAX98390 para começar pelo setup sem depender de instalação manual dos outros pacotes.",
+                "Instala os pacotes e só conclui depois de validar OV02C10 e MAX98390 para todos os kernels instalados.",
             ),
         },
         ActionKey::InstallCamera => ActionMetadata {
             title: tr_mark("Instalar suporte da câmera"),
             subtitle: tr_mark(
-                "Instala o driver corrigido e o aplicativo Galaxy Book Câmera usando privilégios administrativos.",
+                "Instala o app, gera o OV02C10 por kernel e valida RPM, depmod e initramfs antes de concluir.",
             ),
         },
         ActionKey::InstallSoundApp => ActionMetadata {
@@ -55,37 +54,31 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::RepairDriver => ActionMetadata {
             title: tr_mark("Reparar o driver"),
             subtitle: tr_mark(
-                "Atualiza os pacotes OV02C10, reconstrói o kmod para o kernel atual e atualiza a árvore de módulos.",
+                "Atualiza e valida o OV02C10 empacotado em todos os kernels instalados, sem trocar ao vivo um módulo ocupado.",
             ),
         },
         ActionKey::EnableCameraModule => ActionMetadata {
             title: tr_mark("Habilitar driver da câmera"),
             subtitle: tr_mark(
-                "Garante o carregamento do ov02c10 no boot, ajusta o softdep do IPU6 e carrega o módulo agora no kernel.",
+                "Reconcilia o OV02C10 por kernel e finaliza cada initramfs; um módulo já ocupado só muda após reboot normal.",
             ),
         },
         ActionKey::ForceDriverPriority => ActionMetadata {
             title: tr_mark("Ajustar prioridade do driver"),
             subtitle: tr_mark(
-                "Migra overrides antigos em /updates para o kmod empacotado, reconstrói o akmod e prioriza o driver corrigido via depmod.",
-            ),
-        },
-        ActionKey::RestoreIntelIpu6 => ActionMetadata {
-            title: tr_mark("Restaurar stack Intel IPU6"),
-            subtitle: tr_mark(
-                "Remove o override manual em /updates, reinstala o stack Intel empacotado e volta ao caminho que já funcionava com a câmera do sistema.",
+                "Migra apenas legados reconhecidos, exige payload com dono RPM e valida a cópia correta dentro de cada initramfs.",
             ),
         },
         ActionKey::EnableBrowserCamera => ActionMetadata {
             title: tr_mark("Ativar câmera para navegador"),
             subtitle: tr_mark(
-                "Expõe a câmera interna como webcam V4L2 para Meet, Discord, Teams e outros apps WebRTC usando o bridge do sistema, desativa os nós crus do IPU6 só no PipeWire e preserva o acesso direto do libcamera.",
+                "Expõe a câmera interna como webcam V4L2 para apps WebRTC, desativa os nós crus do IPU6 só no PipeWire e preserva o acesso direto do libcamera; configurações administrativas conflitantes são preservadas e interrompem a ação.",
             ),
         },
         ActionKey::EnableSpeakers => ActionMetadata {
             title: tr_mark("Ativar alto-falantes internos"),
             subtitle: tr_mark(
-                "Instala o suporte MAX98390, reconstrói os módulos dos amplificadores, instala manualmente o driver no kernel atual quando necessário e habilita o serviço de I2C usado pelos alto-falantes internos.",
+                "Gera os dois módulos MAX98390 empacotados para todos os kernels, valida o dono RPM e exige os quatro vínculos I2C.",
             ),
         },
         ActionKey::PrepareSecureBootKey => ActionMetadata {
@@ -151,7 +144,7 @@ pub(crate) fn action_metadata(key: ActionKey) -> ActionMetadata {
         ActionKey::Reboot => ActionMetadata {
             title: tr_mark("Reiniciar o sistema"),
             subtitle: tr_mark(
-                "Aplica mudanças pendentes do driver e reinicia a sessão inteira do notebook.",
+                "Reinicia normalmente, respeitando inhibitors do sistema e builds de módulos ainda em andamento.",
             ),
         },
         ActionKey::OpenCamera => ActionMetadata {
@@ -177,7 +170,6 @@ pub(crate) fn action_icon_name(key: ActionKey) -> &'static str {
         ActionKey::RepairDriver => "view-refresh-symbolic",
         ActionKey::EnableCameraModule => "camera-web-symbolic",
         ActionKey::ForceDriverPriority => "preferences-system-symbolic",
-        ActionKey::RestoreIntelIpu6 => "edit-undo-symbolic",
         ActionKey::EnableBrowserCamera => "web-browser-symbolic",
         ActionKey::EnableSpeakers => "audio-speakers-symbolic",
         ActionKey::PrepareSecureBootKey => "dialog-password-symbolic",

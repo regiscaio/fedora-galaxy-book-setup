@@ -3,7 +3,7 @@ mod groups;
 mod pages;
 mod shell;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use gtk::gio;
@@ -34,6 +34,10 @@ pub(crate) enum DiagnosticKey {
     Gsconnect,
     DesktopIcons,
     Dock,
+}
+
+pub(crate) fn operation_is_idle(action_running: bool, refresh_running: bool) -> bool {
+    !action_running && !refresh_running
 }
 
 #[derive(Clone)]
@@ -72,13 +76,13 @@ pub(crate) struct SetupWindow {
     pub(crate) suggested_detail_row: InfoRow,
     pub(crate) suggested_actions_group: adw::PreferencesGroup,
     pub(crate) suggested_action_rows: Rc<RefCell<Vec<gtk::Widget>>>,
+    pub(crate) suggested_action_buttons: Rc<RefCell<Vec<gtk::Button>>>,
     pub(crate) install_main_button: gtk::Button,
     pub(crate) install_button: gtk::Button,
     pub(crate) install_sound_button: gtk::Button,
     pub(crate) repair_button: gtk::Button,
     pub(crate) enable_camera_module_button: gtk::Button,
     pub(crate) force_driver_button: gtk::Button,
-    pub(crate) restore_camera_button: gtk::Button,
     pub(crate) enable_browser_camera_button: gtk::Button,
     pub(crate) enable_speakers_button: gtk::Button,
     pub(crate) prepare_secure_boot_key_button: gtk::Button,
@@ -95,12 +99,21 @@ pub(crate) struct SetupWindow {
     pub(crate) open_camera_button: gtk::Button,
     pub(crate) open_sound_button: gtk::Button,
     pub(crate) snapshot: Rc<RefCell<Option<SetupSnapshot>>>,
+    pub(crate) update_query_eligible: Rc<Cell<bool>>,
     pub(crate) action_running: Rc<RefCell<bool>>,
+    pub(crate) refresh_running: Rc<RefCell<bool>>,
     pub(crate) selected_diagnostic: Rc<RefCell<Option<DiagnosticKey>>>,
     pub(crate) notification_counts: Rc<RefCell<Option<DiagnosticAlertCounts>>>,
 }
 
 impl SetupWindow {
+    pub(crate) fn operation_is_idle(&self) -> bool {
+        operation_is_idle(
+            *self.action_running.borrow(),
+            *self.refresh_running.borrow(),
+        )
+    }
+
     pub(crate) fn present(&self) {
         self.window.present();
         self.refresh();
@@ -120,10 +133,7 @@ impl SetupWindow {
         self.connect_diagnostic_row(&self.akmods_row, DiagnosticKey::Akmods);
         self.connect_diagnostic_row(&self.module_row, DiagnosticKey::Module);
         self.connect_diagnostic_row(&self.libcamera_row, DiagnosticKey::Libcamera);
-        self.connect_diagnostic_row(
-            &self.browser_camera_row,
-            DiagnosticKey::BrowserCamera,
-        );
+        self.connect_diagnostic_row(&self.browser_camera_row, DiagnosticKey::BrowserCamera);
         self.connect_diagnostic_row(&self.boot_row, DiagnosticKey::Boot);
         self.connect_diagnostic_row(&self.speakers_row, DiagnosticKey::Speakers);
         self.connect_diagnostic_row(&self.sound_app_row, DiagnosticKey::SoundApp);
@@ -131,25 +141,13 @@ impl SetupWindow {
             &self.fingerprint_reader_row,
             DiagnosticKey::FingerprintReader,
         );
-        self.connect_diagnostic_row(
-            &self.fingerprint_login_row,
-            DiagnosticKey::FingerprintLogin,
-        );
+        self.connect_diagnostic_row(&self.fingerprint_login_row, DiagnosticKey::FingerprintLogin);
         self.connect_diagnostic_row(&self.gpu_row, DiagnosticKey::Gpu);
-        self.connect_diagnostic_row(
-            &self.secure_boot_key_row,
-            DiagnosticKey::SecureBootKey,
-        );
-        self.connect_diagnostic_row(
-            &self.platform_profile_row,
-            DiagnosticKey::PlatformProfile,
-        );
+        self.connect_diagnostic_row(&self.secure_boot_key_row, DiagnosticKey::SecureBootKey);
+        self.connect_diagnostic_row(&self.platform_profile_row, DiagnosticKey::PlatformProfile);
         self.connect_diagnostic_row(&self.clipboard_row, DiagnosticKey::Clipboard);
         self.connect_diagnostic_row(&self.gsconnect_row, DiagnosticKey::Gsconnect);
-        self.connect_diagnostic_row(
-            &self.desktop_icons_row,
-            DiagnosticKey::DesktopIcons,
-        );
+        self.connect_diagnostic_row(&self.desktop_icons_row, DiagnosticKey::DesktopIcons);
         self.connect_diagnostic_row(&self.dock_row, DiagnosticKey::Dock);
     }
 
@@ -158,5 +156,18 @@ impl SetupWindow {
         row.connect_suggested_actions(move || {
             this.present_suggested_actions(key);
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::operation_is_idle;
+
+    #[test]
+    fn operation_state_blocks_actions_during_actions_and_refreshes() {
+        assert!(operation_is_idle(false, false));
+        assert!(!operation_is_idle(true, false));
+        assert!(!operation_is_idle(false, true));
+        assert!(!operation_is_idle(true, true));
     }
 }

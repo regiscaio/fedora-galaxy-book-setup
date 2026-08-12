@@ -37,7 +37,10 @@ pub(crate) fn build_button_row(
     subtitle: &str,
     button: &gtk::Button,
 ) -> adw::ActionRow {
-    let row = adw::ActionRow::builder().title(title).subtitle(subtitle).build();
+    let row = adw::ActionRow::builder()
+        .title(title)
+        .subtitle(subtitle)
+        .build();
     let suffix_box = gtk::Box::new(gtk::Orientation::Horizontal, 0);
     suffix_box.set_halign(gtk::Align::End);
     suffix_box.set_valign(gtk::Align::Center);
@@ -115,21 +118,20 @@ where
     row
 }
 
-pub(crate) fn build_navigation_row<F>(
-    title: &str,
-    subtitle: &str,
-    on_activate: F,
-) -> adw::ActionRow
+pub(crate) fn build_navigation_row<F>(title: &str, subtitle: &str, on_activate: F) -> adw::ActionRow
 where
     F: Fn() + 'static,
 {
-    build_suffix_action_row(title, subtitle, "go-next-symbolic", &tr("Abrir seção"), on_activate)
+    build_suffix_action_row(
+        title,
+        subtitle,
+        "go-next-symbolic",
+        &tr("Abrir seção"),
+        on_activate,
+    )
 }
 
-pub(crate) fn build_about_summary_row(
-    app_name: &str,
-    description: &str,
-) -> gtk::ListBoxRow {
+pub(crate) fn build_about_summary_row(app_name: &str, description: &str) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     row.set_activatable(false);
     row.set_selectable(false);
@@ -161,9 +163,10 @@ pub(crate) fn build_about_summary_row(
     let version_label = gtk::Label::new(None);
     version_label.set_markup(&format!(
         "<span alpha='55%' size='small'>{}</span>",
-        glib::markup_escape_text(
-            &trf("Versão {version}", &[("version", env!("APP_VERSION").to_string())]),
-        )
+        glib::markup_escape_text(&trf(
+            "Versão {version}",
+            &[("version", env!("APP_VERSION").to_string())]
+        ),)
     ));
     version_label.set_xalign(0.0);
 
@@ -214,7 +217,9 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
 
     let scope_group = adw::PreferencesGroup::builder()
         .title(tr("Escopo atual"))
-        .description(tr("Resumo do que esta primeira entrega do assistente cobre hoje."))
+        .description(tr(
+            "Resumo do que esta primeira entrega do assistente cobre hoje.",
+        ))
         .build();
     for (title, subtitle) in [
         (
@@ -223,11 +228,15 @@ pub(crate) fn build_about_details_subpage() -> adw::NavigationPage {
         ),
         (
             tr_mark("Módulo disponível"),
-            tr("Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte MAX98390, Galaxy Book Sound, leitor de digital com fprintd/authselect, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop."),
+            tr(
+                "Fluxos de instalação, reparo e checklist da câmera interna, bridge V4L2 para navegador, suporte MAX98390, Galaxy Book Sound, leitor de digital com fprintd/authselect, estabilidade básica da NVIDIA, perfil de uso balanceado e integrações do desktop.",
+            ),
         ),
         (
             tr_mark("Limite atual"),
-            tr("O setup organiza diagnóstico, reparo e integração do stack. Ajuste fino do áudio continua no Galaxy Book Sound e captura diária continua no Galaxy Book Câmera."),
+            tr(
+                "O setup organiza diagnóstico, reparo e integração do stack. Ajuste fino do áudio continua no Galaxy Book Sound e captura diária continua no Galaxy Book Câmera.",
+            ),
         ),
     ] {
         let row = adw::ActionRow::builder()

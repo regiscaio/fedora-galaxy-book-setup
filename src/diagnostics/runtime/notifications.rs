@@ -7,8 +7,8 @@ use gtk::prelude::*;
 use galaxybook_setup::{APP_ID, SetupSnapshot};
 
 use crate::diagnostics::{
-    DiagnosticAlertCounts, diagnostic_alert_counts,
-    diagnostic_notification_body, diagnostic_notification_title,
+    DiagnosticAlertCounts, diagnostic_alert_counts, diagnostic_notification_body,
+    diagnostic_notification_title,
 };
 use crate::ui::SetupWindow;
 
@@ -28,8 +28,7 @@ impl SetupWindow {
             return;
         }
 
-        let notification =
-            gio::Notification::new(&diagnostic_notification_title(counts));
+        let notification = gio::Notification::new(&diagnostic_notification_title(counts));
         notification.set_body(Some(&diagnostic_notification_body(snapshot, counts)));
         notification.set_priority(if counts.errors > 0 {
             gio::NotificationPriority::High
@@ -43,8 +42,7 @@ impl SetupWindow {
     }
 
     fn update_launcher_badge(&self, counts: DiagnosticAlertCounts) {
-        let Ok(connection) =
-            gio::bus_get_sync(gio::BusType::Session, None::<&gio::Cancellable>)
+        let Ok(connection) = gio::bus_get_sync(gio::BusType::Session, None::<&gio::Cancellable>)
         else {
             return;
         };
@@ -57,8 +55,7 @@ impl SetupWindow {
         );
         properties.insert("urgent".to_string(), (counts.errors > 0).to_variant());
 
-        let parameters =
-            (format!("application://{APP_ID}.desktop"), properties).to_variant();
+        let parameters = (format!("application://{APP_ID}.desktop"), properties).to_variant();
 
         let _ = connection.emit_signal(
             None::<&str>,

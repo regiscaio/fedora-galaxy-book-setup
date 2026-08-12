@@ -8,9 +8,8 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    AKMODS_PUBLIC_KEY_PATH, CAMERA_APP_DESKTOP_ID,
-    OPEN_FINGERPRINT_SETTINGS_COMMAND, REBOOT_COMMAND,
-    RESTORE_INTEL_CAMERA_COMMAND, SOUND_APP_DESKTOP_ID, package_update_names, tr, trf,
+    AKMODS_PUBLIC_KEY_PATH, CAMERA_APP_DESKTOP_ID, OPEN_FINGERPRINT_SETTINGS_COMMAND,
+    REBOOT_COMMAND, SOUND_APP_DESKTOP_ID, SetupSnapshot, tr, trf,
 };
 
 use crate::actions::ActionKey;
@@ -18,6 +17,7 @@ use crate::system::{
     execute_privileged_shell_command, execute_privileged_shell_command_with_input,
     execute_user_shell_command,
 };
+use crate::ui::DiagnosticKey;
 use crate::ui::SetupWindow;
 
 #[derive(Clone)]
@@ -35,7 +35,7 @@ enum CommandMode {
     Privileged,
 }
 
-const SETUP_UPDATE_PACKAGES: &[&str] = &[
+pub(crate) const SETUP_UPDATE_PACKAGES: &[&str] = &[
     "galaxybook-setup",
     "galaxybook-camera",
     "galaxybook-ov02c10-kmod-common",
@@ -44,7 +44,34 @@ const SETUP_UPDATE_PACKAGES: &[&str] = &[
     "galaxybook-sound",
     "galaxybook-max98390-kmod-common",
     "akmod-galaxybook-max98390",
+    "kmod-galaxybook-max98390",
 ];
+
+pub(crate) fn action_is_snapshot_eligible(key: ActionKey, snapshot: &SetupSnapshot) -> bool {
+    match key {
+        ActionKey::Reboot => snapshot.reboot_ready,
+        ActionKey::OpenCamera => snapshot.camera_app_installed,
+        ActionKey::OpenSoundApp => snapshot.sound_app_installed,
+        _ => true,
+    }
+}
+
+pub(crate) fn suggested_action_is_snapshot_eligible(
+    key: ActionKey,
+    diagnostic: DiagnosticKey,
+    snapshot: &SetupSnapshot,
+) -> bool {
+    let driver_diagnostic = matches!(
+        diagnostic,
+        DiagnosticKey::Akmods
+            | DiagnosticKey::Module
+            | DiagnosticKey::Libcamera
+            | DiagnosticKey::Boot
+            | DiagnosticKey::Speakers
+    );
+    action_is_snapshot_eligible(key, snapshot)
+        && (key != ActionKey::Reboot || !driver_diagnostic || snapshot.driver_reboot_ready)
+}
 
 fn update_button_tooltip(packages: &[String]) -> String {
     trf(
@@ -53,29 +80,137 @@ fn update_button_tooltip(packages: &[String]) -> String {
     )
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum UpdateRefreshPresentation {
+    NoUpdates,
+    Updates(Vec<String>),
+    QueryFailed,
+}
+
+fn update_refresh_presentation(result: Result<Vec<String>, String>) -> UpdateRefreshPresentation {
+    match result {
+        Ok(packages) if packages.is_empty() => UpdateRefreshPresentation::NoUpdates,
+        Ok(packages) => UpdateRefreshPresentation::Updates(packages),
+        Err(_) => UpdateRefreshPresentation::QueryFailed,
+    }
+}
+
+fn update_refresh_is_eligible(presentation: &UpdateRefreshPresentation) -> bool {
+    matches!(presentation, UpdateRefreshPresentation::Updates(_))
+}
+
+pub(super) fn update_button_should_be_sensitive(
+    actions_allowed: bool,
+    update_query_eligible: bool,
+) -> bool {
+    actions_allowed && update_query_eligible
+}
+
 fn upgrade_installed_packages_command(packages: &[&str]) -> String {
+    upgrade_installed_packages_command_with_helper(
+        packages,
+        "/usr/libexec/galaxybook-setup/reconcile-kmods",
+    )
+}
+
+fn upgrade_installed_packages_command_with_helper(
+    packages: &[&str],
+    reconcile_helper: &str,
+) -> String {
     format!(
         r#"set -euo pipefail
-packages=({packages})
-installed=()
-for package in "${{packages[@]}}"; do
-  if rpm -q "$package" >/dev/null 2>&1; then
-    installed+=("$package")
-  fi
+	packages=({packages})
+	installed=()
+	rpm_inventory=""
+	load_rpm_inventory() {{
+	  local error_file inventory_file status
+	  error_file="$(mktemp /var/tmp/galaxybook-setup-update-rpm.XXXXXX)"
+	  inventory_file="$(mktemp /var/tmp/galaxybook-setup-update-rpm.XXXXXX)"
+	  if LC_ALL=C rpm -qa --qf '%{{NAME}}\n' >"$inventory_file" 2>"$error_file"; then
+	    status=0
+	  else
+	    status=$?
+	  fi
+	  if (( status != 0 )) \
+	    || [[ -s "$error_file" || ! -s "$inventory_file" ]] \
+	    || ! tail -c 1 -- "$inventory_file" | grep -qx ''; then
+	    echo "O RPM não conseguiu produzir um inventário conclusivo dos pacotes instalados. A atualização foi interrompida sem assumir que pacotes estão ausentes." >&2
+	    rm -f -- "$error_file" "$inventory_file"
+	    return 1
+	  fi
+	  if ! LC_ALL=C awk '
+	    $0 !~ /^[[:alnum:]][[:alnum:]+._-]*$/ {{ invalid = 1 }}
+	    END {{ exit invalid ? 1 : 0 }}
+	  ' "$inventory_file"; then
+	    echo "O RPM retornou um nome de pacote malformado. A atualização foi interrompida sem usar um inventário parcial." >&2
+	    rm -f -- "$error_file" "$inventory_file"
+	    return 1
+	  fi
+	  rpm_inventory="$(<"$inventory_file")"
+	  rm -f -- "$error_file" "$inventory_file"
+	}}
+	package_is_installed() {{
+	  local expected="$1" candidate
+	  while IFS= read -r candidate; do
+	    [[ "$candidate" == "$expected" ]] && return 0
+	  done <<< "$rpm_inventory"
+	  return 1
+	}}
+	count_installed_family() {{
+	  local count=0 package
+	  for package in "$@"; do
+	    if package_is_installed "$package"; then
+	      count=$((count + 1))
+	    fi
+	  done
+	  printf '%s\n' "$count"
+	}}
+	load_rpm_inventory
+	for package in "${{packages[@]}}"; do
+	  if package_is_installed "$package"; then
+	    installed+=("$package")
+	  fi
 done
 if [ "${{#installed[@]}}" -eq 0 ]; then
   echo "Nenhum pacote do Galaxy Book está instalado para atualizar."
   exit 0
 fi
-dnf --refresh upgrade -y "${{installed[@]}}"
+ov_count="$(count_installed_family galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10)"
+max_count="$(count_installed_family galaxybook-max98390-kmod-common akmod-galaxybook-max98390 kmod-galaxybook-max98390)"
+if (( ov_count > 0 && ov_count < 3 )); then
+  echo "A família OV02C10 está parcialmente instalada. Use 'Instalar suporte da câmera' ou 'Reparar o driver' para completar os três pacotes antes de atualizar." >&2
+  exit 1
+fi
+if (( max_count > 0 && max_count < 3 )); then
+  echo "A família MAX98390 está parcialmente instalada. Use 'Ativar alto-falantes internos' para completar os três pacotes antes de atualizar." >&2
+  exit 1
+fi
+	dnf --refresh upgrade -y "${{installed[@]}}"
+	load_rpm_inventory
+	ov_count="$(count_installed_family galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10)"
+max_count="$(count_installed_family galaxybook-max98390-kmod-common akmod-galaxybook-max98390 kmod-galaxybook-max98390)"
+if (( ov_count > 0 && ov_count < 3 )); then
+  echo "A atualização deixou a família OV02C10 parcialmente instalada. Complete os três pacotes pela ação de câmera antes de reiniciar." >&2
+  exit 1
+fi
+if (( max_count > 0 && max_count < 3 )); then
+  echo "A atualização deixou a família MAX98390 parcialmente instalada. Complete os três pacotes pela ação de alto-falantes antes de reiniciar." >&2
+  exit 1
+fi
+case "$ov_count:$max_count" in
+  3:3) {reconcile_helper} all ;;
+  3:0) {reconcile_helper} ov02c10 ;;
+  0:3) {reconcile_helper} max98390 ;;
+  0:0) echo "Atualizações concluídas; nenhuma família completa de driver estava instalada para reconciliar." ;;
+esac
 "#,
-        packages = packages.join(" ")
+        packages = packages.join(" "),
+        reconcile_helper = reconcile_helper,
     )
 }
 
 fn output_mentions_secure_boot_key_rejection(output: &str) -> bool {
-    output.contains("Key was rejected by service")
-        || output.contains("key was rejected by service")
+    output.contains("Key was rejected by service") || output.contains("key was rejected by service")
 }
 
 fn format_command_output(output: &str) -> String {
@@ -90,26 +225,19 @@ fn format_command_output(output: &str) -> String {
         return output_text;
     }
 
-    let remediation = if std::path::Path::new(AKMODS_PUBLIC_KEY_PATH).is_file() {
-        trf(
-            "O kernel rejeitou o módulo porque o Secure Boot continua ativo, mas a chave usada pelo akmods não foi aceita pelo MOK.\n\nVerifique com:\n  mokutil --test-key {path}\n\nSe a saída disser que a chave já está inscrita (\"already enrolled\"), o MOK atual já conhece essa chave e o problema precisa ser investigado por outro ponto. Se a chave ainda não estiver inscrita, execute:\n  sudo mokutil --import {path}\n\nDepois reinicie, entre em \"Enroll MOK\" na tela azul do boot, confirme a senha definida no import e só então repita a ação.",
-            &[("path", AKMODS_PUBLIC_KEY_PATH.to_string())],
-        )
-    } else {
-        tr(
-            "O kernel rejeitou o módulo porque o Secure Boot continua ativo, mas o sistema não encontrou a chave pública do akmods em /etc/pki/akmods/certs/public_key.der. Gere ou reinstale a chave do akmods antes de repetir a ação.",
-        )
-    };
+    let remediation = trf(
+        "O kernel rejeitou o módulo porque o Secure Boot não aceitou sua assinatura. O aplicativo sem privilégios pode não conseguir ler {path} porque o diretório do akmods é protegido; isso não significa que a chave esteja ausente. Use a ação 'Preparar chave do Secure Boot' para validar a chave com privilégios, criar o pedido correto no MOK quando necessário e, depois que os payloads estiverem prontos, reinicie normalmente para concluir o Enroll MOK.",
+        &[("path", AKMODS_PUBLIC_KEY_PATH.to_string())],
+    );
 
     format!("{remediation}\n\n---\n\n{output_text}")
 }
 
-fn secure_boot_password_error(
-    password: &str,
-    confirmation: &str,
-) -> Option<String> {
+fn secure_boot_password_error(password: &str, confirmation: &str) -> Option<String> {
     if password.trim().is_empty() || confirmation.trim().is_empty() {
-        return Some(tr("Defina e confirme a senha temporária do MOK para continuar."));
+        return Some(tr(
+            "Defina e confirme a senha temporária do MOK para continuar.",
+        ));
     }
 
     if password != confirmation {
@@ -146,56 +274,73 @@ fn update_secure_boot_password_state(
 }
 
 impl SetupWindow {
-    pub(crate) fn refresh_updates(&self) {
+    pub(crate) fn prepare_update_refresh(&self) {
+        self.update_query_eligible.set(false);
         self.update_button.set_visible(false);
         self.update_button.set_sensitive(false);
+    }
 
-        let (sender, receiver) = mpsc::channel();
-        std::thread::spawn(move || {
-            let _ = sender.send(package_update_names(SETUP_UPDATE_PACKAGES));
-        });
+    pub(crate) fn apply_update_refresh(&self, result: Result<Vec<String>, String>) {
+        let presentation = update_refresh_presentation(result);
+        self.update_query_eligible
+            .set(update_refresh_is_eligible(&presentation));
 
-        let this = self.clone();
-        glib::timeout_add_local(Duration::from_millis(150), move || match receiver.try_recv() {
-            Ok(Ok(packages)) => {
-                let has_updates = !packages.is_empty();
-                let allowed = has_updates && !*this.action_running.borrow();
-                this.update_button.set_visible(has_updates);
-                this.update_button.set_sensitive(allowed);
-                if has_updates {
-                    this.update_button
-                        .set_tooltip_text(Some(&update_button_tooltip(&packages)));
-                }
-                glib::ControlFlow::Break
+        match presentation {
+            UpdateRefreshPresentation::NoUpdates => {
+                self.update_button.set_visible(false);
+                self.update_button.set_sensitive(false);
+                self.update_button.set_tooltip_text(None);
             }
-            Ok(Err(_error)) => {
-                this.update_button.set_visible(false);
-                this.update_button.set_sensitive(false);
-                glib::ControlFlow::Break
+            UpdateRefreshPresentation::Updates(packages) => {
+                self.update_button.set_visible(true);
+                self.update_button
+                    .set_sensitive(update_button_should_be_sensitive(
+                        self.operation_is_idle(),
+                        self.update_query_eligible.get(),
+                    ));
+                self.update_button
+                    .set_tooltip_text(Some(&update_button_tooltip(&packages)));
             }
-            Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                this.update_button.set_visible(false);
-                this.update_button.set_sensitive(false);
-                glib::ControlFlow::Break
+            UpdateRefreshPresentation::QueryFailed => {
+                let message = tr(
+                    "Falha ao consultar atualizações. Verifique o RPM, a conexão e os repositórios; depois atualize o diagnóstico.",
+                );
+                self.update_button.set_visible(true);
+                self.update_button.set_sensitive(false);
+                self.update_button.set_tooltip_text(Some(&message));
+                self.toast_overlay.add_toast(adw::Toast::new(&message));
             }
-        });
+        }
     }
 
     pub(crate) fn install_updates(&self) {
-        if !self.update_button.is_visible() || !self.update_button.is_sensitive() {
+        if !self.operation_is_idle()
+            || !self.update_query_eligible.get()
+            || !self.update_button.is_visible()
+            || !self.update_button.is_sensitive()
+        {
             return;
         }
 
         self.run_privileged_command(
             &tr("Atualizar pacotes"),
             upgrade_installed_packages_command(SETUP_UPDATE_PACKAGES),
-            &tr("Atualizações instaladas. Reinicie os apps atualizados antes de continuar."),
+            &tr("Atualização concluída. Revise a saída da ação e atualize o diagnóstico; payloads só são declarados prontos quando a reconciliação da família instalada termina sem erros."),
             true,
         );
     }
 
     pub(super) fn invoke_action(&self, key: ActionKey) {
+        if !self.operation_is_idle()
+            || !self
+                .snapshot
+                .borrow()
+                .as_ref()
+                .is_some_and(|snapshot| action_is_snapshot_eligible(key, snapshot))
+        {
+            return;
+        }
+
         match key {
             ActionKey::InstallMainSupport => {
                 let command = self
@@ -207,7 +352,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Instalar suporte principal"),
                     command,
-                    &tr("Pacotes principais instalados. Atualize o diagnóstico e use as ações específicas se câmera ou alto-falantes ainda precisarem de ajuste."),
+                    &tr("Pacotes e payloads por kernel instalados e validados. Atualize o diagnóstico e reinicie normalmente para trocar módulos já ocupados."),
                     true,
                 );
             }
@@ -221,7 +366,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Instalar suporte da câmera"),
                     command,
-                    &tr("Instalação concluída. Reinicie o sistema para carregar o driver."),
+                    &tr("OV02C10 e initramfs validados em todos os kernels instalados. Reinicie normalmente para carregar o driver sem trocar ao vivo um módulo ocupado."),
                     true,
                 );
             }
@@ -249,7 +394,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Reparar o driver"),
                     command,
-                    &tr("Reparo concluído. Reinicie o sistema para aplicar o módulo atualizado."),
+                    &tr("OV02C10 validado em todos os kernels instalados. Reinicie normalmente para trocar qualquer módulo já ocupado."),
                     true,
                 );
             }
@@ -263,7 +408,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Habilitar driver da câmera"),
                     command,
-                    &tr("Carregamento do ov02c10 ajustado. Se a câmera ainda não aparecer, reinicie o sistema para validar o boot completo."),
+                    &tr("OV02C10 e initramfs validados em todos os kernels instalados. Reinicie normalmente; o módulo ocupado não foi trocado ao vivo."),
                     true,
                 );
             }
@@ -277,21 +422,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Ajustar prioridade do driver"),
                     command,
-                    &tr("Ajuste concluído. Reinicie o sistema antes de validar a câmera se o boot atual já registrou falha de clock do ov02c10."),
-                    true,
-                );
-            }
-            ActionKey::RestoreIntelIpu6 => {
-                let command = self
-                    .snapshot
-                    .borrow()
-                    .as_ref()
-                    .map(|snapshot| snapshot.restore_intel_camera_command.clone())
-                    .unwrap_or_else(|| RESTORE_INTEL_CAMERA_COMMAND.into());
-                self.run_privileged_command(
-                    &tr("Restaurar stack Intel IPU6"),
-                    command,
-                    &tr("Restauração concluída. Se a câmera continuar ausente no libcamera, reinicie o sistema antes de validar novamente."),
+                    &tr("Payload, prioridade e initramfs do OV02C10 validados para todos os kernels. Reinicie normalmente antes de validar o novo grafo IPU6."),
                     true,
                 );
             }
@@ -319,7 +450,7 @@ impl SetupWindow {
                 self.run_privileged_command(
                     &tr("Ativar alto-falantes internos"),
                     command,
-                    &tr("Fluxo dos alto-falantes concluído. Se os módulos MAX98390 já aparecerem no kernel, teste a saída Speaker imediatamente. Reinicie só se o sistema continuar preso ao estado anterior."),
+                    &tr("Payloads MAX98390 por kernel e serviço I2C validados. Reinicie normalmente se o kernel atual ainda mantiver módulos antigos carregados."),
                     true,
                 );
             }
@@ -345,9 +476,7 @@ impl SetupWindow {
                     .snapshot
                     .borrow()
                     .as_ref()
-                    .map(|snapshot| {
-                        snapshot.enable_fingerprint_auth_command.clone()
-                    })
+                    .map(|snapshot| snapshot.enable_fingerprint_auth_command.clone())
                     .unwrap_or_default();
                 self.run_privileged_command(
                     &tr("Ativar login por digital"),
@@ -361,9 +490,7 @@ impl SetupWindow {
                     .snapshot
                     .borrow()
                     .as_ref()
-                    .map(|snapshot| {
-                        snapshot.open_fingerprint_settings_command.clone()
-                    })
+                    .map(|snapshot| snapshot.open_fingerprint_settings_command.clone())
                     .unwrap_or_else(|| OPEN_FINGERPRINT_SETTINGS_COMMAND.into());
                 self.run_user_command(
                     &tr("Abrir cadastro de digitais"),
@@ -433,9 +560,7 @@ impl SetupWindow {
                     .snapshot
                     .borrow()
                     .as_ref()
-                    .map(|snapshot| {
-                        snapshot.apply_desktop_icons_profile_command.clone()
-                    })
+                    .map(|snapshot| snapshot.apply_desktop_icons_profile_command.clone())
                     .unwrap_or_default();
                 self.run_user_command(
                     &tr("Ativar ícones na área de trabalho"),
@@ -468,37 +593,44 @@ impl SetupWindow {
             }
             ActionKey::OpenCamera => {
                 if let Some(app) = gio::DesktopAppInfo::new(CAMERA_APP_DESKTOP_ID) {
-                    if let Err(error) =
-                        app.launch(&[], None::<&gio::AppLaunchContext>)
-                    {
+                    if let Err(error) = app.launch(&[], None::<&gio::AppLaunchContext>) {
                         self.toast_overlay.add_toast(adw::Toast::new(&trf(
                             "Falha ao abrir o app da câmera: {error}",
                             &[("error", error.to_string())],
                         )));
                     }
                 } else {
-                    self.toast_overlay.add_toast(adw::Toast::new(
-                        &tr("O Galaxy Book Câmera não foi encontrado no sistema."),
-                    ));
+                    self.toast_overlay.add_toast(adw::Toast::new(&tr(
+                        "O Galaxy Book Câmera não foi encontrado no sistema.",
+                    )));
                 }
             }
             ActionKey::OpenSoundApp => {
                 if let Some(app) = gio::DesktopAppInfo::new(SOUND_APP_DESKTOP_ID) {
-                    if let Err(error) =
-                        app.launch(&[], None::<&gio::AppLaunchContext>)
-                    {
+                    if let Err(error) = app.launch(&[], None::<&gio::AppLaunchContext>) {
                         self.toast_overlay.add_toast(adw::Toast::new(&trf(
                             "Falha ao abrir o painel de som: {error}",
                             &[("error", error.to_string())],
                         )));
                     }
                 } else {
-                    self.toast_overlay.add_toast(adw::Toast::new(
-                        &tr("O Galaxy Book Sound não foi encontrado no sistema."),
-                    ));
+                    self.toast_overlay.add_toast(adw::Toast::new(&tr(
+                        "O Galaxy Book Sound não foi encontrado no sistema.",
+                    )));
                 }
             }
         }
+    }
+
+    pub(super) fn invoke_suggested_action(&self, key: ActionKey, diagnostic: DiagnosticKey) {
+        if !self.operation_is_idle()
+            || !self.snapshot.borrow().as_ref().is_some_and(|snapshot| {
+                suggested_action_is_snapshot_eligible(key, diagnostic, snapshot)
+            })
+        {
+            return;
+        }
+        self.invoke_action(key);
     }
 
     fn run_privileged_command(
@@ -562,18 +694,17 @@ impl SetupWindow {
         refresh_after: bool,
         mode: CommandMode,
     ) {
-        if command.trim().is_empty() || *self.action_running.borrow() {
+        if command.trim().is_empty() || !self.operation_is_idle() {
             return;
         }
 
         *self.action_running.borrow_mut() = true;
         self.refresh_button.set_sensitive(false);
         self.set_action_buttons_sensitive(false);
-        self.toast_overlay
-            .add_toast(adw::Toast::new(&trf(
-                "Executando: {title}…",
-                &[("title", title.to_string())],
-            )));
+        self.toast_overlay.add_toast(adw::Toast::new(&trf(
+            "Executando: {title}…",
+            &[("title", title.to_string())],
+        )));
 
         let title_owned = title.to_string();
         let success_message_owned = success_message.to_string();
@@ -582,10 +713,7 @@ impl SetupWindow {
             let command_result = match mode {
                 CommandMode::User => execute_user_shell_command(&command),
                 CommandMode::Privileged => match stdin_data {
-                    Some(stdin) => execute_privileged_shell_command_with_input(
-                        &command,
-                        &stdin,
-                    ),
+                    Some(stdin) => execute_privileged_shell_command_with_input(&command, &stdin),
                     None => execute_privileged_shell_command(&command),
                 },
             };
@@ -613,20 +741,20 @@ impl SetupWindow {
             match receiver.try_recv() {
                 Ok(result) => {
                     *this.action_running.borrow_mut() = false;
-                    this.refresh_button.set_sensitive(true);
-                    this.set_action_buttons_sensitive(true);
 
                     if result.success {
                         this.toast_overlay
                             .add_toast(adw::Toast::new(&result.success_message));
                         if result.refresh_after {
                             this.refresh();
+                        } else {
+                            this.refresh_button.set_sensitive(true);
+                            this.set_action_buttons_sensitive(true);
                         }
                     } else {
-                        this.present_command_result_dialog(
-                            &result.title,
-                            &result.output,
-                        );
+                        this.refresh_button.set_sensitive(true);
+                        this.set_action_buttons_sensitive(true);
+                        this.present_command_result_dialog(&result.title, &result.output);
                     }
 
                     glib::ControlFlow::Break
@@ -636,9 +764,9 @@ impl SetupWindow {
                     *this.action_running.borrow_mut() = false;
                     this.refresh_button.set_sensitive(true);
                     this.set_action_buttons_sensitive(true);
-                    this.toast_overlay.add_toast(adw::Toast::new(
-                        &tr("Falha ao acompanhar a ação solicitada."),
-                    ));
+                    this.toast_overlay.add_toast(adw::Toast::new(&tr(
+                        "Falha ao acompanhar a ação solicitada.",
+                    )));
                     glib::ControlFlow::Break
                 }
             }
@@ -646,7 +774,7 @@ impl SetupWindow {
     }
 
     fn present_secure_boot_password_dialog(&self) {
-        if *self.action_running.borrow() {
+        if !self.operation_is_idle() {
             return;
         }
 
@@ -697,9 +825,7 @@ impl SetupWindow {
             .build();
         content.append(&password_label);
 
-        let password_entry = gtk::PasswordEntry::builder()
-            .show_peek_icon(true)
-            .build();
+        let password_entry = gtk::PasswordEntry::builder().show_peek_icon(true).build();
         content.append(&password_entry);
 
         let confirmation_label = gtk::Label::builder()
@@ -708,9 +834,7 @@ impl SetupWindow {
             .build();
         content.append(&confirmation_label);
 
-        let confirmation_entry = gtk::PasswordEntry::builder()
-            .show_peek_icon(true)
-            .build();
+        let confirmation_entry = gtk::PasswordEntry::builder().show_peek_icon(true).build();
         content.append(&confirmation_entry);
 
         let hint = gtk::Label::builder()
@@ -779,7 +903,11 @@ impl SetupWindow {
 
         cancel_button.connect_clicked({
             let dialog = dialog.clone();
+            let password_entry = password_entry.clone();
+            let confirmation_entry = confirmation_entry.clone();
             move |_| {
+                password_entry.set_text("");
+                confirmation_entry.set_text("");
                 dialog.close();
             }
         });
@@ -802,8 +930,10 @@ impl SetupWindow {
                     return;
                 }
 
-                dialog.close();
                 let stdin_data = format!("{password}\n{confirmation}\n");
+                password_entry.set_text("");
+                confirmation_entry.set_text("");
+                dialog.close();
                 this.run_privileged_command_with_input(
                     &tr("Preparar chave do Secure Boot"),
                     command.clone(),
@@ -862,6 +992,85 @@ impl SetupWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write;
+
+    fn run_upgrade_fixture(installed_packages: &str) -> std::process::Output {
+        run_upgrade_fixture_with_post_state_and_rpm_status(installed_packages, "", 0)
+    }
+
+    fn run_upgrade_fixture_with_post_state(
+        installed_packages: &str,
+        post_dnf_packages: &str,
+    ) -> std::process::Output {
+        run_upgrade_fixture_with_post_state_and_rpm_status(installed_packages, post_dnf_packages, 0)
+    }
+
+    fn run_upgrade_fixture_with_post_state_and_rpm_status(
+        installed_packages: &str,
+        post_dnf_packages: &str,
+        rpm_status: i32,
+    ) -> std::process::Output {
+        run_upgrade_fixture_with_rpm_shape(
+            installed_packages,
+            post_dnf_packages,
+            rpm_status,
+            false,
+            "",
+        )
+    }
+
+    fn run_upgrade_fixture_with_rpm_shape(
+        installed_packages: &str,
+        post_dnf_packages: &str,
+        rpm_status: i32,
+        raw_inventory: bool,
+        rpm_stderr: &str,
+    ) -> std::process::Output {
+        let script = upgrade_installed_packages_command_with_helper(
+            SETUP_UPDATE_PACKAGES,
+            "record_reconcile",
+        );
+        let harness = format!(
+            r#"rpm() {{
+  [[ "$1" == -qa ]] || return 64
+  printf '%s' "$RPM_STDERR" >&2
+  if [[ "$RPM_RAW_INVENTORY" == 1 ]]; then
+    printf '%s' "$INSTALLED_PACKAGES"
+  else
+    tr ' ' '\n' <<< "$INSTALLED_PACKAGES" | sed '/^$/d'
+  fi
+  return "$RPM_STATUS"
+}}
+dnf() {{
+  printf 'DNF:%s\n' "$*"
+  if [[ -n "$POST_DNF_PACKAGES" ]]; then
+    INSTALLED_PACKAGES="$POST_DNF_PACKAGES"
+  fi
+}}
+record_reconcile() {{ printf 'RECONCILE:%s\n' "$*"; }}
+{script}
+"#
+        );
+        let mut child = std::process::Command::new("bash")
+            .args(["--noprofile", "--norc", "-s"])
+            .env("INSTALLED_PACKAGES", installed_packages)
+            .env("POST_DNF_PACKAGES", post_dnf_packages)
+            .env("RPM_STATUS", rpm_status.to_string())
+            .env("RPM_RAW_INVENTORY", if raw_inventory { "1" } else { "0" })
+            .env("RPM_STDERR", rpm_stderr)
+            .stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("não foi possível iniciar fixture bash");
+        child
+            .stdin
+            .as_mut()
+            .expect("stdin da fixture indisponível")
+            .write_all(harness.as_bytes())
+            .expect("não foi possível enviar fixture ao bash");
+        child.wait_with_output().expect("fixture bash não terminou")
+    }
 
     #[test]
     fn secure_boot_rejection_output_is_detected() {
@@ -884,5 +1093,129 @@ mod tests {
     #[test]
     fn secure_boot_password_validation_accepts_matching_values() {
         assert_eq!(secure_boot_password_error("abc", "abc"), None);
+    }
+
+    #[test]
+    fn package_upgrade_command_has_valid_bash_syntax() {
+        let script = upgrade_installed_packages_command(SETUP_UPDATE_PACKAGES);
+        let mut child = std::process::Command::new("bash")
+            .args(["--noprofile", "--norc", "-n"])
+            .stdin(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("não foi possível iniciar bash");
+        child
+            .stdin
+            .as_mut()
+            .expect("stdin do bash indisponível")
+            .write_all(script.as_bytes())
+            .expect("não foi possível enviar o comando ao bash");
+        let output = child.wait_with_output().expect("bash -n não terminou");
+        assert!(
+            output.status.success(),
+            "sintaxe shell inválida: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn package_upgrade_without_driver_family_does_not_claim_reconciliation() {
+        let output = run_upgrade_fixture("galaxybook-camera");
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("nenhuma família completa"));
+        assert!(!stdout.contains("RECONCILE:"));
+    }
+
+    #[test]
+    fn package_upgrade_reconciles_a_complete_driver_family() {
+        let output = run_upgrade_fixture(
+            "galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10",
+        );
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stdout).contains("RECONCILE:ov02c10"));
+    }
+
+    #[test]
+    fn package_upgrade_reconciles_a_driver_family_added_by_weak_dependencies() {
+        let output = run_upgrade_fixture_with_post_state(
+            "galaxybook-setup",
+            "galaxybook-setup galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10",
+        );
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stdout).contains("RECONCILE:ov02c10"));
+    }
+
+    #[test]
+    fn package_updater_tracks_the_versioned_camera_and_sound_applications() {
+        assert!(SETUP_UPDATE_PACKAGES.contains(&"galaxybook-camera"));
+        assert!(SETUP_UPDATE_PACKAGES.contains(&"galaxybook-sound"));
+    }
+
+    #[test]
+    fn package_upgrade_rejects_a_partial_driver_family() {
+        let output = run_upgrade_fixture("galaxybook-camera galaxybook-ov02c10-kmod-common");
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("parcialmente instalada"));
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("DNF:"));
+    }
+
+    #[test]
+    fn package_upgrade_fails_closed_when_rpm_inventory_is_inconclusive() {
+        let output = run_upgrade_fixture_with_post_state_and_rpm_status("galaxybook-camera", "", 1);
+        assert!(!output.status.success());
+        assert!(String::from_utf8_lossy(&output.stderr).contains("inventário conclusivo"));
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("DNF:"));
+        assert!(!String::from_utf8_lossy(&output.stdout).contains("RECONCILE:"));
+    }
+
+    #[test]
+    fn package_upgrade_rejects_empty_truncated_malformed_or_warning_inventory() {
+        for (inventory, raw, warning) in [
+            ("", false, ""),
+            ("galaxybook-camera", true, ""),
+            ("invalid package\n", true, ""),
+            ("galaxybook-camera\n", true, "rpm warning\n"),
+        ] {
+            let output = run_upgrade_fixture_with_rpm_shape(inventory, "", 0, raw, warning);
+            assert!(
+                !output.status.success(),
+                "accepted inconclusive RPM inventory {inventory:?}",
+            );
+            assert!(!String::from_utf8_lossy(&output.stdout).contains("DNF:"));
+            assert!(!String::from_utf8_lossy(&output.stdout).contains("RECONCILE:"));
+        }
+    }
+
+    #[test]
+    fn update_query_failure_is_not_presented_as_zero_updates() {
+        assert_eq!(
+            update_refresh_presentation(Ok(Vec::new())),
+            UpdateRefreshPresentation::NoUpdates
+        );
+        assert_eq!(
+            update_refresh_presentation(Ok(vec!["galaxybook-setup".into()])),
+            UpdateRefreshPresentation::Updates(vec!["galaxybook-setup".into()])
+        );
+        assert_eq!(
+            update_refresh_presentation(Err("rpmdb indisponível".into())),
+            UpdateRefreshPresentation::QueryFailed
+        );
+    }
+
+    #[test]
+    fn update_query_eligibility_survives_global_button_state_changes() {
+        let failed = update_refresh_presentation(Err("rpmdb indisponível".into()));
+        let failed_eligible = update_refresh_is_eligible(&failed);
+        assert!(!update_button_should_be_sensitive(false, failed_eligible));
+        assert!(!update_button_should_be_sensitive(true, failed_eligible));
+
+        let succeeded = update_refresh_presentation(Ok(vec!["galaxybook-setup".into()]));
+        let succeeded_eligible = update_refresh_is_eligible(&succeeded);
+        assert!(!update_button_should_be_sensitive(
+            false,
+            succeeded_eligible
+        ));
+        assert!(update_button_should_be_sensitive(true, succeeded_eligible));
     }
 }

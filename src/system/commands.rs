@@ -39,7 +39,10 @@ fn run_shell_command_with_optional_input(
         command.stdin(Stdio::piped());
     }
 
-    let mut child = command.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()?;
+    let mut child = command
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
 
     if let Some(input) = stdin_data {
         if let Some(mut stdin) = child.stdin.take() {
@@ -51,18 +54,28 @@ fn run_shell_command_with_optional_input(
     Ok(collect_command_output(output))
 }
 
+fn privileged_shell_arguments(command: &str) -> [&str; 7] {
+    [
+        "/usr/bin/env",
+        "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+        "/usr/bin/bash",
+        "--noprofile",
+        "--norc",
+        "-c",
+        command,
+    ]
+}
+
+fn user_shell_arguments(command: &str) -> [&str; 4] {
+    ["--noprofile", "--norc", "-c", command]
+}
+
 pub(crate) fn execute_privileged_shell_command(
     command: &str,
 ) -> Result<PrivilegedCommandResult, String> {
     run_shell_command_with_optional_input(
-        "pkexec",
-        &[
-            "/usr/bin/env",
-            "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
-            "/usr/bin/bash",
-            "-lc",
-            command,
-        ],
+        "/usr/bin/pkexec",
+        &privileged_shell_arguments(command),
         None,
     )
     .map_err(|error| {
@@ -78,14 +91,8 @@ pub(crate) fn execute_privileged_shell_command_with_input(
     stdin_data: &str,
 ) -> Result<PrivilegedCommandResult, String> {
     run_shell_command_with_optional_input(
-        "pkexec",
-        &[
-            "/usr/bin/env",
-            "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
-            "/usr/bin/bash",
-            "-lc",
-            command,
-        ],
+        "/usr/bin/pkexec",
+        &privileged_shell_arguments(command),
         Some(stdin_data),
     )
     .map_err(|error| {
@@ -96,14 +103,62 @@ pub(crate) fn execute_privileged_shell_command_with_input(
     })
 }
 
-pub(crate) fn execute_user_shell_command(
-    command: &str,
-) -> Result<PrivilegedCommandResult, String> {
-    run_shell_command_with_optional_input("/usr/bin/bash", &["-lc", command], None)
+pub(crate) fn execute_user_shell_command(command: &str) -> Result<PrivilegedCommandResult, String> {
+    run_shell_command_with_optional_input("/usr/bin/bash", &user_shell_arguments(command), None)
         .map_err(|error| {
             trf(
                 "Falha ao iniciar a ação local: {error}",
                 &[("error", error.to_string())],
             )
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        privileged_shell_arguments, run_shell_command_with_optional_input, user_shell_arguments,
+    };
+
+    #[test]
+    fn shell_actions_do_not_load_login_or_profile_files() {
+        let privileged = privileged_shell_arguments("true");
+        let user = user_shell_arguments("true");
+
+        assert_eq!(
+            privileged,
+            [
+                "/usr/bin/env",
+                "PATH=/usr/sbin:/usr/bin:/sbin:/bin",
+                "/usr/bin/bash",
+                "--noprofile",
+                "--norc",
+                "-c",
+                "true",
+            ]
+        );
+        assert_eq!(user, ["--noprofile", "--norc", "-c", "true"]);
+        assert!(!privileged.contains(&"-l"));
+        assert!(!user.contains(&"-l"));
+    }
+
+    #[test]
+    fn privileged_input_is_sent_only_through_stdin() {
+        let sensitive_input = "fixture-only-sensitive-value";
+        let command = "IFS= read -r value; test ${#value} -eq 28";
+        let arguments = privileged_shell_arguments(command);
+        assert!(
+            arguments
+                .iter()
+                .all(|argument| !argument.contains(sensitive_input))
+        );
+
+        let result = run_shell_command_with_optional_input(
+            "/usr/bin/bash",
+            &["--noprofile", "--norc", "-c", command],
+            Some(sensitive_input),
+        )
+        .expect("não foi possível testar transporte por stdin");
+        assert!(result.success);
+        assert!(!result.output.contains(sensitive_input));
+    }
 }

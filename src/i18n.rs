@@ -1,11 +1,6 @@
 use gettextrs::{
-    bind_textdomain_codeset,
-    bindtextdomain,
-    gettext,
-    ngettext,
-    setlocale,
+    LocaleCategory, bind_textdomain_codeset, bindtextdomain, gettext, ngettext, setlocale,
     textdomain,
-    LocaleCategory,
 };
 
 const GETTEXT_PACKAGE: &str = "galaxybook-setup";

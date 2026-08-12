@@ -1,6 +1,7 @@
 FROM registry.fedoraproject.org/fedora:44
 
 RUN dnf install -y \
+    appstream \
     cargo \
     rust \
     rpm-build \
@@ -9,7 +10,12 @@ RUN dnf install -y \
     clang \
     gcc \
     gcc-c++ \
+    gzip \
     make \
+    openssl \
+    sed \
+    xz \
+    zstd \
     desktop-file-utils \
     gtk4-devel \
     libadwaita-devel \

@@ -4,11 +4,11 @@ use libadwaita::prelude::*;
 
 use galaxybook_setup::{APP_NAME, tr, trf};
 
-use crate::ui::{
-    build_about_details_subpage, build_about_summary_row,
-    build_scrolled_navigation_page, build_suffix_action_row,
-};
 use crate::ui::SetupWindow;
+use crate::ui::{
+    build_about_details_subpage, build_about_summary_row, build_scrolled_navigation_page,
+    build_suffix_action_row,
+};
 
 impl SetupWindow {
     pub(crate) fn present_about_dialog(&self) {
@@ -46,7 +46,9 @@ impl SetupWindow {
         author_row.set_activatable(false);
         summary_group.add(&author_row);
 
-        let links_group = adw::PreferencesGroup::builder().title(tr("Projeto")).build();
+        let links_group = adw::PreferencesGroup::builder()
+            .title(tr("Projeto"))
+            .build();
         links_group.add(&self.build_uri_row(&tr("Página da web"), "https://caioregis.com"));
         links_group.add(&self.build_uri_row(
             &tr("Repositório do projeto"),
@@ -76,8 +78,7 @@ impl SetupWindow {
         about_page_content.add(&summary_group);
         about_page_content.add(&links_group);
 
-        let about_page =
-            build_scrolled_navigation_page(&about_page_content, &tr("Sobre"), "about");
+        let about_page = build_scrolled_navigation_page(&about_page_content, &tr("Sobre"), "about");
         let details_page = build_about_details_subpage();
 
         navigation_view.add(&about_page);
@@ -107,8 +108,7 @@ impl SetupWindow {
                 };
 
                 header_title.set_title(page.title().as_str());
-                back_button
-                    .set_visible(navigation_view.previous_page(&page).is_some());
+                back_button.set_visible(navigation_view.previous_page(&page).is_some());
             }
         });
 
