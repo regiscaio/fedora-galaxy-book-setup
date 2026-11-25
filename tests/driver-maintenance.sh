@@ -84,6 +84,9 @@ test_all_public_modes_delegate_to_one_coordinator() {
       caller_is_root() { return 0; }
       inhibitor_parent_is_trusted() { return 0; }
       lifecycle_helper=/dev/null
+      # The preflight must resolve both commands, but dispatch must never call them.
+      dnf() { exit 91; }
+      rpm() { exit 92; }
       acquire_kmod_lifecycle_lock() { printf 'GLOBAL\n'; }
       validate_kmod_lifecycle_lock() { return 0; }
       install_main_support() { printf 'MAIN\n'; }

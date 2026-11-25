@@ -402,6 +402,10 @@ O `Makefile` usa um container rootless com `podman` quando o host não tiver o
 toolchain gráfico completo; `make` e `podman` também são necessários para gerar
 os artefatos RPM reproduzíveis.
 
+Em um checkout com histórico completo, Cargo e RPM usam `scripts/package-version.sh`.
+O script registra commits que só revisam o RPM: `1.00.48-2` mantém o aplicativo em
+`1.00.48`. O próximo commit normal gera `1.00.49-1`, sem ajustes no ambiente.
+
 Comandos principais:
 
 ```bash

@@ -403,6 +403,10 @@ When the host lacks the complete graphical toolchain, the `Makefile` uses a
 rootless `podman` container; `make` and `podman` are also required to generate
 the reproducible RPM artifacts.
 
+In a full-history checkout, Cargo and RPM use `scripts/package-version.sh`.
+It records packaging-only commits: `1.00.48-2` keeps the app at `1.00.48`.
+The next regular commit produces `1.00.49-1` without environment overrides.
+
 Main commands:
 
 ```bash

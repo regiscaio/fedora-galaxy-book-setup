@@ -115,6 +115,7 @@ install -Dm644 data/%{app_id}.metainfo.xml %{buildroot}%{_datadir}/metainfo/%{ap
 desktop-file-validate %{app_id}.desktop
 appstreamcli validate --no-net data/%{app_id}.metainfo.xml
 find scripts tests -type f -name '*.sh' -exec bash -n '{}' ';'
+bash tests/package-version.sh
 bash tests/kmod-lifecycle-lock.sh
 bash tests/driver-maintenance.sh
 bash tests/reconcile-kmods.sh

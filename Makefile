@@ -6,6 +6,7 @@ PACKAGE_NAME := galaxybook-setup
 VERSION_SCRIPT := ./scripts/package-version.sh
 SOURCE_DATE_EPOCH_SCRIPT := ./scripts/source-date-epoch.sh
 VERSION := $(shell $(VERSION_SCRIPT))
+RPM_RELEASE := $(shell $(VERSION_SCRIPT) --rpm-release)
 SOURCE_DATE_EPOCH := $(shell $(SOURCE_DATE_EPOCH_SCRIPT))
 export SOURCE_DATE_EPOCH
 IMAGE_NAME := localhost/galaxybook-setup-builder:fedora44
@@ -14,6 +15,7 @@ CARGO_REGISTRY_CACHE := $(CACHE_ROOT)/cargo-registry
 CARGO_GIT_CACHE := $(CACHE_ROOT)/cargo-git
 DIST_DIR := dist
 RPM_SPEC := packaging/fedora/$(PACKAGE_NAME).spec
+RPM_SPEC_NVR := -e "s/^Version:[[:space:]].*/Version:        $(VERSION)/" -e "s/^Release:[[:space:]].*/Release:        $(RPM_RELEASE)%{?dist}/"
 TAR_REPRO_FLAGS := --sort=name --mtime="@$(SOURCE_DATE_EPOCH)" --owner=0 --group=0 --numeric-owner
 PO_LANGS := en es it
 POT_FILE := po/$(PACKAGE_NAME).pot
@@ -60,6 +62,7 @@ build:
 test:
 	@set -euo pipefail; \
 	find scripts tests -type f -name '*.sh' -exec bash -n '{}' ';'; \
+	bash tests/package-version.sh; \
 	bash tests/kmod-lifecycle-lock.sh; \
 	bash tests/driver-maintenance.sh; \
 	bash tests/reconcile-kmods.sh; \
@@ -137,7 +140,7 @@ srpm: dist
 				TOPDIR=/tmp/rpmbuild; \
 				mkdir -p "$$TOPDIR"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}; \
 				cp "$(DIST_DIR)/$(PACKAGE_NAME)-$(VERSION).tar.gz" "$$TOPDIR/SOURCES/"; \
-				sed -e "s/^Version:[[:space:]].*/Version:        $(VERSION)/" "$(RPM_SPEC)" > "$$TOPDIR/SPECS/$(PACKAGE_NAME).spec"; \
+				sed $(RPM_SPEC_NVR) "$(RPM_SPEC)" > "$$TOPDIR/SPECS/$(PACKAGE_NAME).spec"; \
 				rpmbuild -bs "$$TOPDIR/SPECS/$(PACKAGE_NAME).spec" --define "_topdir $$TOPDIR"; \
 				cp "$$TOPDIR"/SRPMS/*.src.rpm /workspace/$(DIST_DIR)/; \
 			'
@@ -158,7 +161,7 @@ rpm: dist
 				TOPDIR=/tmp/rpmbuild; \
 				mkdir -p "$$TOPDIR"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}; \
 				cp "$(DIST_DIR)/$(PACKAGE_NAME)-$(VERSION).tar.gz" "$$TOPDIR/SOURCES/"; \
-				sed -e "s/^Version:[[:space:]].*/Version:        $(VERSION)/" "$(RPM_SPEC)" > "$$TOPDIR/SPECS/$(PACKAGE_NAME).spec"; \
+				sed $(RPM_SPEC_NVR) "$(RPM_SPEC)" > "$$TOPDIR/SPECS/$(PACKAGE_NAME).spec"; \
 				rpmbuild -ba "$$TOPDIR/SPECS/$(PACKAGE_NAME).spec" --define "_topdir $$TOPDIR"; \
 				cp "$$TOPDIR"/SRPMS/*.src.rpm /workspace/$(DIST_DIR)/; \
 				find "$$TOPDIR/RPMS" -type f -name "*.rpm" -exec cp {} /workspace/$(DIST_DIR)/ \; ; \

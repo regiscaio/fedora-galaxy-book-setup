@@ -4,10 +4,6 @@ use std::{
     process::Command,
 };
 
-fn version_from_commit_count(commit_count: u64) -> String {
-    format!("1.{:02}.{:02}", commit_count / 100, commit_count % 100)
-}
-
 fn resolve_git_dir() -> Option<PathBuf> {
     let manifest_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").ok()?);
     let dot_git = manifest_dir.join(".git");
@@ -44,21 +40,21 @@ fn configure_git_rerun() {
 }
 
 fn git_version() -> Option<String> {
-    let output = Command::new("git")
-        .args(["rev-list", "--count", "HEAD"])
-        .output()
-        .ok()?;
+    resolve_git_dir()?;
+    let output = Command::new("./scripts/package-version.sh").output().ok()?;
 
     if !output.status.success() {
         return None;
     }
 
-    let commit_count = String::from_utf8(output.stdout).ok()?.trim().parse().ok()?;
-    Some(version_from_commit_count(commit_count))
+    Some(String::from_utf8(output.stdout).ok()?.trim().to_owned())
 }
 
 fn main() {
     println!("cargo:rerun-if-env-changed=APP_VERSION_OVERRIDE");
+    println!("cargo:rerun-if-env-changed=VERSION_COMMIT_COUNT");
+    println!("cargo:rerun-if-env-changed=VERSION_MAJOR");
+    println!("cargo:rerun-if-changed=scripts/package-version.sh");
     configure_git_rerun();
 
     let version = env::var("APP_VERSION_OVERRIDE")
