@@ -11,6 +11,7 @@ readonly PRIVATE_KEY_DIRECTORY="${PRIVATE_KEY%/*}"
 readonly STATE_DIRECTORY="/var/lib/galaxybook-setup"
 readonly KEY_IDENTITY_MARKER="$STATE_DIRECTORY/akmods-key.cn"
 readonly PUBLIC_CERTIFICATE_STATE="$STATE_DIRECTORY/akmods-public-key.der"
+lifecycle_helper="${BASH_SOURCE[0]%/*}/kmod-lifecycle-lock.sh"
 HASH_FILE=""
 PENDING_TEMPORARY=""
 PUBLIC_CERTIFICATE_TEMPORARY=""
@@ -29,6 +30,15 @@ fail() {
 require_command() {
   command -v "$1" >/dev/null 2>&1 \
     || fail "O comando obrigatório '$1' não está disponível."
+}
+
+caller_is_root() {
+  (( EUID == 0 ))
+}
+
+require_kmod_lifecycle_lock() {
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido durante a preparação MOK."
 }
 
 capture_clean_output() {
@@ -721,7 +731,7 @@ finish_enrolled_key() {
 main() {
   local key_cn key_fingerprint key_serial key_state
 
-  (( EUID == 0 )) || fail "Este helper precisa ser executado como root."
+  caller_is_root || fail "Este helper precisa ser executado como root."
   require_command awk
   require_command cat
   require_command chmod
@@ -742,6 +752,13 @@ main() {
   require_command sync
   require_command tr
   require_command wc
+  [[ -r "$lifecycle_helper" ]] \
+    || fail "O helper do lock global de módulos está ausente: $lifecycle_helper."
+  # shellcheck source=kmod-lifecycle-lock.sh
+  source "$lifecycle_helper"
+  acquire_kmod_lifecycle_lock \
+    || fail "Não foi possível adquirir o lock global de manutenção de módulos."
+  require_kmod_lifecycle_lock
   trap cleanup EXIT
 
   if ! root_owned_directory_is_trusted /etc \
@@ -754,7 +771,9 @@ main() {
   key_state="$(key_pair_presence_state)"
   case "$key_state" in
     missing)
+      require_kmod_lifecycle_lock
       kmodgenca -a
+      require_kmod_lifecycle_lock
       ;;
     complete)
       ;;
@@ -777,7 +796,9 @@ main() {
     || fail "Não foi possível identificar de forma íntegra o certificado do akmods."
 
   if mok_key_is_enrolled "$PUBLIC_KEY" "$key_fingerprint"; then
+    require_kmod_lifecycle_lock
     finish_enrolled_key "$key_cn" "$key_fingerprint" "$key_serial"
+    require_kmod_lifecycle_lock
     return 0
   fi
 
@@ -785,10 +806,13 @@ main() {
   chmod 0600 -- "$HASH_FILE"
   generate_mok_password_hash_file "$HASH_FILE" \
     || fail "Não foi possível gerar de forma íntegra o hash da senha temporária do MOK."
+  require_kmod_lifecycle_lock
   mokutil --import "$PUBLIC_KEY" --hash-file "$HASH_FILE"
+  require_kmod_lifecycle_lock
 
   if mok_request_is_pending "$key_fingerprint"; then
     publish_key_identity_marker "$key_cn" "$key_fingerprint" "$key_serial"
+    require_kmod_lifecycle_lock
     printf '%s\n' "O pedido de importação da chave do akmods foi criado. Reinicie o notebook e conclua 'Enroll MOK' na tela azul do boot usando a senha definida nesta etapa."
     return 0
   fi

@@ -62,16 +62,18 @@ Requires:       systemd
 Requires:       systemd-udev
 Requires:       usbutils
 Requires:       v4l-utils
+Requires:       (galaxybook-ov02c10-kmod-common >= 1.00.25 if galaxybook-ov02c10-kmod-common)
+Requires:       (galaxybook-max98390-kmod-common >= 1.00.12 if galaxybook-max98390-kmod-common)
 Recommends:     fprintd
 Recommends:     gnome-control-center
 Recommends:     gnome-shell
 Recommends:     wireplumber
-Recommends:     akmod-galaxybook-ov02c10 >= 1.00.23
-Recommends:     galaxybook-ov02c10-kmod-common >= 1.00.23
-Recommends:     kmod-galaxybook-ov02c10 >= 1.00.23
-Recommends:     akmod-galaxybook-max98390 >= 1.00.10
-Recommends:     galaxybook-max98390-kmod-common >= 1.00.10
-Recommends:     kmod-galaxybook-max98390 >= 1.00.10
+Recommends:     akmod-galaxybook-ov02c10 >= 1.00.25
+Recommends:     galaxybook-ov02c10-kmod-common >= 1.00.25
+Recommends:     kmod-galaxybook-ov02c10 >= 1.00.25
+Recommends:     akmod-galaxybook-max98390 >= 1.00.12
+Recommends:     galaxybook-max98390-kmod-common >= 1.00.12
+Recommends:     kmod-galaxybook-max98390 >= 1.00.12
 Recommends:     galaxybook-camera >= 1.00.43
 Suggests:       galaxybook-sound >= 1.00.18
 
@@ -89,7 +91,10 @@ APP_VERSION_OVERRIDE=%{version} cargo --offline build --release --locked --bin g
 
 %install
 install -Dm755 target/release/galaxybook-setup %{buildroot}%{_bindir}/galaxybook-setup
+install -Dm644 scripts/kmod-lifecycle-lock.sh %{buildroot}%{_libexecdir}/galaxybook-setup/kmod-lifecycle-lock.sh
+install -Dm755 scripts/driver-maintenance.sh %{buildroot}%{_libexecdir}/galaxybook-setup/driver-maintenance
 install -Dm755 scripts/reconcile-kmods.sh %{buildroot}%{_libexecdir}/galaxybook-setup/reconcile-kmods
+install -Dm755 scripts/repair-nvidia-kmod.sh %{buildroot}%{_libexecdir}/galaxybook-setup/repair-nvidia-kmod
 install -Dm755 scripts/configure-browser-camera.sh %{buildroot}%{_libexecdir}/galaxybook-setup/configure-browser-camera
 install -Dm755 scripts/prepare-secure-boot-key.sh %{buildroot}%{_libexecdir}/galaxybook-setup/prepare-secure-boot-key
 install -d -m0755 %{buildroot}%{_localstatedir}/lib/galaxybook-setup
@@ -110,7 +115,10 @@ install -Dm644 data/%{app_id}.metainfo.xml %{buildroot}%{_datadir}/metainfo/%{ap
 desktop-file-validate %{app_id}.desktop
 appstreamcli validate --no-net data/%{app_id}.metainfo.xml
 find scripts tests -type f -name '*.sh' -exec bash -n '{}' ';'
+bash tests/kmod-lifecycle-lock.sh
+bash tests/driver-maintenance.sh
 bash tests/reconcile-kmods.sh
+bash tests/repair-nvidia-kmod.sh
 bash tests/configure-browser-camera.sh
 bash tests/prepare-secure-boot-key.sh
 make i18n-validate VERSION=%{version}
@@ -119,7 +127,10 @@ APP_VERSION_OVERRIDE=%{version} cargo --offline test --locked --lib --bin galaxy
 %files
 %license LICENSE
 %{_bindir}/galaxybook-setup
+%{_libexecdir}/galaxybook-setup/kmod-lifecycle-lock.sh
+%{_libexecdir}/galaxybook-setup/driver-maintenance
 %{_libexecdir}/galaxybook-setup/reconcile-kmods
+%{_libexecdir}/galaxybook-setup/repair-nvidia-kmod
 %{_libexecdir}/galaxybook-setup/configure-browser-camera
 %{_libexecdir}/galaxybook-setup/prepare-secure-boot-key
 %dir %{_localstatedir}/lib/galaxybook-setup

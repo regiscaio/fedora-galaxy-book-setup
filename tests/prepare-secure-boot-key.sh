@@ -18,6 +18,179 @@ fail_test() {
   exit 1
 }
 
+write_prepare_lifecycle_fixture() {
+  local fixture="$1"
+
+  printf '%s\n' \
+    'source "$PREPARE_CANONICAL_LIFECYCLE_HELPER"' \
+    'kmod_lifecycle_lock_path="$PREPARE_LIFECYCLE_LOCK_PATH"' \
+    'kmod_lifecycle_lock_ancestry=("$PREPARE_LIFECYCLE_TEST_ROOT" "$PREPARE_LIFECYCLE_LOCK_PARENT")' \
+    'kmod_lifecycle_lock_expected_uid="$EUID"' \
+    'kmod_lifecycle_lock_expected_gid="$(id -g)"' \
+    'kmod_lifecycle_lock_timeout_seconds=1' \
+    > "$fixture"
+}
+
+test_prepare_helper_uses_its_packaged_lifecycle_source() {
+  env lifecycle_helper=/tmp/unsafe-lifecycle \
+    bash --noprofile --norc -c '
+      set -euo pipefail
+      source "$1"
+      [[ "$lifecycle_helper" == "${1%/*}/kmod-lifecycle-lock.sh" ]]
+    ' bash "$REPOSITORY_ROOT/scripts/prepare-secure-boot-key.sh"
+}
+
+test_global_precedes_all_signing_key_mutations() {
+  local helper="$REPOSITORY_ROOT/scripts/prepare-secure-boot-key.sh"
+  local acquire inspect generate import publish
+
+  acquire="$(grep -n '^[[:space:]]*acquire_kmod_lifecycle_lock \\' "$helper" | tail -1 | cut -d: -f1)"
+  inspect="$(grep -n '^[[:space:]]*key_state="\$(key_pair_presence_state)"$' "$helper" | cut -d: -f1)"
+  generate="$(grep -n '^[[:space:]]*kmodgenca -a$' "$helper" | cut -d: -f1)"
+  import="$(grep -n '^[[:space:]]*mokutil --import ' "$helper" | cut -d: -f1)"
+  publish="$(grep -n '^[[:space:]]*publish_key_identity_marker ' "$helper" | tail -1 | cut -d: -f1)"
+  [[ -n "$acquire" && -n "$inspect" && -n "$generate" \
+    && -n "$import" && -n "$publish" ]]
+  (( acquire < inspect && inspect < generate && generate < import \
+    && import < publish ))
+}
+
+test_global_failure_stops_before_signing_key_work() {
+  local test_root lifecycle_fixture trace status
+
+  test_root="$(mktemp -d)"
+  lifecycle_fixture="$test_root/lifecycle-helper"
+  trace="$test_root/trace"
+  printf '%s\n' \
+    'acquire_kmod_lifecycle_lock() { return 75; }' \
+    'validate_kmod_lifecycle_lock() { return 1; }' \
+    > "$lifecycle_fixture"
+  if (
+    caller_is_root() { return 0; }
+    require_command() { :; }
+    lifecycle_helper="$lifecycle_fixture"
+    root_owned_directory_is_trusted() { printf 'KEY_WORK\n' >> "$trace"; }
+    kmodgenca() { printf 'KMODGENCA\n' >> "$trace"; }
+    mokutil() { printf 'MOKUTIL\n' >> "$trace"; }
+    main
+  ) >/dev/null 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  [[ "$status" -ne 0 && ! -e "$trace" ]]
+  rm -rf -- "$test_root"
+}
+
+test_external_global_holder_blocks_key_work_with_a_timeout() {
+  local test_root lock_parent lock_path lifecycle_fixture trace
+  local holder_ready holder_release holder_pid status
+
+  test_root="$(mktemp -d /tmp/galaxybook-mok-global-test.XXXXXX)"
+  lock_parent="$test_root/lock"
+  lock_path="$lock_parent/galaxybook-kmod-lifecycle.lock"
+  lifecycle_fixture="$test_root/lifecycle-helper"
+  trace="$test_root/trace"
+  holder_ready="$test_root/holder.ready"
+  holder_release="$test_root/holder.release"
+  mkdir -m 0755 -- "$lock_parent"
+  chmod 0755 -- "$test_root"
+  (umask 077; : > "$lock_path")
+  write_prepare_lifecycle_fixture "$lifecycle_fixture"
+
+  (
+    flock --exclusive "$lock_path" bash -c '
+      : > "$1"
+      while [[ ! -e "$2" ]]; do /usr/bin/sleep 0.01; done
+    ' bash "$holder_ready" "$holder_release"
+  ) &
+  holder_pid=$!
+  for ((attempt = 1; attempt <= 200; attempt++)); do
+    [[ -e "$holder_ready" ]] && break
+    /usr/bin/sleep 0.01
+  done
+  [[ -e "$holder_ready" ]]
+
+  if (
+    export PREPARE_CANONICAL_LIFECYCLE_HELPER="$REPOSITORY_ROOT/scripts/kmod-lifecycle-lock.sh"
+    export PREPARE_LIFECYCLE_LOCK_PATH="$lock_path"
+    export PREPARE_LIFECYCLE_TEST_ROOT="$test_root"
+    export PREPARE_LIFECYCLE_LOCK_PARENT="$lock_parent"
+    caller_is_root() { return 0; }
+    require_command() { :; }
+    lifecycle_helper="$lifecycle_fixture"
+    root_owned_directory_is_trusted() { printf 'KEY_WORK\n' >> "$trace"; }
+    main
+  ) >/dev/null 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  : > "$holder_release"
+  wait "$holder_pid"
+  [[ "$status" -ne 0 && ! -e "$trace" ]]
+  rm -rf -- "$test_root"
+}
+
+test_inherited_global_is_reused_through_final_key_validation() {
+  local test_root lock_parent lock_path lifecycle_fixture trace
+
+  test_root="$(mktemp -d /tmp/galaxybook-mok-inherited-test.XXXXXX)"
+  lock_parent="$test_root/lock"
+  lock_path="$lock_parent/galaxybook-kmod-lifecycle.lock"
+  lifecycle_fixture="$test_root/lifecycle-helper"
+  trace="$test_root/trace"
+  mkdir -m 0755 -- "$lock_parent"
+  chmod 0755 -- "$test_root"
+  write_prepare_lifecycle_fixture "$lifecycle_fixture"
+
+  (
+    export PREPARE_CANONICAL_LIFECYCLE_HELPER="$REPOSITORY_ROOT/scripts/kmod-lifecycle-lock.sh"
+    export PREPARE_LIFECYCLE_LOCK_PATH="$lock_path"
+    export PREPARE_LIFECYCLE_TEST_ROOT="$test_root"
+    export PREPARE_LIFECYCLE_LOCK_PARENT="$lock_parent"
+    source "$lifecycle_fixture"
+    acquire_kmod_lifecycle_lock
+    inherited_fd="$GALAXYBOOK_KMOD_LIFECYCLE_LOCK_FD"
+
+    caller_is_root() { return 0; }
+    require_command() { :; }
+    lifecycle_helper="$lifecycle_fixture"
+    root_owned_directory_is_trusted() { return 0; }
+    ensure_key_directory() { :; }
+    key_pair_presence_state() { printf 'complete\n'; }
+    key_pair_matches() { return 0; }
+    certificate_identity() {
+      printf -v "$2" '%s' galaxybook-test-key
+      printf -v "$3" '%s' AA:BB
+      printf -v "$4" '%s' AABB
+    }
+    mok_key_is_enrolled() {
+      validate_kmod_lifecycle_lock
+      [[ "$GALAXYBOOK_KMOD_LIFECYCLE_LOCK_FD" == "$inherited_fd" ]]
+    }
+    finish_enrolled_key() {
+      validate_kmod_lifecycle_lock
+      [[ "$GALAXYBOOK_KMOD_LIFECYCLE_LOCK_FD" == "$inherited_fd" ]]
+      if flock --exclusive --nonblock "$lock_path" true; then
+        return 91
+      fi
+      printf 'INHERITED_LOCK_HELD_THROUGH_PUBLICATION\n' >> "$trace"
+    }
+    main
+  ) >/dev/null
+
+  grep -Fxq INHERITED_LOCK_HELD_THROUGH_PUBLICATION "$trace"
+  flock --exclusive --nonblock "$lock_path" true
+  rm -rf -- "$test_root"
+}
+
+test_prepare_helper_uses_its_packaged_lifecycle_source
+test_global_precedes_all_signing_key_mutations
+test_global_failure_stops_before_signing_key_work
+test_external_global_holder_blocks_key_work_with_a_timeout
+test_inherited_global_is_reused_through_final_key_validation
+
 expect_state() {
   local expected_state="$1"
   local public_key="$2"

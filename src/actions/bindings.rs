@@ -139,7 +139,12 @@ impl SetupWindow {
         self.repair_button.set_sensitive(allowed);
         self.enable_camera_module_button.set_sensitive(allowed);
         self.force_driver_button.set_sensitive(allowed);
-        self.enable_browser_camera_button.set_sensitive(allowed);
+        self.enable_browser_camera_button.set_sensitive(
+            allowed
+                && self.snapshot.borrow().as_ref().is_some_and(|snapshot| {
+                    action_is_snapshot_eligible(ActionKey::EnableBrowserCamera, snapshot)
+                }),
+        );
         self.enable_speakers_button.set_sensitive(allowed);
         self.prepare_secure_boot_key_button.set_sensitive(allowed);
         self.repair_fingerprint_button.set_sensitive(allowed);

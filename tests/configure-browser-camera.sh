@@ -10,6 +10,95 @@ trap 'rm -rf -- "$TEST_ROOT"' EXIT
 # shellcheck source=../scripts/configure-browser-camera.sh
 source "$REPO_ROOT/scripts/configure-browser-camera.sh"
 
+# Function-focused tests below acquire only the private/RPM fixtures. The
+# production main() sources and acquires the global lifecycle lock first.
+validate_kmod_lifecycle_lock() { :; }
+
+test_browser_helper_acquires_global_before_private_and_rpm_locks() {
+  local helper="$REPO_ROOT/scripts/configure-browser-camera.sh"
+  local global private rpm activate
+
+  global="$(grep -n '^[[:space:]]*acquire_kmod_lifecycle_lock \\' "$helper" | tail -1 | cut -d: -f1)"
+  private="$(grep -n '^[[:space:]]*acquire_action_lock \\' "$helper" | tail -1 | cut -d: -f1)"
+  rpm="$(grep -n '^acquire_rpm_read_lock() {' "$helper" | cut -d: -f1)"
+  activate="$(grep -n '^  activate_browser_relay$' "$helper" | cut -d: -f1)"
+  [[ -n "$global" && -n "$private" && -n "$rpm" && -n "$activate" ]]
+  (( rpm < global && global < private && private < activate ))
+}
+
+test_browser_helper_acquires_or_reuses_global_before_private_work() {
+  local test_root lock_parent lock_path lifecycle_fixture trace
+
+  test_root="$(mktemp -d /tmp/galaxybook-browser-global-test.XXXXXX)"
+  lock_parent="$test_root/lock"
+  lock_path="$lock_parent/galaxybook-kmod-lifecycle.lock"
+  lifecycle_fixture="$test_root/lifecycle-helper"
+  trace="$test_root/trace"
+  mkdir -m 0755 -- "$lock_parent"
+  chmod 0755 -- "$test_root"
+  printf '%s\n' \
+    'source "$BROWSER_GLOBAL_CANONICAL_HELPER"' \
+    'kmod_lifecycle_lock_path="$BROWSER_GLOBAL_LOCK_PATH"' \
+    'kmod_lifecycle_lock_ancestry=("$BROWSER_GLOBAL_TEST_ROOT" "$BROWSER_GLOBAL_LOCK_PARENT")' \
+    'kmod_lifecycle_lock_expected_uid="$EUID"' \
+    'kmod_lifecycle_lock_expected_gid="$(id -g)"' \
+    'kmod_lifecycle_lock_timeout_seconds=1' \
+    > "$lifecycle_fixture"
+
+  for inherited in 0 1; do
+    (
+      export BROWSER_GLOBAL_CANONICAL_HELPER="$REPO_ROOT/scripts/kmod-lifecycle-lock.sh"
+      export BROWSER_GLOBAL_LOCK_PATH="$lock_path"
+      export BROWSER_GLOBAL_TEST_ROOT="$test_root"
+      export BROWSER_GLOBAL_LOCK_PARENT="$lock_parent"
+      if [[ "$inherited" == 1 ]]; then
+        source "$lifecycle_fixture"
+        acquire_kmod_lifecycle_lock
+      fi
+      caller_is_root() { return 0; }
+      require_command() { :; }
+      lifecycle_helper="$lifecycle_fixture"
+      acquire_action_lock() {
+        validate_kmod_lifecycle_lock
+        if flock --exclusive --nonblock "$lock_path" true; then
+          return 91
+        fi
+        printf 'PRIVATE_AFTER_GLOBAL:%s\n' "$inherited" >> "$trace"
+        return 76
+      }
+      main
+    ) >/dev/null 2>&1 || [[ "$?" -eq 1 ]]
+  done
+  grep -Fxq 'PRIVATE_AFTER_GLOBAL:0' "$trace"
+  grep -Fxq 'PRIVATE_AFTER_GLOBAL:1' "$trace"
+  rm -rf -- "$test_root"
+}
+
+test_browser_helper_stops_before_private_work_when_global_fails() {
+  local test_root lifecycle_fixture trace status
+
+  test_root="$(mktemp -d)"
+  lifecycle_fixture="$test_root/lifecycle-helper"
+  trace="$test_root/trace"
+  printf '%s\n' \
+    'acquire_kmod_lifecycle_lock() { return 75; }' \
+    'validate_kmod_lifecycle_lock() { return 1; }' \
+    > "$lifecycle_fixture"
+  if (
+    caller_is_root() { return 0; }
+    require_command() { :; }
+    lifecycle_helper="$lifecycle_fixture"
+    acquire_action_lock() { printf 'PRIVATE\n' >> "$trace"; }
+    main
+  ) >/dev/null 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  [[ "$status" -ne 0 && ! -e "$trace" ]]
+  rm -rf -- "$test_root"
+}
+
 MANAGED_FILE_EXPECTED_OWNER="$(id -u):$(id -g)"
 MANAGED_PATH_ANCHOR="$TEST_ROOT"
 ACTION_LOCK_EXPECTED_OWNER="$MANAGED_FILE_EXPECTED_OWNER"
@@ -750,3 +839,88 @@ RPM_TEST_MODE=fedora_bridge \
   prepare_bridge_configuration "$bridge_configuration" "$bridge_source"
 [[ -L "$bridge_configuration" && -L "$BRIDGE_RUNTIME_LINK" ]]
 grep -Fxq 'Fedora packaged bridge configuration' "$fedora_target"
+
+test_browser_helper_acquires_global_before_private_and_rpm_locks
+test_browser_helper_acquires_or_reuses_global_before_private_work
+test_browser_helper_stops_before_private_work_when_global_fails
+
+# Use only a synthetic sysfs tree and command fakes; never activate host units.
+(
+  devices="$TEST_ROOT/i2c-devices"
+  mkdir -p "$devices" "$TEST_ROOT/ov-driver"
+  require_bound_ov_sensor_if_present "$devices"
+  mkdir "$devices/i2c-OVTI02C1:00"
+  if (require_bound_ov_sensor_if_present "$devices") 2>"$TEST_ROOT/unbound-error"; then
+    exit 1
+  fi
+  grep -Fq 'sem driver' "$TEST_ROOT/unbound-error"
+  # Exercise main's preflight with the real selector before any config or
+  # service operation. Poison the first write and all runtime commands.
+  fixture_sys="$TEST_ROOT/relay-sys"
+  mkdir -p "$fixture_sys/bus/i2c"
+  ln -s "$devices" "$fixture_sys/bus/i2c/devices"
+  printf '%s\n' 'acquire_kmod_lifecycle_lock() { :; }' 'validate_kmod_lifecycle_lock() { :; }' > "$TEST_ROOT/relay-lock"
+  status=0
+  GALAXYBOOK_SYS_ROOT="$fixture_sys" bash -c '
+    source "$1"
+    lifecycle_helper="$2"
+    caller_is_root() { :; }
+    require_command() { :; }
+    acquire_action_lock() { :; }
+    mktemp() { exit 91; }
+    udevadm() { exit 92; }
+    systemctl() { exit 93; }
+    main
+  ' _ "$REPO_ROOT/scripts/configure-browser-camera.sh" "$TEST_ROOT/relay-lock" 2>"$TEST_ROOT/relay-main.err" || status=$?
+  [[ "$status" == 1 ]]
+  grep -Fq 'sem driver' "$TEST_ROOT/relay-main.err"
+  # A second bound sensor must win over an earlier, unbound match.
+  mkdir "$devices/i2c-OVTI02C1:01"
+  ln -s "$TEST_ROOT/ov-driver" "$devices/i2c-OVTI02C1:01/driver"
+  require_bound_ov_sensor_if_present "$devices"
+)
+
+for scenario in fresh healthy stuck fresh_no_capture failed_recovery lost_lock; do
+  (
+    trace="$TEST_ROOT/relay-$scenario"
+    : > "$trace"
+    instance=v4l2-relayd@icamerasrc.service
+    systemctl() {
+      case "$*" in
+        "is-active --quiet $instance")
+          if [[ "$scenario" == fresh* ]]; then grep -Fxq enabled "$trace"; fi ;;
+        "enable --now v4l2-relayd.service $instance") echo enabled >> "$trace" ;;
+        "restart $instance") echo restarted >> "$trace" ;;
+        *) exit 90 ;;
+      esac
+    }
+    wait_for_virtual_capture() {
+      echo probed >> "$trace"
+      case "$scenario" in
+        stuck) grep -Fxq restarted "$trace" || return 1 ;;
+        fresh_no_capture|failed_recovery) return 1 ;;
+      esac
+      echo /dev/test-camera
+    }
+    validate_kmod_lifecycle_lock() {
+      echo validated >> "$trace"
+      [[ "$scenario" != lost_lock ]]
+    }
+    status=0
+    (activate_browser_relay) >"$trace.out" 2>"$trace.err" || status=$?
+    [[ "$(grep -c '^enabled$' "$trace")" == 1 ]]
+    case "$scenario" in
+      stuck|failed_recovery) restarts=1; probes=2 ;;
+      *) restarts=0; probes=1 ;;
+    esac
+    [[ "$(grep -c '^restarted$' "$trace" || :)" == "$restarts" ]]
+    [[ "$(grep -c '^probed$' "$trace")" == "$probes" ]]
+    case "$scenario" in
+      healthy|fresh|stuck)
+        [[ "$status" == 0 ]]
+        grep -Fxq validated "$trace"
+        grep -Fq '/dev/test-camera' "$trace.out" ;;
+      *) [[ "$status" != 0 && ! -s "$trace.out" ]] ;;
+    esac
+  )
+done

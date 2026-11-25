@@ -13,7 +13,18 @@ readonly MAX_MODULE_CORE="snd-hda-scodec-max98390"
 readonly MAX_MODULE_I2C="snd-hda-scodec-max98390-i2c"
 readonly AKMODS_PUBLIC_KEY="/etc/pki/akmods/certs/public_key.der"
 readonly AKMODS_PRIVATE_KEY="/etc/pki/akmods/private/private_key.priv"
-readonly INHIBITOR_MARKER="GALAXYBOOK_SETUP_RECONCILE_INHIBITED"
+lifecycle_helper="${BASH_SOURCE[0]%/*}/kmod-lifecycle-lock.sh"
+reconcile_script="/usr/libexec/galaxybook-setup/reconcile-kmods"
+module_tree_root="/lib/modules"
+systemd_inhibit_command="/usr/bin/systemd-inhibit"
+systemd_inhibit_stat_command="/usr/bin/stat"
+reconcile_inhibitor_parent_fixture=""
+rpm_lock_path="/usr/lib/sysimage/rpm/.rpm.lock"
+rpm_lock_timeout_seconds="90"
+rpm_lock_expected_uid="0"
+rpm_lock_expected_gid="0"
+rpm_lock_ancestry=(/usr /usr/lib /usr/lib/sysimage /usr/lib/sysimage/rpm)
+reconcile_rpm_lock_fd=""
 SECURE_BOOT_STATE=""
 AKMODS_SIGNER_CN=""
 AKMODS_SIGNER_SERIAL=""
@@ -36,6 +47,10 @@ usage() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "O comando obrigatório '$1' não está disponível."
+}
+
+caller_is_root() {
+  (( EUID == 0 ))
 }
 
 capture_clean_output() {
@@ -102,28 +117,49 @@ capture_clean_output_preserving_newlines() {
   }
 }
 
-enter_systemd_inhibitor() {
-  local mode="$1"
-  local script_path="${BASH_SOURCE[0]}"
+inhibitor_parent_is_trusted() {
+  local parent="${PPID:-}"
+  local executable_metadata executable_mode
+  local parent_identity executable_identity
 
-  if [[ "${!INHIBITOR_MARKER:-}" == 1 ]]; then
-    unset "$INHIBITOR_MARKER"
+  if [[ "$reconcile_inhibitor_parent_fixture" == 1 ]]; then
     return 0
   fi
+  [[ -z "$reconcile_inhibitor_parent_fixture" \
+    && "$parent" =~ ^[1-9][0-9]*$ \
+    && -x "$systemd_inhibit_command" \
+    && -f "$systemd_inhibit_command" \
+    && ! -L "$systemd_inhibit_command" \
+    && -e "/proc/$parent/exe" ]] || return 1
+  executable_metadata="$($systemd_inhibit_stat_command -Lc '%u:%g:%a:%h' -- \
+    "$systemd_inhibit_command")" || return 1
+  [[ "$executable_metadata" =~ ^0:0:([0-7]{3,4}):1$ ]] || return 1
+  executable_mode="${BASH_REMATCH[1]}"
+  (( (8#${executable_mode} & 8#022) == 0 \
+    && (8#${executable_mode} & 8#111) != 0 )) || return 1
+  parent_identity="$($systemd_inhibit_stat_command -Lc '%d:%i' -- \
+    "/proc/$parent/exe")" || return 1
+  executable_identity="$($systemd_inhibit_stat_command -Lc '%d:%i' -- \
+    "$systemd_inhibit_command")" || return 1
+  [[ "$parent_identity" == "$executable_identity" ]]
+}
 
-  require_command systemd-inhibit
-  [[ -x "$script_path" ]] \
-    || fail "O helper de reconciliação não é executável: $script_path."
+enter_systemd_inhibitor() {
+  local mode="$1"
+
+  [[ -x "$systemd_inhibit_command" ]] \
+    || fail "O systemd-inhibit obrigatório está ausente: $systemd_inhibit_command."
+  [[ -x "$reconcile_script" ]] \
+    || fail "O helper de reconciliação não é executável: $reconcile_script."
 
   log "Bloqueando shutdown, suspensão e idle até todos os payloads terminarem"
-  export "$INHIBITOR_MARKER=1"
-  exec systemd-inhibit \
+  exec "$systemd_inhibit_command" \
     --mode=block \
     --what=shutdown:sleep:idle \
     --who="Galaxy Book Setup" \
     --why="Gerando e validando módulos externos para todos os kernels" \
-    "$script_path" "$mode"
-  fail "Não foi possível adquirir o inhibitor do systemd para proteger a reconciliação."
+    "$reconcile_script" --inhibited "$mode" \
+    || fail "Não foi possível adquirir o inhibitor do systemd para proteger a reconciliação."
 }
 
 installed_kernels() {
@@ -160,6 +196,105 @@ kernel_name_is_safe() {
     && [[ "${kernel: -1}" =~ ^[A-Za-z0-9]$ ]] \
     && [[ "$kernel" != *..* ]] \
     && [[ "$kernel" =~ ^[A-Za-z0-9._+-]+$ ]]
+}
+
+rpm_lock_configuration_is_safe() {
+  local parent
+
+  [[ "$rpm_lock_path" == /* && "$rpm_lock_path" != *$'\n'* \
+    && "$rpm_lock_timeout_seconds" =~ ^[1-9][0-9]*$ \
+    && "$rpm_lock_expected_uid" =~ ^[0-9]+$ \
+    && "$rpm_lock_expected_gid" =~ ^[0-9]+$ \
+    && ${#rpm_lock_ancestry[@]} -gt 0 ]] || return 1
+  parent="$(dirname -- "$rpm_lock_path")" || return 1
+  [[ "$parent" == "${rpm_lock_ancestry[${#rpm_lock_ancestry[@]} - 1]}" ]]
+}
+
+rpm_lock_ancestry_is_safe() {
+  local directory metadata mode
+
+  rpm_lock_configuration_is_safe || return 1
+  for directory in "${rpm_lock_ancestry[@]}"; do
+    [[ "$directory" == /* && "$directory" != *$'\n'* \
+      && -d "$directory" && ! -L "$directory" ]] || return 1
+    metadata="$(stat -Lc '%u:%g:%a' -- "$directory")" || return 1
+    [[ "$metadata" =~ ^([0-9]+):([0-9]+):([0-7]{3,4})$ ]] || return 1
+    [[ "${BASH_REMATCH[1]}" == "$rpm_lock_expected_uid" \
+      && "${BASH_REMATCH[2]}" == "$rpm_lock_expected_gid" ]] || return 1
+    mode="${BASH_REMATCH[3]}"
+    (( (8#${mode} & 8#022) == 0 )) || return 1
+  done
+}
+
+rpm_lock_file_is_safe() {
+  local path="$1"
+  local metadata mode
+
+  [[ -f "$path" && ! -L "$path" ]] || return 1
+  metadata="$(stat -Lc '%u:%g:%a:%h' -- "$path")" || return 1
+  [[ "$metadata" =~ ^([0-9]+):([0-9]+):([0-7]{3,4}):1$ ]] || return 1
+  [[ "${BASH_REMATCH[1]}" == "$rpm_lock_expected_uid" \
+    && "${BASH_REMATCH[2]}" == "$rpm_lock_expected_gid" ]] || return 1
+  mode="${BASH_REMATCH[3]}"
+  (( (8#${mode} & 8#022) == 0 ))
+}
+
+rpm_lock_fd_matches_path() {
+  local lock_fd="$1"
+  local fd_path fd_identity path_identity fd_metadata path_metadata
+
+  [[ "$lock_fd" =~ ^[0-9]+$ && "$lock_fd" -ge 3 ]] || return 1
+  fd_path="/proc/${BASHPID}/fd/$lock_fd"
+  [[ -r "$fd_path" && -f "$fd_path" \
+    && -f "$rpm_lock_path" && ! -L "$rpm_lock_path" ]] || return 1
+  fd_identity="$(stat -Lc '%d:%i' -- "$fd_path")" || return 1
+  path_identity="$(stat -Lc '%d:%i' -- "$rpm_lock_path")" || return 1
+  [[ "$fd_identity" == "$path_identity" ]] || return 1
+  fd_metadata="$(stat -Lc '%u:%g:%a:%h' -- "$fd_path")" || return 1
+  path_metadata="$(stat -Lc '%u:%g:%a:%h' -- "$rpm_lock_path")" || return 1
+  [[ "$fd_metadata" == "$path_metadata" ]] || return 1
+  rpm_lock_file_is_safe "$rpm_lock_path"
+}
+
+validate_rpm_read_lock() {
+  rpm_lock_ancestry_is_safe || return 1
+  rpm_lock_fd_matches_path "$reconcile_rpm_lock_fd" || return 1
+  flock --fcntl --shared --nonblock "$reconcile_rpm_lock_fd" || return 1
+  rpm_lock_ancestry_is_safe || return 1
+  rpm_lock_fd_matches_path "$reconcile_rpm_lock_fd"
+}
+
+acquire_rpm_read_lock() {
+  rpm_lock_ancestry_is_safe \
+    || fail "A hierarquia do lock RPM está ausente ou é insegura."
+  rpm_lock_file_is_safe "$rpm_lock_path" \
+    || fail "O arquivo de lock RPM está ausente ou é inseguro."
+  exec {reconcile_rpm_lock_fd}<"$rpm_lock_path" \
+    || fail "Não foi possível abrir o lock RPM."
+  if ! rpm_lock_ancestry_is_safe \
+    || ! rpm_lock_fd_matches_path "$reconcile_rpm_lock_fd"; then
+    exec {reconcile_rpm_lock_fd}>&-
+    reconcile_rpm_lock_fd=""
+    fail "O lock RPM mudou enquanto era aberto."
+  fi
+  if ! flock --fcntl --shared --timeout "$rpm_lock_timeout_seconds" \
+    "$reconcile_rpm_lock_fd"; then
+    exec {reconcile_rpm_lock_fd}>&-
+    reconcile_rpm_lock_fd=""
+    fail "A reconciliação expirou aguardando a transação RPM ativa."
+  fi
+  validate_rpm_read_lock || {
+    exec {reconcile_rpm_lock_fd}>&-
+    reconcile_rpm_lock_fd=""
+    fail "O lock RPM mudou depois da aquisição."
+  }
+}
+
+release_rpm_read_lock() {
+  [[ "$reconcile_rpm_lock_fd" =~ ^[0-9]+$ \
+    && "$reconcile_rpm_lock_fd" -ge 3 ]] || return 1
+  exec {reconcile_rpm_lock_fd}>&- || return 1
+  reconcile_rpm_lock_fd=""
 }
 
 systemd_active_state_is_valid() {
@@ -353,6 +488,8 @@ build_driver_for_kernel() {
   local akmod="$1"
   local kernel="$2"
 
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido."
   wait_for_akmods_unit akmods.service
   wait_for_akmods_unit "akmods@$kernel.service"
   ensure_kernel_build_tree "$kernel"
@@ -361,6 +498,8 @@ build_driver_for_kernel() {
   akmods --force --akmod "$akmod" --kernels "$kernel"
   log "Reconstruindo $akmod para $kernel com a chave atual"
   akmods --force --rebuild --akmod "$akmod" --kernels "$kernel"
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido após o akmods."
 }
 
 package_module_path() {
@@ -482,7 +621,11 @@ finalize_ov_kernel() {
 
   [[ -x "$helper" ]] \
     || fail "O pacote galaxybook-ov02c10-kmod-common é antigo: falta $helper. Atualize-o antes de reparar o driver."
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido antes do finalizador OV02C10."
   "$helper" --kernel "$kernel"
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido após o finalizador OV02C10."
 }
 
 run_max_finalizer() {
@@ -491,7 +634,11 @@ run_max_finalizer() {
 
   [[ -x "$helper" ]] \
     || fail "O pacote galaxybook-max98390-kmod-common é antigo: falta $helper. Atualize-o antes de reparar os alto-falantes."
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido antes do finalizador MAX98390."
   "$helper" --kernel "$kernel"
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido após o finalizador MAX98390."
 }
 
 finalize_max_kernel() {
@@ -566,62 +713,31 @@ validate_max_service() {
     || fail "O serviço MAX98390 terminou, mas apenas $binding_count dos 4 vínculos I2C esperados estão ativos."
 }
 
-main() {
-  local mode="${1:-}"
-  local kernel kernel_output package
-  local mok_requires_reboot=false
-  local -a kernels
+require_reconciliation_locks() {
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido."
+  validate_rpm_read_lock \
+    || fail "O lock compartilhado do RPM deixou de ser válido."
+}
 
-  case "$mode" in
-    all|ov02c10|max98390) ;;
-    *) usage ;;
-  esac
-  (( EUID == 0 )) || fail "Este helper precisa ser executado como root."
-  enter_systemd_inhibitor "$mode"
+assert_locked_kernel_inventory() {
+  local expected="$1"
+  local current
 
-  require_command akmods
-  require_command awk
-  require_command cat
-  require_command cmp
-  require_command dnf
-  require_command find
-  require_command grep
-  require_command modinfo
-  require_command mktemp
-  require_command mokutil
-  require_command openssl
-  require_command rpm
-  require_command sleep
-  require_command sort
-  require_command systemctl
-  require_command tr
-  require_command uname
-  require_command wc
-
-  detect_secure_boot_state
-  if ! kernel_output="$(installed_kernels)"; then
-    fail "Não foi possível enumerar o kernel em execução e todos os pacotes kernel-core instalados."
+  require_reconciliation_locks
+  if ! current="$(installed_kernels)"; then
+    fail "Não foi possível revalidar o inventário de kernels sob o lock RPM."
   fi
-  mapfile -t kernels <<< "$kernel_output"
-  (( ${#kernels[@]} > 0 )) || fail "Nenhum kernel instalado foi encontrado."
-  ensure_signing_key_available
-  detect_akmods_signing_identity
+  [[ "$current" == "$expected" ]] \
+    || fail "O inventário de kernels mudou durante a reconciliação; execute a ação novamente."
+  require_reconciliation_locks
+}
 
-  for kernel in "${kernels[@]}"; do
-    kernel_name_is_safe "$kernel" \
-      || fail "A versão de kernel '$kernel' contém caracteres inseguros."
-    [[ -d "/lib/modules/$kernel" ]] \
-      || fail "A árvore /lib/modules/$kernel está ausente."
-    if [[ "$mode" == all || "$mode" == ov02c10 ]]; then
-      build_driver_for_kernel "$OV_AKMOD" "$kernel"
-    fi
-    if [[ "$mode" == all || "$mode" == max98390 ]]; then
-      build_driver_for_kernel "$MAX_AKMOD" "$kernel"
-    fi
-  done
+validate_all_packaged_modules() {
+  local mode="$1"
+  local kernel package
+  local -a kernels=("${@:2}")
 
-  # Do not ask package-owned finalizers to migrate legacy state until every
-  # replacement is an RPM-owned payload for every installed kernel.
   for kernel in "${kernels[@]}"; do
     if [[ "$mode" == all || "$mode" == ov02c10 ]]; then
       package="$OV_PACKAGE_PREFIX-$kernel"
@@ -632,17 +748,43 @@ main() {
       validate_packaged_module "$kernel" "$package" "$MAX_MODULE_CORE" "extra/galaxybook-max98390"
       validate_packaged_module "$kernel" "$package" "$MAX_MODULE_I2C" "extra/galaxybook-max98390"
     fi
+    require_reconciliation_locks
   done
+}
+
+run_driver_finalizers() {
+  local mode="$1"
+  local kernel
+  local -a kernels=("${@:2}")
+
+  [[ -z "$reconcile_rpm_lock_fd" ]] \
+    || fail "O lock RPM do coordenador não foi liberado antes dos finalizadores."
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido antes dos finalizadores."
 
   if [[ "$mode" == all || "$mode" == max98390 ]]; then
     for kernel in "${kernels[@]}"; do
       finalize_max_kernel "$kernel"
+      validate_kmod_lifecycle_lock \
+        || fail "O lock global de manutenção de módulos deixou de ser válido após o finalizador MAX98390."
     done
   fi
+  if [[ "$mode" == all || "$mode" == ov02c10 ]]; then
+    for kernel in "${kernels[@]}"; do
+      finalize_ov_kernel "$kernel"
+      validate_kmod_lifecycle_lock \
+        || fail "O lock global de manutenção de módulos deixou de ser válido após o finalizador OV02C10."
+    done
+  fi
+}
+
+validate_all_resolved_modules() {
+  local mode="$1"
+  local kernel package
+  local -a kernels=("${@:2}")
 
   for kernel in "${kernels[@]}"; do
     if [[ "$mode" == all || "$mode" == ov02c10 ]]; then
-      finalize_ov_kernel "$kernel"
       package="$OV_PACKAGE_PREFIX-$kernel"
       validate_resolved_module "$kernel" "$package" "$OV_MODULE" "extra/galaxybook-ov02c10"
     fi
@@ -651,26 +793,162 @@ main() {
       validate_resolved_module "$kernel" "$package" "$MAX_MODULE_CORE" "extra/galaxybook-max98390"
       validate_resolved_module "$kernel" "$package" "$MAX_MODULE_I2C" "extra/galaxybook-max98390"
     fi
+    require_reconciliation_locks
   done
+}
+
+complete_reconciliation() {
+  local mode="$1"
+  local expected_kernel_output="$2"
+  local mok_requires_reboot=false
+  local -a kernels=("${@:3}")
+
+  [[ -n "$expected_kernel_output" ]] && (( ${#kernels[@]} > 0 )) \
+    || fail "A finalização não recebeu nenhum kernel validado."
+
+  # Phase 2: every DNF/akmods writer above has finished. Take an RPM6 OFD
+  # snapshot, require the exact initial kernel inventory and prevalidate every
+  # replacement before any package-owned finalizer migrates legacy state.
+  acquire_rpm_read_lock
+  assert_locked_kernel_inventory "$expected_kernel_output"
+  validate_all_packaged_modules "$mode" "${kernels[@]}"
+  require_reconciliation_locks
+  release_rpm_read_lock \
+    || fail "Não foi possível liberar o lock RPM antes dos finalizadores."
+
+  # Phase 3: finalizers own their private locks and then acquire RPM shared.
+  # Never carry the parent's RPM lock into them; the universal order remains
+  # GLOBAL -> driver-private -> RPM.
+  run_driver_finalizers "$mode" "${kernels[@]}"
+
+  # Phase 4: establish a fresh stable RPM snapshot after all finalizers. Repeat
+  # package, owner, path, vermagic and signing checks, then hold the snapshot
+  # through resolved-module checks, live MAX work and the final acknowledgement.
+  acquire_rpm_read_lock
+  assert_locked_kernel_inventory "$expected_kernel_output"
+  validate_all_packaged_modules "$mode" "${kernels[@]}"
+  validate_all_resolved_modules "$mode" "${kernels[@]}"
 
   if mok_reboot_required; then
     mok_requires_reboot=true
   fi
+  require_reconciliation_locks
 
   if [[ "$mode" == all || "$mode" == max98390 ]]; then
     enable_max_services
+    require_reconciliation_locks
     if ! "$mok_requires_reboot"; then
       validate_max_service
+      require_reconciliation_locks
     else
       log "Validação MAX98390 ao vivo adiada até o Enroll MOK; os payloads em disco já foram validados."
     fi
   fi
 
   if "$mok_requires_reboot"; then
+    require_reconciliation_locks
     log "Payloads prontos e pedido da chave do akmods pendente no MOK. O único próximo passo é reiniciar normalmente e concluir o Enroll MOK."
   fi
 
+  require_reconciliation_locks
   log "Payloads RPM e finalização por kernel validados para: ${kernels[*]}. Reinicie normalmente; módulos já ocupados não foram trocados ao vivo."
+  require_reconciliation_locks
+  release_rpm_read_lock \
+    || fail "Não foi possível liberar corretamente o lock compartilhado do RPM."
+}
+
+main() {
+  local invocation mode
+  local kernel kernel_output
+  local -a kernels
+
+  case "$#" in
+    1)
+      invocation=public
+      mode="$1"
+      ;;
+    2)
+      invocation="$1"
+      mode="$2"
+      [[ "$invocation" == --inhibited || "$invocation" == --coordinated ]] \
+        || usage
+      ;;
+    *) usage ;;
+  esac
+  case "$mode" in
+    all|ov02c10|max98390) ;;
+    *) usage ;;
+  esac
+  caller_is_root || fail "Este helper precisa ser executado como root."
+  if [[ "$invocation" == public ]]; then
+    enter_systemd_inhibitor "$mode"
+  fi
+  inhibitor_parent_is_trusted \
+    || fail "A reconciliação interna não está sob o inhibitor esperado do systemd."
+
+  [[ -r "$lifecycle_helper" ]] \
+    || fail "O helper do lock global de módulos está ausente: $lifecycle_helper."
+  # shellcheck source=kmod-lifecycle-lock.sh
+  source "$lifecycle_helper"
+  if [[ "$invocation" == --coordinated ]]; then
+    [[ -n "${GALAXYBOOK_KMOD_LIFECYCLE_LOCK_FD:-}" ]] \
+      || fail "A reconciliação coordenada não herdou o lock global de módulos."
+    validate_kmod_lifecycle_lock \
+      || fail "A reconciliação coordenada herdou um lock global inválido."
+  fi
+  acquire_kmod_lifecycle_lock \
+    || fail "Não foi possível adquirir o lock global de manutenção de módulos."
+
+  require_command akmods
+  require_command awk
+  require_command cat
+  require_command cmp
+  require_command dnf
+  require_command dirname
+  require_command find
+  require_command flock
+  require_command grep
+  require_command modinfo
+  require_command mktemp
+  require_command mokutil
+  require_command openssl
+  require_command rpm
+  require_command sleep
+  require_command sort
+  require_command stat
+  require_command systemctl
+  require_command tr
+  require_command uname
+  require_command wc
+
+  detect_secure_boot_state
+  # Phase 1: capture the canonical sorted kernel inventory under RPM shared,
+  # then release it before any DNF or akmods writer can run.
+  acquire_rpm_read_lock
+  if ! kernel_output="$(installed_kernels)"; then
+    fail "Não foi possível enumerar o kernel em execução e todos os pacotes kernel-core instalados."
+  fi
+  require_reconciliation_locks
+  release_rpm_read_lock \
+    || fail "Não foi possível liberar o lock RPM após o inventário inicial."
+  mapfile -t kernels <<< "$kernel_output"
+  (( ${#kernels[@]} > 0 )) || fail "Nenhum kernel instalado foi encontrado."
+  ensure_signing_key_available
+  detect_akmods_signing_identity
+
+  for kernel in "${kernels[@]}"; do
+    kernel_name_is_safe "$kernel" \
+      || fail "A versão de kernel '$kernel' contém caracteres inseguros."
+    [[ -d "$module_tree_root/$kernel" ]] \
+      || fail "A árvore $module_tree_root/$kernel está ausente."
+    if [[ "$mode" == all || "$mode" == ov02c10 ]]; then
+      build_driver_for_kernel "$OV_AKMOD" "$kernel"
+    fi
+    if [[ "$mode" == all || "$mode" == max98390 ]]; then
+      build_driver_for_kernel "$MAX_AKMOD" "$kernel"
+    fi
+  done
+  complete_reconciliation "$mode" "$kernel_output" "${kernels[@]}"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

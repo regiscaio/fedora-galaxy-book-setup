@@ -10,6 +10,83 @@ source "$REPO_ROOT/scripts/reconcile-kmods.sh"
 
 SECURE_BOOT_STATE=disabled
 
+# Focused function tests below do not execute main(), which is responsible for
+# sourcing and acquiring the production lifecycle helper. Tests that exercise
+# the lock itself live in tests/kmod-lifecycle-lock.sh.
+validate_kmod_lifecycle_lock() { :; }
+
+test_reconciliation_acquires_global_before_driver_work() {
+  local helper="$REPO_ROOT/scripts/reconcile-kmods.sh"
+  local global_acquire require initial_rpm inventory build complete_call
+  local first_snapshot release_before_finalizers finalizers final_snapshot
+  local -a rpm_acquisitions
+
+  global_acquire="$(grep -n '^[[:space:]]*acquire_kmod_lifecycle_lock \\' "$helper" | tail -1 | cut -d: -f1)"
+  require="$(grep -n '^[[:space:]]*require_command akmods$' "$helper" | cut -d: -f1)"
+  inventory="$(grep -n '^[[:space:]]*if ! kernel_output="\$(installed_kernels)"; then$' "$helper" | cut -d: -f1)"
+  build="$(grep -n '^[[:space:]]*build_driver_for_kernel "\$OV_AKMOD" "\$kernel"$' "$helper" | cut -d: -f1)"
+  complete_call="$(grep -n '^[[:space:]]*complete_reconciliation "\$mode" "\$kernel_output" "\${kernels\[@\]}"$' "$helper" | cut -d: -f1)"
+  mapfile -t rpm_acquisitions < <(
+    grep -n '^[[:space:]]*acquire_rpm_read_lock$' "$helper" | cut -d: -f1
+  )
+  [[ "${#rpm_acquisitions[@]}" -eq 3 ]]
+  first_snapshot="${rpm_acquisitions[0]}"
+  final_snapshot="${rpm_acquisitions[1]}"
+  initial_rpm="${rpm_acquisitions[2]}"
+  release_before_finalizers="$(grep -n '^[[:space:]]*|| fail "Não foi possível liberar o lock RPM antes dos finalizadores\."$' "$helper" | cut -d: -f1)"
+  finalizers="$(grep -n '^[[:space:]]*run_driver_finalizers "\$mode" "\${kernels\[@\]}"$' "$helper" | cut -d: -f1)"
+  [[ -n "$global_acquire" && -n "$require" && -n "$inventory" \
+    && -n "$build" && -n "$complete_call" \
+    && -n "$initial_rpm" && -n "$release_before_finalizers" \
+    && -n "$finalizers" ]]
+  (( global_acquire < require && require < initial_rpm \
+    && initial_rpm < inventory && inventory < build && build < complete_call \
+    && first_snapshot < release_before_finalizers \
+    && release_before_finalizers < finalizers \
+    && finalizers < final_snapshot ))
+}
+
+prepare_reconcile_rpm_lock_fixture() {
+  local root="$1"
+
+  mkdir -p -- "$root/usr/lib/sysimage/rpm"
+  chmod 0755 -- "$root" "$root/usr" "$root/usr/lib" \
+    "$root/usr/lib/sysimage" "$root/usr/lib/sysimage/rpm"
+  rpm_lock_path="$root/usr/lib/sysimage/rpm/.rpm.lock"
+  rpm_lock_ancestry=(
+    "$root"
+    "$root/usr"
+    "$root/usr/lib"
+    "$root/usr/lib/sysimage"
+    "$root/usr/lib/sysimage/rpm"
+  )
+  rpm_lock_expected_uid="$EUID"
+  rpm_lock_expected_gid="$(id -g)"
+  rpm_lock_timeout_seconds="1"
+  reconcile_rpm_lock_fd=""
+  (umask 022; : > "$rpm_lock_path")
+}
+
+test_production_rpm_lock_contract_ignores_environment() {
+  env \
+    rpm_lock_path=/tmp/unsafe-rpm-lock \
+    rpm_lock_timeout_seconds=1 \
+    rpm_lock_expected_uid=123 \
+    rpm_lock_expected_gid=456 \
+    rpm_lock_ancestry=/tmp/unsafe-rpm-ancestry \
+    reconcile_rpm_lock_fd=99 \
+    bash --noprofile --norc -c '
+      set -euo pipefail
+      source "$1"
+      [[ "$rpm_lock_path" == /usr/lib/sysimage/rpm/.rpm.lock ]]
+      [[ "$rpm_lock_timeout_seconds" == 90 ]]
+      [[ "$rpm_lock_expected_uid" == 0 ]]
+      [[ "$rpm_lock_expected_gid" == 0 ]]
+      [[ "${rpm_lock_ancestry[*]}" == "/usr /usr/lib /usr/lib/sysimage /usr/lib/sysimage/rpm" ]]
+      [[ -z "$reconcile_rpm_lock_fd" ]]
+    ' bash "$REPO_ROOT/scripts/reconcile-kmods.sh"
+}
+
 test_inhibitor_wraps_the_entire_reconciliation() {
   local test_root record
 
@@ -17,7 +94,6 @@ test_inhibitor_wraps_the_entire_reconciliation() {
   record="$test_root/arguments"
   printf '%s\n' \
     '#!/usr/bin/env bash' \
-    'printf "marker=%s\n" "${GALAXYBOOK_SETUP_RECONCILE_INHIBITED:-}" > "$INHIBITOR_RECORD"' \
     'printf "%s\n" "$@" >> "$INHIBITOR_RECORD"' \
     > "$test_root/systemd-inhibit"
   chmod 0755 "$test_root/systemd-inhibit"
@@ -25,16 +101,17 @@ test_inhibitor_wraps_the_entire_reconciliation() {
   (
     PATH="$test_root:$PATH"
     export PATH INHIBITOR_RECORD="$record"
-    unset GALAXYBOOK_SETUP_RECONCILE_INHIBITED
+    systemd_inhibit_command="$test_root/systemd-inhibit"
+    reconcile_script="$REPO_ROOT/scripts/reconcile-kmods.sh"
     enter_systemd_inhibitor ov02c10
   )
 
-  grep -Fxq 'marker=1' "$record"
   grep -Fxq -- '--mode=block' "$record"
   grep -Fxq -- '--what=shutdown:sleep:idle' "$record"
   grep -Fxq -- '--who=Galaxy Book Setup' "$record"
   grep -Fxq -- '--why=Gerando e validando módulos externos para todos os kernels' "$record"
   grep -Fxq -- "$REPO_ROOT/scripts/reconcile-kmods.sh" "$record"
+  grep -Fxq -- '--inhibited' "$record"
   grep -Fxq -- 'ov02c10' "$record"
 
   rm -rf -- "$test_root"
@@ -53,13 +130,341 @@ test_inhibitor_failure_stops_reconciliation() {
   if (
     PATH="$test_root:$PATH"
     export PATH
-    unset GALAXYBOOK_SETUP_RECONCILE_INHIBITED
+    systemd_inhibit_command="$test_root/systemd-inhibit"
+    reconcile_script="$REPO_ROOT/scripts/reconcile-kmods.sh"
     enter_systemd_inhibitor max98390
   ) >/dev/null 2>&1; then
     printf 'expected inhibitor acquisition failure to stop reconciliation\n' >&2
     rm -rf -- "$test_root"
     return 1
   fi
+
+  rm -rf -- "$test_root"
+}
+
+test_coordinated_reconciliation_requires_inhibitor_parent_and_inherited_global() {
+  if (
+    caller_is_root() { return 0; }
+    reconcile_inhibitor_parent_fixture=0
+    main --coordinated ov02c10
+  ) >/dev/null 2>&1; then
+    printf 'coordinated reconciliation accepted an unauthenticated parent\n' >&2
+    return 1
+  fi
+  if (
+    caller_is_root() { return 0; }
+    reconcile_inhibitor_parent_fixture=1
+    lifecycle_helper=/dev/null
+    validate_kmod_lifecycle_lock() { return 1; }
+    unset GALAXYBOOK_KMOD_LIFECYCLE_LOCK_FD
+    main --coordinated ov02c10
+  ) >/dev/null 2>&1; then
+    printf 'coordinated reconciliation accepted a missing inherited global lock\n' >&2
+    return 1
+  fi
+}
+
+test_rpm_read_lock_rejects_unsafe_state() {
+  local test_root hardlink
+
+  test_root="$(mktemp -d)"
+  prepare_reconcile_rpm_lock_fixture "$test_root"
+
+  chmod 0666 -- "$rpm_lock_path"
+  if (acquire_rpm_read_lock) >/dev/null 2>&1; then
+    printf 'accepted writable RPM lock\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  chmod 0644 -- "$rpm_lock_path"
+
+  hardlink="$test_root/rpm-hardlink"
+  ln -- "$rpm_lock_path" "$hardlink"
+  if (acquire_rpm_read_lock) >/dev/null 2>&1; then
+    printf 'accepted hard-linked RPM lock\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  unlink -- "$hardlink"
+
+  chmod 0777 -- "$test_root/usr/lib/sysimage"
+  if (acquire_rpm_read_lock) >/dev/null 2>&1; then
+    printf 'accepted unsafe RPM lock ancestry\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  chmod 0755 -- "$test_root/usr/lib/sysimage"
+
+  mv -- "$rpm_lock_path" "$rpm_lock_path.regular"
+  ln -s -- "$rpm_lock_path.regular" "$rpm_lock_path"
+  if (acquire_rpm_read_lock) >/dev/null 2>&1; then
+    printf 'accepted RPM lock symlink\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+
+  rm -rf -- "$test_root"
+}
+
+test_rpm_read_lock_detects_post_acquisition_tampering() {
+  local test_root original
+
+  test_root="$(mktemp -d)"
+  prepare_reconcile_rpm_lock_fixture "$test_root"
+  acquire_rpm_read_lock
+  validate_rpm_read_lock
+
+  original="$rpm_lock_path.original"
+  mv -- "$rpm_lock_path" "$original"
+  (umask 022; : > "$rpm_lock_path")
+  if validate_rpm_read_lock >/dev/null 2>&1; then
+    printf 'accepted a replaced RPM lock pathname\n' >&2
+    exec {reconcile_rpm_lock_fd}>&-
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  exec {reconcile_rpm_lock_fd}>&-
+  reconcile_rpm_lock_fd=""
+  rm -f -- "$rpm_lock_path"
+  mv -- "$original" "$rpm_lock_path"
+
+  acquire_rpm_read_lock
+  chmod 0777 -- "$test_root/usr/lib/sysimage"
+  if validate_rpm_read_lock >/dev/null 2>&1; then
+    printf 'accepted RPM ancestry changed after acquisition\n' >&2
+    exec {reconcile_rpm_lock_fd}>&-
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  exec {reconcile_rpm_lock_fd}>&-
+  reconcile_rpm_lock_fd=""
+  chmod 0755 -- "$test_root/usr/lib/sysimage"
+
+  acquire_rpm_read_lock
+  ln -- "$rpm_lock_path" "$test_root/rpm-hardlink"
+  if validate_rpm_read_lock >/dev/null 2>&1; then
+    printf 'accepted RPM hardlink added after acquisition\n' >&2
+    exec {reconcile_rpm_lock_fd}>&-
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  exec {reconcile_rpm_lock_fd}>&-
+  reconcile_rpm_lock_fd=""
+
+  rm -rf -- "$test_root"
+}
+
+test_rpm_read_lock_has_bounded_contention() {
+  local test_root holder_ready holder_release holder_pid status start_ns elapsed_ms
+
+  test_root="$(mktemp -d)"
+  prepare_reconcile_rpm_lock_fixture "$test_root"
+  holder_ready="$test_root/holder.ready"
+  holder_release="$test_root/holder.release"
+
+  (
+    flock --fcntl --exclusive "$rpm_lock_path" bash -c '
+      : > "$1"
+      while [[ ! -e "$2" ]]; do sleep 0.01; done
+    ' bash "$holder_ready" "$holder_release"
+  ) &
+  holder_pid=$!
+  for ((attempt = 1; attempt <= 200; attempt++)); do
+    [[ -e "$holder_ready" ]] && break
+    sleep 0.01
+  done
+  [[ -e "$holder_ready" ]]
+
+  start_ns="$(date +%s%N)"
+  if (
+    installed_kernels() { printf '%s\n' test-kernel; }
+    validate_packaged_module() { : > "$RECONCILE_UNEXPECTED_SIDE_EFFECT"; }
+    export RECONCILE_UNEXPECTED_SIDE_EFFECT="$test_root/unexpected-side-effect"
+    complete_reconciliation ov02c10 test-kernel test-kernel
+  ) >/dev/null 2>&1; then
+    status=0
+  else
+    status=$?
+  fi
+  elapsed_ms=$(( ($(date +%s%N) - start_ns) / 1000000 ))
+  : > "$holder_release"
+  wait "$holder_pid"
+  [[ "$status" -ne 0 ]]
+  [[ ! -e "$test_root/unexpected-side-effect" ]]
+  (( elapsed_ms >= 800 && elapsed_ms <= 3000 ))
+
+  rm -rf -- "$test_root"
+}
+
+test_reconciliation_uses_safe_rpm_snapshots_around_private_finalizers() {
+  local test_root trace
+
+  test_root="$(mktemp -d)"
+  trace="$test_root/trace"
+  prepare_reconcile_rpm_lock_fixture "$test_root"
+
+  (
+    installed_kernels() {
+      assert_external_writer_is_blocked INVENTORY
+      printf '%s\n' test-kernel
+    }
+    assert_external_writer_is_blocked() {
+      local phase="$1"
+
+      validate_rpm_read_lock
+      validate_kmod_lifecycle_lock
+      if flock --fcntl --exclusive --nonblock "$rpm_lock_path" true; then
+        printf 'external RPM writer entered during %s\n' "$phase" >&2
+        return 1
+      fi
+      printf '%s\n' "$phase" >> "$RECONCILE_LOCK_TRACE"
+    }
+    assert_private_finalizer_phase() {
+      local phase="$1"
+
+      [[ -z "$reconcile_rpm_lock_fd" ]]
+      validate_kmod_lifecycle_lock
+      # Between stable RPM snapshots an external writer may proceed. The
+      # package finalizer then takes its private lock followed by RPM shared;
+      # model the latter in a real child and prove it excludes a writer.
+      flock --fcntl --exclusive --nonblock "$rpm_lock_path" true
+      flock --fcntl --shared --timeout 1 "$rpm_lock_path" bash -c '
+        if flock --fcntl --exclusive --nonblock "$1" true; then
+          exit 91
+        fi
+      ' bash "$rpm_lock_path"
+      flock --fcntl --exclusive --nonblock "$rpm_lock_path" true
+      printf '%s\n' "$phase" >> "$RECONCILE_LOCK_TRACE"
+    }
+    validate_packaged_module() {
+      assert_external_writer_is_blocked "PACKAGE:$3"
+    }
+    finalize_max_kernel() {
+      assert_private_finalizer_phase "FINALIZE_MAX:$1"
+    }
+    finalize_ov_kernel() {
+      assert_private_finalizer_phase "FINALIZE_OV:$1"
+    }
+    validate_resolved_module() {
+      assert_external_writer_is_blocked "RESOLVED:$3"
+    }
+    mok_reboot_required() { return 1; }
+    enable_max_services() {
+      assert_external_writer_is_blocked ENABLE_MAX
+    }
+    validate_max_service() {
+      assert_external_writer_is_blocked VALIDATE_MAX_LIVE
+    }
+    log() {
+      assert_external_writer_is_blocked ACKNOWLEDGEMENT
+    }
+    export RECONCILE_LOCK_TRACE="$trace"
+    complete_reconciliation all test-kernel test-kernel
+    [[ -z "$reconcile_rpm_lock_fd" ]]
+  )
+
+  [[ "$(grep -c '^INVENTORY$' "$trace")" -eq 2 ]]
+  [[ "$(grep -c '^PACKAGE:ov02c10$' "$trace")" -eq 2 ]]
+  [[ "$(grep -c '^PACKAGE:snd-hda-scodec-max98390$' "$trace")" -eq 2 ]]
+  [[ "$(grep -c '^PACKAGE:snd-hda-scodec-max98390-i2c$' "$trace")" -eq 2 ]]
+  grep -Fxq 'FINALIZE_MAX:test-kernel' "$trace"
+  grep -Fxq 'FINALIZE_OV:test-kernel' "$trace"
+  grep -Fxq 'RESOLVED:ov02c10' "$trace"
+  grep -Fxq 'RESOLVED:snd-hda-scodec-max98390' "$trace"
+  grep -Fxq 'RESOLVED:snd-hda-scodec-max98390-i2c' "$trace"
+  grep -Fxq 'ENABLE_MAX' "$trace"
+  grep -Fxq 'VALIDATE_MAX_LIVE' "$trace"
+  grep -Fxq 'ACKNOWLEDGEMENT' "$trace"
+  local first_package finalizer last_package resolved ack
+  first_package="$(grep -n '^PACKAGE:ov02c10$' "$trace" | head -1 | cut -d: -f1)"
+  finalizer="$(grep -n '^FINALIZE_MAX:' "$trace" | cut -d: -f1)"
+  last_package="$(grep -n '^PACKAGE:ov02c10$' "$trace" | tail -1 | cut -d: -f1)"
+  resolved="$(grep -n '^RESOLVED:ov02c10$' "$trace" | cut -d: -f1)"
+  ack="$(grep -n '^ACKNOWLEDGEMENT$' "$trace" | cut -d: -f1)"
+  (( first_package < finalizer && finalizer < last_package \
+    && last_package < resolved && resolved < ack ))
+  flock --fcntl --exclusive --nonblock "$rpm_lock_path" true
+
+  rm -rf -- "$test_root"
+}
+
+test_rpm_read_lock_releases_on_failure_and_signal() {
+  local test_root ready block_fifo child_pid
+
+  test_root="$(mktemp -d)"
+  prepare_reconcile_rpm_lock_fixture "$test_root"
+
+  if (
+    installed_kernels() { printf '%s\n' test-kernel; }
+    validate_packaged_module() {
+      fail "falha sintética durante a validação"
+    }
+    complete_reconciliation ov02c10 test-kernel test-kernel
+  ) >/dev/null 2>&1; then
+    printf 'expected the synthetic finalization failure\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  flock --fcntl --exclusive --nonblock "$rpm_lock_path" true
+
+  if (
+    installed_kernels() { printf '%s\n' another-kernel; }
+    validate_packaged_module() {
+      : > "$RECONCILE_UNEXPECTED_SIDE_EFFECT"
+    }
+    export RECONCILE_UNEXPECTED_SIDE_EFFECT="$test_root/unexpected-side-effect"
+    complete_reconciliation ov02c10 test-kernel test-kernel
+  ) >/dev/null 2>&1; then
+    printf 'accepted a changed kernel inventory under the RPM lock\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  [[ ! -e "$test_root/unexpected-side-effect" ]]
+  flock --fcntl --exclusive --nonblock "$rpm_lock_path" true
+
+  ready="$test_root/signal.ready"
+  block_fifo="$test_root/signal.block"
+  mkfifo -- "$block_fifo"
+  (
+    installed_kernels() { printf '%s\n' test-kernel; }
+    validate_packaged_module() { :; }
+    finalize_ov_kernel() { :; }
+    validate_resolved_module() {
+      : > "$RECONCILE_SIGNAL_READY"
+      IFS= read -r _ < "$RECONCILE_SIGNAL_BLOCK"
+    }
+    mok_reboot_required() { return 1; }
+    log() { :; }
+    export RECONCILE_SIGNAL_READY="$ready"
+    export RECONCILE_SIGNAL_BLOCK="$block_fifo"
+    complete_reconciliation ov02c10 test-kernel test-kernel
+  ) &
+  child_pid=$!
+  for ((attempt = 1; attempt <= 200; attempt++)); do
+    [[ -e "$ready" ]] && break
+    sleep 0.01
+  done
+  if [[ ! -e "$ready" ]]; then
+    kill -TERM "$child_pid" 2>/dev/null || :
+    wait "$child_pid" 2>/dev/null || :
+    printf 'signal fixture did not reach the locked finalizer\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  if flock --fcntl --exclusive --nonblock "$rpm_lock_path" true; then
+    kill -TERM "$child_pid" 2>/dev/null || :
+    wait "$child_pid" 2>/dev/null || :
+    printf 'external RPM writer entered before the signal\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  kill -TERM "$child_pid"
+  if wait "$child_pid" 2>/dev/null; then
+    printf 'expected the signaled finalizer to terminate unsuccessfully\n' >&2
+    rm -rf -- "$test_root"
+    return 1
+  fi
+  flock --fcntl --exclusive --nonblock "$rpm_lock_path" true
 
   rm -rf -- "$test_root"
 }
@@ -835,26 +1240,82 @@ test_max_finalizer_is_synchronous_and_kernel_scoped() {
 test_packaging_constraints_match_the_public_helper_contracts() {
   local spec="$REPO_ROOT/packaging/fedora/galaxybook-setup.spec"
 
-  grep -Fxq 'Recommends:     akmod-galaxybook-max98390 >= 1.00.10' "$spec"
-  grep -Fxq 'Recommends:     galaxybook-max98390-kmod-common >= 1.00.10' "$spec"
-  grep -Fxq 'Recommends:     kmod-galaxybook-max98390 >= 1.00.10' "$spec"
-  grep -Fxq 'Recommends:     akmod-galaxybook-ov02c10 >= 1.00.23' "$spec"
-  grep -Fxq 'Recommends:     galaxybook-ov02c10-kmod-common >= 1.00.23' "$spec"
-  grep -Fxq 'Recommends:     kmod-galaxybook-ov02c10 >= 1.00.23' "$spec"
+  grep -Fxq 'Recommends:     akmod-galaxybook-max98390 >= 1.00.12' "$spec"
+  grep -Fxq 'Recommends:     galaxybook-max98390-kmod-common >= 1.00.12' "$spec"
+  grep -Fxq 'Recommends:     kmod-galaxybook-max98390 >= 1.00.12' "$spec"
+  grep -Fxq 'Recommends:     akmod-galaxybook-ov02c10 >= 1.00.25' "$spec"
+  grep -Fxq 'Recommends:     galaxybook-ov02c10-kmod-common >= 1.00.25' "$spec"
+  grep -Fxq 'Recommends:     kmod-galaxybook-ov02c10 >= 1.00.25' "$spec"
   grep -Fxq 'Recommends:     galaxybook-camera >= 1.00.43' "$spec"
   grep -Fxq 'Suggests:       galaxybook-sound >= 1.00.18' "$spec"
   grep -Fxq 'Requires:       authselect' "$spec"
   grep -Fxq 'Requires:       usbutils' "$spec"
   grep -Fxq 'Requires:       /usr/bin/flock' "$spec"
   grep -Fxq 'Requires:       /usr/bin/sg' "$spec"
+  grep -Fxq 'Requires:       (galaxybook-ov02c10-kmod-common >= 1.00.25 if galaxybook-ov02c10-kmod-common)' "$spec"
+  grep -Fxq 'Requires:       (galaxybook-max98390-kmod-common >= 1.00.12 if galaxybook-max98390-kmod-common)' "$spec"
   grep -Fxq 'Recommends:     fprintd' "$spec"
   grep -Fxq 'Recommends:     gnome-control-center' "$spec"
   grep -Fxq 'Recommends:     gnome-shell' "$spec"
   grep -Fxq 'Recommends:     wireplumber' "$spec"
+  grep -Fq 'install -Dm644 scripts/kmod-lifecycle-lock.sh %{buildroot}%{_libexecdir}/galaxybook-setup/kmod-lifecycle-lock.sh' "$spec"
+  grep -Fq 'install -Dm755 scripts/driver-maintenance.sh %{buildroot}%{_libexecdir}/galaxybook-setup/driver-maintenance' "$spec"
+  grep -Fq 'install -Dm755 scripts/repair-nvidia-kmod.sh %{buildroot}%{_libexecdir}/galaxybook-setup/repair-nvidia-kmod' "$spec"
+  grep -Fxq '%{_libexecdir}/galaxybook-setup/kmod-lifecycle-lock.sh' "$spec"
+  grep -Fxq '%{_libexecdir}/galaxybook-setup/driver-maintenance' "$spec"
+  grep -Fxq '%{_libexecdir}/galaxybook-setup/repair-nvidia-kmod' "$spec"
+  grep -Fxq 'bash tests/kmod-lifecycle-lock.sh' "$spec"
+  grep -Fxq 'bash tests/driver-maintenance.sh' "$spec"
+  grep -Fxq 'bash tests/repair-nvidia-kmod.sh' "$spec"
 }
 
+test_documented_legacy_upgrade_is_two_stage_and_translated() {
+  local readme snapshot_contract
+
+  for readme in \
+    "$REPO_ROOT/README.md" \
+    "$REPO_ROOT/README.en.md" \
+    "$REPO_ROOT/README.es.md" \
+    "$REPO_ROOT/README.it.md"; do
+    grep -Fq 'galaxybook-setup <= 1.00.47' "$readme"
+    grep -Fq 'sudo dnf --setopt=install_weak_deps=False --refresh upgrade galaxybook-setup' \
+      "$readme"
+    grep -Fq '1.00.48' "$readme"
+    case "${readme##*/}" in
+      README.md)
+        snapshot_contract='O coordenador libera esse lock antes de chamar cada família'
+        ;;
+      README.en.md)
+        snapshot_contract='The coordinator releases that lock before invoking each family'
+        ;;
+      README.es.md)
+        snapshot_contract=''
+        ;;
+      README.it.md)
+        snapshot_contract='Il coordinatore rilascia quel lock prima di'
+        ;;
+      *) return 1 ;;
+    esac
+    if [[ "${readme##*/}" == README.es.md ]]; then
+      grep -Fq 'El coordinador libera ese' "$readme"
+      grep -Fq 'lock antes de invocar cada familia' "$readme"
+    else
+      grep -Fq "$snapshot_contract" "$readme"
+    fi
+    grep -Fq '`vermagic`' "$readme"
+  done
+}
+
+test_reconciliation_acquires_global_before_driver_work
+test_production_rpm_lock_contract_ignores_environment
 test_inhibitor_wraps_the_entire_reconciliation
 test_inhibitor_failure_stops_reconciliation
+test_coordinated_reconciliation_requires_inhibitor_parent_and_inherited_global
+test_rpm_read_lock_rejects_unsafe_state
+test_rpm_read_lock_detects_post_acquisition_tampering
+test_rpm_read_lock_has_bounded_contention
+test_reconciliation_uses_safe_rpm_snapshots_around_private_finalizers
+test_rpm_read_lock_releases_on_failure_and_signal
 test_rejects_unowned_updates_override
 test_accepts_owned_external_payload
 test_rpm_queries_fail_closed_on_status_or_stderr
@@ -876,3 +1337,4 @@ test_max_hardware_discovery_is_tristate_and_side_effect_free
 test_max_service_state_queries_fail_closed
 test_max_finalizer_is_synchronous_and_kernel_scoped
 test_packaging_constraints_match_the_public_helper_contracts
+test_documented_legacy_upgrade_is_two_stage_and_translated

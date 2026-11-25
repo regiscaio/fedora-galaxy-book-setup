@@ -8,8 +8,9 @@ use libadwaita as adw;
 use libadwaita::prelude::*;
 
 use galaxybook_setup::{
-    AKMODS_PUBLIC_KEY_PATH, CAMERA_APP_DESKTOP_ID, OPEN_FINGERPRINT_SETTINGS_COMMAND,
-    REBOOT_COMMAND, SOUND_APP_DESKTOP_ID, SetupSnapshot, tr, trf,
+    AKMODS_PUBLIC_KEY_PATH, BROWSER_SENSOR_UNBOUND, CAMERA_APP_DESKTOP_ID,
+    OPEN_FINGERPRINT_SETTINGS_COMMAND, REBOOT_COMMAND, SOUND_APP_DESKTOP_ID, SetupSnapshot, tr,
+    trf,
 };
 
 use crate::actions::ActionKey;
@@ -52,6 +53,7 @@ pub(crate) fn action_is_snapshot_eligible(key: ActionKey, snapshot: &SetupSnapsh
         ActionKey::Reboot => snapshot.reboot_ready,
         ActionKey::OpenCamera => snapshot.camera_app_installed,
         ActionKey::OpenSoundApp => snapshot.sound_app_installed,
+        ActionKey::EnableBrowserCamera => snapshot.browser_camera.code != BROWSER_SENSOR_UNBOUND,
         _ => true,
     }
 }
@@ -107,106 +109,8 @@ pub(super) fn update_button_should_be_sensitive(
 }
 
 fn upgrade_installed_packages_command(packages: &[&str]) -> String {
-    upgrade_installed_packages_command_with_helper(
-        packages,
-        "/usr/libexec/galaxybook-setup/reconcile-kmods",
-    )
-}
-
-fn upgrade_installed_packages_command_with_helper(
-    packages: &[&str],
-    reconcile_helper: &str,
-) -> String {
-    format!(
-        r#"set -euo pipefail
-	packages=({packages})
-	installed=()
-	rpm_inventory=""
-	load_rpm_inventory() {{
-	  local error_file inventory_file status
-	  error_file="$(mktemp /var/tmp/galaxybook-setup-update-rpm.XXXXXX)"
-	  inventory_file="$(mktemp /var/tmp/galaxybook-setup-update-rpm.XXXXXX)"
-	  if LC_ALL=C rpm -qa --qf '%{{NAME}}\n' >"$inventory_file" 2>"$error_file"; then
-	    status=0
-	  else
-	    status=$?
-	  fi
-	  if (( status != 0 )) \
-	    || [[ -s "$error_file" || ! -s "$inventory_file" ]] \
-	    || ! tail -c 1 -- "$inventory_file" | grep -qx ''; then
-	    echo "O RPM não conseguiu produzir um inventário conclusivo dos pacotes instalados. A atualização foi interrompida sem assumir que pacotes estão ausentes." >&2
-	    rm -f -- "$error_file" "$inventory_file"
-	    return 1
-	  fi
-	  if ! LC_ALL=C awk '
-	    $0 !~ /^[[:alnum:]][[:alnum:]+._-]*$/ {{ invalid = 1 }}
-	    END {{ exit invalid ? 1 : 0 }}
-	  ' "$inventory_file"; then
-	    echo "O RPM retornou um nome de pacote malformado. A atualização foi interrompida sem usar um inventário parcial." >&2
-	    rm -f -- "$error_file" "$inventory_file"
-	    return 1
-	  fi
-	  rpm_inventory="$(<"$inventory_file")"
-	  rm -f -- "$error_file" "$inventory_file"
-	}}
-	package_is_installed() {{
-	  local expected="$1" candidate
-	  while IFS= read -r candidate; do
-	    [[ "$candidate" == "$expected" ]] && return 0
-	  done <<< "$rpm_inventory"
-	  return 1
-	}}
-	count_installed_family() {{
-	  local count=0 package
-	  for package in "$@"; do
-	    if package_is_installed "$package"; then
-	      count=$((count + 1))
-	    fi
-	  done
-	  printf '%s\n' "$count"
-	}}
-	load_rpm_inventory
-	for package in "${{packages[@]}}"; do
-	  if package_is_installed "$package"; then
-	    installed+=("$package")
-	  fi
-done
-if [ "${{#installed[@]}}" -eq 0 ]; then
-  echo "Nenhum pacote do Galaxy Book está instalado para atualizar."
-  exit 0
-fi
-ov_count="$(count_installed_family galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10)"
-max_count="$(count_installed_family galaxybook-max98390-kmod-common akmod-galaxybook-max98390 kmod-galaxybook-max98390)"
-if (( ov_count > 0 && ov_count < 3 )); then
-  echo "A família OV02C10 está parcialmente instalada. Use 'Instalar suporte da câmera' ou 'Reparar o driver' para completar os três pacotes antes de atualizar." >&2
-  exit 1
-fi
-if (( max_count > 0 && max_count < 3 )); then
-  echo "A família MAX98390 está parcialmente instalada. Use 'Ativar alto-falantes internos' para completar os três pacotes antes de atualizar." >&2
-  exit 1
-fi
-	dnf --refresh upgrade -y "${{installed[@]}}"
-	load_rpm_inventory
-	ov_count="$(count_installed_family galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10)"
-max_count="$(count_installed_family galaxybook-max98390-kmod-common akmod-galaxybook-max98390 kmod-galaxybook-max98390)"
-if (( ov_count > 0 && ov_count < 3 )); then
-  echo "A atualização deixou a família OV02C10 parcialmente instalada. Complete os três pacotes pela ação de câmera antes de reiniciar." >&2
-  exit 1
-fi
-if (( max_count > 0 && max_count < 3 )); then
-  echo "A atualização deixou a família MAX98390 parcialmente instalada. Complete os três pacotes pela ação de alto-falantes antes de reiniciar." >&2
-  exit 1
-fi
-case "$ov_count:$max_count" in
-  3:3) {reconcile_helper} all ;;
-  3:0) {reconcile_helper} ov02c10 ;;
-  0:3) {reconcile_helper} max98390 ;;
-  0:0) echo "Atualizações concluídas; nenhuma família completa de driver estava instalada para reconciliar." ;;
-esac
-"#,
-        packages = packages.join(" "),
-        reconcile_helper = reconcile_helper,
-    )
+    debug_assert!(!packages.is_empty());
+    "exec /usr/libexec/galaxybook-setup/driver-maintenance upgrade".to_string()
 }
 
 fn output_mentions_secure_boot_key_rejection(output: &str) -> bool {
@@ -992,85 +896,6 @@ impl SetupWindow {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-
-    fn run_upgrade_fixture(installed_packages: &str) -> std::process::Output {
-        run_upgrade_fixture_with_post_state_and_rpm_status(installed_packages, "", 0)
-    }
-
-    fn run_upgrade_fixture_with_post_state(
-        installed_packages: &str,
-        post_dnf_packages: &str,
-    ) -> std::process::Output {
-        run_upgrade_fixture_with_post_state_and_rpm_status(installed_packages, post_dnf_packages, 0)
-    }
-
-    fn run_upgrade_fixture_with_post_state_and_rpm_status(
-        installed_packages: &str,
-        post_dnf_packages: &str,
-        rpm_status: i32,
-    ) -> std::process::Output {
-        run_upgrade_fixture_with_rpm_shape(
-            installed_packages,
-            post_dnf_packages,
-            rpm_status,
-            false,
-            "",
-        )
-    }
-
-    fn run_upgrade_fixture_with_rpm_shape(
-        installed_packages: &str,
-        post_dnf_packages: &str,
-        rpm_status: i32,
-        raw_inventory: bool,
-        rpm_stderr: &str,
-    ) -> std::process::Output {
-        let script = upgrade_installed_packages_command_with_helper(
-            SETUP_UPDATE_PACKAGES,
-            "record_reconcile",
-        );
-        let harness = format!(
-            r#"rpm() {{
-  [[ "$1" == -qa ]] || return 64
-  printf '%s' "$RPM_STDERR" >&2
-  if [[ "$RPM_RAW_INVENTORY" == 1 ]]; then
-    printf '%s' "$INSTALLED_PACKAGES"
-  else
-    tr ' ' '\n' <<< "$INSTALLED_PACKAGES" | sed '/^$/d'
-  fi
-  return "$RPM_STATUS"
-}}
-dnf() {{
-  printf 'DNF:%s\n' "$*"
-  if [[ -n "$POST_DNF_PACKAGES" ]]; then
-    INSTALLED_PACKAGES="$POST_DNF_PACKAGES"
-  fi
-}}
-record_reconcile() {{ printf 'RECONCILE:%s\n' "$*"; }}
-{script}
-"#
-        );
-        let mut child = std::process::Command::new("bash")
-            .args(["--noprofile", "--norc", "-s"])
-            .env("INSTALLED_PACKAGES", installed_packages)
-            .env("POST_DNF_PACKAGES", post_dnf_packages)
-            .env("RPM_STATUS", rpm_status.to_string())
-            .env("RPM_RAW_INVENTORY", if raw_inventory { "1" } else { "0" })
-            .env("RPM_STDERR", rpm_stderr)
-            .stdin(std::process::Stdio::piped())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .expect("não foi possível iniciar fixture bash");
-        child
-            .stdin
-            .as_mut()
-            .expect("stdin da fixture indisponível")
-            .write_all(harness.as_bytes())
-            .expect("não foi possível enviar fixture ao bash");
-        child.wait_with_output().expect("fixture bash não terminou")
-    }
 
     #[test]
     fn secure_boot_rejection_output_is_detected() {
@@ -1096,94 +921,23 @@ record_reconcile() {{ printf 'RECONCILE:%s\n' "$*"; }}
     }
 
     #[test]
-    fn package_upgrade_command_has_valid_bash_syntax() {
-        let script = upgrade_installed_packages_command(SETUP_UPDATE_PACKAGES);
-        let mut child = std::process::Command::new("bash")
-            .args(["--noprofile", "--norc", "-n"])
-            .stdin(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .spawn()
-            .expect("não foi possível iniciar bash");
-        child
-            .stdin
-            .as_mut()
-            .expect("stdin do bash indisponível")
-            .write_all(script.as_bytes())
-            .expect("não foi possível enviar o comando ao bash");
-        let output = child.wait_with_output().expect("bash -n não terminou");
-        assert!(
-            output.status.success(),
-            "sintaxe shell inválida: {}",
-            String::from_utf8_lossy(&output.stderr)
+    fn package_upgrade_delegates_to_the_inhibited_coordinator() {
+        assert_eq!(
+            upgrade_installed_packages_command(SETUP_UPDATE_PACKAGES),
+            "exec /usr/libexec/galaxybook-setup/driver-maintenance upgrade"
         );
-    }
-
-    #[test]
-    fn package_upgrade_without_driver_family_does_not_claim_reconciliation() {
-        let output = run_upgrade_fixture("galaxybook-camera");
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("nenhuma família completa"));
-        assert!(!stdout.contains("RECONCILE:"));
-    }
-
-    #[test]
-    fn package_upgrade_reconciles_a_complete_driver_family() {
-        let output = run_upgrade_fixture(
-            "galaxybook-camera galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10",
-        );
-        assert!(output.status.success());
-        assert!(String::from_utf8_lossy(&output.stdout).contains("RECONCILE:ov02c10"));
-    }
-
-    #[test]
-    fn package_upgrade_reconciles_a_driver_family_added_by_weak_dependencies() {
-        let output = run_upgrade_fixture_with_post_state(
-            "galaxybook-setup",
-            "galaxybook-setup galaxybook-ov02c10-kmod-common akmod-galaxybook-ov02c10 kmod-galaxybook-ov02c10",
-        );
-        assert!(output.status.success());
-        assert!(String::from_utf8_lossy(&output.stdout).contains("RECONCILE:ov02c10"));
     }
 
     #[test]
     fn package_updater_tracks_the_versioned_camera_and_sound_applications() {
         assert!(SETUP_UPDATE_PACKAGES.contains(&"galaxybook-camera"));
         assert!(SETUP_UPDATE_PACKAGES.contains(&"galaxybook-sound"));
-    }
-
-    #[test]
-    fn package_upgrade_rejects_a_partial_driver_family() {
-        let output = run_upgrade_fixture("galaxybook-camera galaxybook-ov02c10-kmod-common");
-        assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("parcialmente instalada"));
-        assert!(!String::from_utf8_lossy(&output.stdout).contains("DNF:"));
-    }
-
-    #[test]
-    fn package_upgrade_fails_closed_when_rpm_inventory_is_inconclusive() {
-        let output = run_upgrade_fixture_with_post_state_and_rpm_status("galaxybook-camera", "", 1);
-        assert!(!output.status.success());
-        assert!(String::from_utf8_lossy(&output.stderr).contains("inventário conclusivo"));
-        assert!(!String::from_utf8_lossy(&output.stdout).contains("DNF:"));
-        assert!(!String::from_utf8_lossy(&output.stdout).contains("RECONCILE:"));
-    }
-
-    #[test]
-    fn package_upgrade_rejects_empty_truncated_malformed_or_warning_inventory() {
-        for (inventory, raw, warning) in [
-            ("", false, ""),
-            ("galaxybook-camera", true, ""),
-            ("invalid package\n", true, ""),
-            ("galaxybook-camera\n", true, "rpm warning\n"),
-        ] {
-            let output = run_upgrade_fixture_with_rpm_shape(inventory, "", 0, raw, warning);
+        let helper = include_str!("../../scripts/driver-maintenance.sh");
+        for package in SETUP_UPDATE_PACKAGES {
             assert!(
-                !output.status.success(),
-                "accepted inconclusive RPM inventory {inventory:?}",
+                helper.contains(package),
+                "coordenador não rastreia o pacote {package}"
             );
-            assert!(!String::from_utf8_lossy(&output.stdout).contains("DNF:"));
-            assert!(!String::from_utf8_lossy(&output.stdout).contains("RECONCILE:"));
         }
     }
 

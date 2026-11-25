@@ -6,6 +6,7 @@ export PATH=/usr/sbin:/usr/bin
 
 readonly ETC_ROOT="${GALAXYBOOK_ETC_ROOT:-/etc}"
 readonly SYS_ROOT="${GALAXYBOOK_SYS_ROOT:-/sys}"
+lifecycle_helper="${BASH_SOURCE[0]%/*}/kmod-lifecycle-lock.sh"
 WORKDIR=""
 
 # These defaults are deliberately not configurable through the environment.
@@ -46,6 +47,10 @@ fail() {
 
 require_command() {
   command -v "$1" >/dev/null 2>&1 || fail "O comando obrigatório '$1' não está disponível."
+}
+
+caller_is_root() {
+  (( EUID == 0 ))
 }
 
 cleanup() {
@@ -1092,6 +1097,18 @@ find_virtual_camera() {
   return 1
 }
 
+# A loopback node can survive a failed probe of the real sensor. Starting
+# icamerasrc cannot bind that sensor. Other camera models keep their usual path.
+require_bound_ov_sensor_if_present() {
+  local devices="$1" sensor found=0
+  for sensor in "$devices"/i2c-OVTI02C1:*; do
+    [[ -d "$sensor" ]] || continue
+    found=1
+    [[ ! -d "$sensor/driver" ]] || return 0
+  done
+  (( found == 0 )) || fail "O sensor OV02C10 foi detectado, mas está sem driver neste boot. Consulte o diagnóstico da câmera no Setup e reaplique esta configuração quando o sensor estiver vinculado."
+}
+
 virtual_camera_has_capture_capability() {
   local device="$1"
   local error_file output_file status
@@ -1115,12 +1132,49 @@ virtual_camera_has_capture_capability() {
     && grep -Eq '^[[:blank:]]*Video Capture[[:blank:]]*$' "$output_file"
 }
 
+wait_for_virtual_capture() {
+  local attempt device
+  for attempt in {1..10}; do
+    if device="$(find_virtual_camera)" && [[ -e "/dev/$device" ]] \
+      && virtual_camera_has_capture_capability "/dev/$device"; then
+      printf '%s\n' "/dev/$device"
+      return 0
+    fi
+    if (( attempt < 10 )); then sleep 1; fi
+  done
+  return 1
+}
+
+activate_browser_relay() {
+  local instance=v4l2-relayd@icamerasrc.service was_active=0 device
+  if systemctl is-active --quiet "$instance"; then was_active=1; fi
+  systemctl enable --now v4l2-relayd.service "$instance" || return 1
+  if ! device="$(wait_for_virtual_capture)"; then
+    (( was_active )) || fail "O relay iniciou, mas a webcam virtual não anunciou capacidade de captura."
+    # Recover a previously running but stuck pipeline once. Starting a new
+    # instance or reapplying a healthy one does not require a second launch.
+    systemctl restart "$instance" || return 1
+    device="$(wait_for_virtual_capture)" || fail "A webcam virtual continua sem capacidade de captura após reiniciar o relay."
+  fi
+  systemctl is-active --quiet "$instance" || fail "O relay de câmera não permaneceu ativo."
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos deixou de ser válido durante a configuração da câmera."
+  log "Bridge V4L2 validado em $device."
+}
+
 main() {
   local bridge_config legacy_modprobe managed_modprobe
-  local legacy_udev legacy_wireplumber managed_wireplumber device
-  local attempt
+  local legacy_udev legacy_wireplumber managed_wireplumber
 
-  (( EUID == 0 )) || fail "Este helper precisa ser executado como root."
+  caller_is_root || fail "Este helper precisa ser executado como root."
+  [[ -r "$lifecycle_helper" ]] \
+    || fail "O helper do lock global de módulos está ausente: $lifecycle_helper."
+  # shellcheck source=kmod-lifecycle-lock.sh
+  source "$lifecycle_helper"
+  acquire_kmod_lifecycle_lock \
+    || fail "Não foi possível adquirir o lock global de manutenção de módulos."
+  validate_kmod_lifecycle_lock \
+    || fail "O lock global de manutenção de módulos não pôde ser revalidado."
   require_command awk
   require_command basename
   require_command cat
@@ -1145,6 +1199,7 @@ main() {
   require_command v4l2-ctl
   acquire_action_lock \
     || fail "Não foi possível adquirir com segurança o lock exclusivo da configuração da câmera."
+  require_bound_ov_sensor_if_present "$SYS_ROOT/bus/i2c/devices"
   WORKDIR="$(mktemp -d /var/tmp/galaxybook-browser-camera.XXXXXX)"
   trap cleanup EXIT
 
@@ -1212,22 +1267,7 @@ EOF
   udevadm trigger --action=change --subsystem-match=video4linux
   udevadm settle
 
-  systemctl enable --now v4l2-relayd.service
-  systemctl enable --now v4l2-relayd@icamerasrc.service
-  systemctl restart v4l2-relayd@icamerasrc.service
-  systemctl is-active --quiet v4l2-relayd@icamerasrc.service
-
-  for attempt in {1..10}; do
-    device="$(find_virtual_camera || true)"
-    if [[ -n "$device" && -e "/dev/$device" ]]; then
-      if virtual_camera_has_capture_capability "/dev/$device"; then
-        log "Bridge V4L2 validado em /dev/$device."
-        return 0
-      fi
-    fi
-    sleep 1
-  done
-  fail "O serviço está ativo, mas nenhuma webcam virtual 'Intel MIPI Camera' com capacidade de captura apareceu em 10 segundos."
+  activate_browser_relay
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

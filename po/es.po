@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: galaxybook-setup 1.0.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 03:05-0300\n"
+"POT-Creation-Date: 2026-08-12 06:16-0300\n"
 "PO-Revision-Date: 2026-04-20 18:36-0300\n"
 "Last-Translator: Automatically generated\n"
 "Language-Team: none\n"
@@ -17,7 +17,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: src/actions/catalog.rs:37 src/actions/runtime.rs:332
+#: src/actions/catalog.rs:37 src/actions/runtime.rs:255
 msgid "Instalar suporte principal"
 msgstr "Instalar soporte principal"
 
@@ -29,7 +29,7 @@ msgstr ""
 "Instala los paquetes y solo finaliza después de validar OV02C10 y MAX98390 "
 "para todos los kernels instalados."
 
-#: src/actions/catalog.rs:43 src/actions/runtime.rs:346
+#: src/actions/catalog.rs:43 src/actions/runtime.rs:269
 msgid "Instalar suporte da câmera"
 msgstr "Instalar soporte de la cámara"
 
@@ -41,7 +41,7 @@ msgstr ""
 "Instala la app, genera OV02C10 para cada kernel y valida RPM, depmod e "
 "initramfs antes de finalizar."
 
-#: src/actions/catalog.rs:49 src/actions/runtime.rs:360
+#: src/actions/catalog.rs:49 src/actions/runtime.rs:283
 msgid "Instalar Galaxy Book Sound"
 msgstr "Instalar Galaxy Book Sound"
 
@@ -53,9 +53,13 @@ msgstr ""
 "Instala el panel de sonido de Galaxy Book para ecualizador, perfiles y audio "
 "compatible con Atmos mediante PipeWire."
 
-#: src/actions/catalog.rs:55 src/actions/runtime.rs:374
+#: src/actions/catalog.rs:55 src/actions/runtime.rs:297
 msgid "Reparar o driver"
 msgstr "Reparar el controlador"
+
+#: src/lib.rs:1664
+msgid "O sensor OV02C10 está presente, mas sem driver neste boot. Repare o driver da câmera e atualize o diagnóstico antes de ativar a webcam virtual."
+msgstr "El sensor OV02C10 está presente, pero no tiene un controlador vinculado en este arranque. Repare el controlador de la cámara y actualice el diagnóstico antes de activar la cámara web virtual."
 
 #: src/actions/catalog.rs:57
 msgid ""
@@ -65,7 +69,7 @@ msgstr ""
 "Actualiza y valida el OV02C10 empaquetado en todos los kernels instalados, "
 "sin sustituir en caliente un módulo en uso."
 
-#: src/actions/catalog.rs:61 src/actions/runtime.rs:388
+#: src/actions/catalog.rs:61 src/actions/runtime.rs:311
 msgid "Habilitar driver da câmera"
 msgstr "Habilitar controlador de la cámara"
 
@@ -77,7 +81,7 @@ msgstr ""
 "Reconcilia OV02C10 para cada kernel y finaliza cada initramfs; un módulo que "
 "ya está en uso solo cambia tras un reinicio normal."
 
-#: src/actions/catalog.rs:67 src/actions/runtime.rs:402
+#: src/actions/catalog.rs:67 src/actions/runtime.rs:325
 msgid "Ajustar prioridade do driver"
 msgstr "Ajustar prioridad del controlador"
 
@@ -89,7 +93,7 @@ msgstr ""
 "Migra únicamente archivos heredados reconocidos, exige un payload que "
 "pertenezca a un RPM y valida la copia correcta dentro de cada initramfs."
 
-#: src/actions/catalog.rs:73 src/actions/runtime.rs:416
+#: src/actions/catalog.rs:73 src/actions/runtime.rs:339
 msgid "Ativar câmera para navegador"
 msgstr "Activar cámara para navegador"
 
@@ -105,7 +109,7 @@ msgstr ""
 "acceso directo de libcamera; las configuraciones administrativas "
 "conflictivas se conservan y detienen la acción."
 
-#: src/actions/catalog.rs:79 src/actions/runtime.rs:430
+#: src/actions/catalog.rs:79 src/actions/runtime.rs:353
 msgid "Ativar alto-falantes internos"
 msgstr "Activar altavoces internos"
 
@@ -117,8 +121,8 @@ msgstr ""
 "Genera los dos módulos MAX98390 empaquetados para todos los kernels, valida "
 "que pertenezcan a un RPM y exige los cuatro enlaces I2C."
 
-#: src/actions/catalog.rs:85 src/actions/runtime.rs:771
-#: src/actions/runtime.rs:777 src/actions/runtime.rs:917
+#: src/actions/catalog.rs:85 src/actions/runtime.rs:694
+#: src/actions/runtime.rs:700 src/actions/runtime.rs:840
 msgid "Preparar chave do Secure Boot"
 msgstr "Preparar la clave de Secure Boot"
 
@@ -131,7 +135,7 @@ msgstr ""
 "importación en MOK y deja preparado el reinicio para completar Enroll MOK "
 "durante el arranque."
 
-#: src/actions/catalog.rs:91 src/actions/runtime.rs:447
+#: src/actions/catalog.rs:91 src/actions/runtime.rs:370
 msgid "Reinstalar stack de fingerprint"
 msgstr "Reinstalar la pila de huellas dactilares"
 
@@ -143,7 +147,7 @@ msgstr ""
 "Reinstala fprintd y libfprint y reinicia el daemon para recuperar el lector "
 "cuando aparece el sensor, pero fallan el registro o la autenticación."
 
-#: src/actions/catalog.rs:97 src/actions/runtime.rs:461
+#: src/actions/catalog.rs:97 src/actions/runtime.rs:384
 msgid "Ativar login por digital"
 msgstr "Activar inicio de sesión con huella digital"
 
@@ -155,7 +159,7 @@ msgstr ""
 "Habilita with-fingerprint en authselect, aplica los cambios del perfil PAM "
 "actual y devuelve el estado final de authselect."
 
-#: src/actions/catalog.rs:103 src/actions/runtime.rs:475
+#: src/actions/catalog.rs:103 src/actions/runtime.rs:398
 msgid "Abrir cadastro de digitais"
 msgstr "Abrir registro de huellas dactilares"
 
@@ -167,7 +171,7 @@ msgstr ""
 "Abre la configuración de Usuarios de GNOME para registrar, revisar o volver "
 "a registrar las huellas dactilares del usuario actual."
 
-#: src/actions/catalog.rs:109 src/actions/runtime.rs:489
+#: src/actions/catalog.rs:109 src/actions/runtime.rs:412
 msgid "Reparar suporte NVIDIA"
 msgstr "Reparar soporte NVIDIA"
 
@@ -179,7 +183,7 @@ msgstr ""
 "Instala o recompila akmod-nvidia para el kernel actual. nvidia-smi sigue "
 "siendo opcional."
 
-#: src/actions/catalog.rs:115 src/actions/runtime.rs:503
+#: src/actions/catalog.rs:115 src/actions/runtime.rs:426
 msgid "Definir perfil balanceado"
 msgstr "Establecer perfil equilibrado"
 
@@ -191,7 +195,7 @@ msgstr ""
 "Aplica el perfil balanced de la plataforma para uso general, equilibrando "
 "ventilador, temperatura y rendimiento."
 
-#: src/actions/catalog.rs:121 src/actions/runtime.rs:517
+#: src/actions/catalog.rs:121 src/actions/runtime.rs:440
 msgid "Ativar histórico da área de transferência"
 msgstr "Activar historial del portapapeles"
 
@@ -203,7 +207,7 @@ msgstr ""
 "Instala y habilita la extensión de portapapeles usada como perfil "
 "recomendado en este portátil."
 
-#: src/actions/catalog.rs:127 src/actions/runtime.rs:531
+#: src/actions/catalog.rs:127 src/actions/runtime.rs:454
 msgid "Ativar GSConnect"
 msgstr "Activar GSConnect"
 
@@ -215,7 +219,7 @@ msgstr ""
 "Instala GSConnect, habilita la extensión y reaplica el perfil usado en este "
 "portátil para la integración con el móvil."
 
-#: src/actions/catalog.rs:133 src/actions/runtime.rs:545
+#: src/actions/catalog.rs:133 src/actions/runtime.rs:468
 msgid "Ativar ícones na área de trabalho"
 msgstr "Activar iconos del escritorio"
 
@@ -227,7 +231,7 @@ msgstr ""
 "Instala Desktop Icons NG, habilita la extensión y reaplica el perfil usado "
 "en este portátil."
 
-#: src/actions/catalog.rs:139 src/actions/runtime.rs:559
+#: src/actions/catalog.rs:139 src/actions/runtime.rs:482
 msgid "Aplicar perfil da dock"
 msgstr "Aplicar perfil de la dock"
 
@@ -239,7 +243,7 @@ msgstr ""
 "Activa Dash to Dock y reaplica la dock inferior auto-ocultable, con clic "
 "para alternar ventanas, vista previa, papelera y unidades montadas visibles."
 
-#: src/actions/catalog.rs:145 src/actions/runtime.rs:567
+#: src/actions/catalog.rs:145 src/actions/runtime.rs:490
 msgid "Reiniciar o sistema"
 msgstr "Reiniciar el sistema"
 
@@ -278,11 +282,11 @@ msgstr ""
 msgid "Baixar e instalar atualizações: {packages}"
 msgstr "Descargar e instalar actualizaciones: {packages}"
 
-#: src/actions/runtime.rs:206
+#: src/actions/runtime.rs:119
 msgid "A ação falhou, mas não retornou saída textual."
 msgstr "La acción falló, pero no devolvió salida textual."
 
-#: src/actions/runtime.rs:218
+#: src/actions/runtime.rs:131
 #, rust-format
 msgid ""
 "O kernel rejeitou o módulo porque o Secure Boot não aceitou sua assinatura. "
@@ -301,15 +305,15 @@ msgstr ""
 "cuando los payloads estén listos, reinicia normalmente para completar Enroll "
 "MOK."
 
-#: src/actions/runtime.rs:228
+#: src/actions/runtime.rs:141
 msgid "Defina e confirme a senha temporária do MOK para continuar."
 msgstr "Establece y confirma la contraseña temporal de MOK para continuar."
 
-#: src/actions/runtime.rs:233
+#: src/actions/runtime.rs:146
 msgid "As duas senhas do MOK precisam ser idênticas."
 msgstr "Las dos contraseñas de MOK deben ser idénticas."
 
-#: src/actions/runtime.rs:286
+#: src/actions/runtime.rs:208
 msgid ""
 "Falha ao consultar atualizações. Verifique o RPM, a conexão e os "
 "repositórios; depois atualize o diagnóstico."
@@ -317,11 +321,11 @@ msgstr ""
 "Falló la consulta de actualizaciones. Comprueba RPM, la conexión y los "
 "repositorios; después actualiza el diagnóstico."
 
-#: src/actions/runtime.rs:305
+#: src/actions/runtime.rs:228
 msgid "Atualizar pacotes"
 msgstr "Actualizar paquetes"
 
-#: src/actions/runtime.rs:307
+#: src/actions/runtime.rs:230
 msgid ""
 "Atualização concluída. Revise a saída da ação e atualize o diagnóstico; "
 "payloads só são declarados prontos quando a reconciliação da família "
@@ -331,7 +335,7 @@ msgstr ""
 "diagnóstico; los payloads solo se declaran listos cuando la reconciliación "
 "de la familia instalada finaliza sin errores."
 
-#: src/actions/runtime.rs:334
+#: src/actions/runtime.rs:257
 msgid ""
 "Pacotes e payloads por kernel instalados e validados. Atualize o diagnóstico "
 "e reinicie normalmente para trocar módulos já ocupados."
@@ -340,7 +344,7 @@ msgstr ""
 "diagnóstico y reinicia normalmente para sustituir los módulos que ya están "
 "en uso."
 
-#: src/actions/runtime.rs:348
+#: src/actions/runtime.rs:271
 msgid ""
 "OV02C10 e initramfs validados em todos os kernels instalados. Reinicie "
 "normalmente para carregar o driver sem trocar ao vivo um módulo ocupado."
@@ -349,7 +353,7 @@ msgstr ""
 "normalmente para cargar el controlador sin sustituir en caliente un módulo "
 "en uso."
 
-#: src/actions/runtime.rs:362
+#: src/actions/runtime.rs:285
 msgid ""
 "Galaxy Book Sound instalado. Abra o painel para ajustar equalizador, perfis "
 "e Atmos compatível."
@@ -357,7 +361,7 @@ msgstr ""
 "Galaxy Book Sound instalado. Abre el panel para ajustar el ecualizador, los "
 "perfiles y el audio compatible con Atmos."
 
-#: src/actions/runtime.rs:376
+#: src/actions/runtime.rs:299
 msgid ""
 "OV02C10 validado em todos os kernels instalados. Reinicie normalmente para "
 "trocar qualquer módulo já ocupado."
@@ -365,7 +369,7 @@ msgstr ""
 "OV02C10 validado en todos los kernels instalados. Reinicia normalmente para "
 "sustituir cualquier módulo que ya esté en uso."
 
-#: src/actions/runtime.rs:390
+#: src/actions/runtime.rs:313
 msgid ""
 "OV02C10 e initramfs validados em todos os kernels instalados. Reinicie "
 "normalmente; o módulo ocupado não foi trocado ao vivo."
@@ -373,7 +377,7 @@ msgstr ""
 "OV02C10 e initramfs validados en todos los kernels instalados. Reinicia "
 "normalmente; el módulo en uso no se sustituyó en caliente."
 
-#: src/actions/runtime.rs:404
+#: src/actions/runtime.rs:327
 msgid ""
 "Payload, prioridade e initramfs do OV02C10 validados para todos os kernels. "
 "Reinicie normalmente antes de validar o novo grafo IPU6."
@@ -381,7 +385,7 @@ msgstr ""
 "Payload, prioridad e initramfs de OV02C10 validados para todos los kernels. "
 "Reinicia normalmente antes de validar el nuevo grafo IPU6."
 
-#: src/actions/runtime.rs:418
+#: src/actions/runtime.rs:341
 msgid ""
 "Bridge V4L2 ativado. Se os nós crus do IPU6 ainda aparecerem na sessão "
 "atual, faça logout/login antes de validar Meet, Discord e outros apps."
@@ -390,7 +394,7 @@ msgstr ""
 "la sesión actual, cierra e inicia sesión antes de validar Meet, Discord y "
 "otras apps."
 
-#: src/actions/runtime.rs:432
+#: src/actions/runtime.rs:355
 msgid ""
 "Payloads MAX98390 por kernel e serviço I2C validados. Reinicie normalmente "
 "se o kernel atual ainda mantiver módulos antigos carregados."
@@ -398,7 +402,7 @@ msgstr ""
 "Payloads MAX98390 por kernel y servicio I2C validados. Reinicia normalmente "
 "si el kernel actual todavía mantiene módulos antiguos cargados."
 
-#: src/actions/runtime.rs:449
+#: src/actions/runtime.rs:372
 msgid ""
 "Stack de fingerprint reinstalado. Atualize o diagnóstico e abra o cadastro "
 "de digitais se quiser testar novamente."
@@ -406,15 +410,15 @@ msgstr ""
 "Pila de huellas dactilares reinstalada. Actualiza el diagnóstico y abre el "
 "registro de huellas dactilares si quieres volver a probar."
 
-#: src/actions/runtime.rs:463
+#: src/actions/runtime.rs:386
 msgid "Integração do authselect com fingerprint aplicada com sucesso."
 msgstr "Integración de huellas dactilares de authselect aplicada con éxito."
 
-#: src/actions/runtime.rs:477
+#: src/actions/runtime.rs:400
 msgid "As configurações de usuários foram abertas para gerenciar as digitais."
 msgstr "Se abrió la configuración de Usuarios para gestionar las huellas."
 
-#: src/actions/runtime.rs:491
+#: src/actions/runtime.rs:414
 msgid ""
 "Fluxo NVIDIA concluído. Reinicie o sistema se os módulos ainda não "
 "aparecerem carregados."
@@ -422,62 +426,62 @@ msgstr ""
 "Flujo NVIDIA completado. Reinicia el sistema si los módulos aún no aparecen "
 "cargados."
 
-#: src/actions/runtime.rs:505
+#: src/actions/runtime.rs:428
 msgid "Perfil balanced aplicado com sucesso."
 msgstr "Perfil balanced aplicado con éxito."
 
-#: src/actions/runtime.rs:519
+#: src/actions/runtime.rs:442
 msgid "Perfil do histórico da área de transferência aplicado com sucesso."
 msgstr "Perfil del historial del portapapeles aplicado con éxito."
 
-#: src/actions/runtime.rs:533
+#: src/actions/runtime.rs:456
 msgid "Perfil do GSConnect aplicado com sucesso."
 msgstr "Perfil de GSConnect aplicado con éxito."
 
-#: src/actions/runtime.rs:547
+#: src/actions/runtime.rs:470
 msgid "Perfil dos ícones da área de trabalho aplicado com sucesso."
 msgstr "Perfil de los iconos del escritorio aplicado con éxito."
 
-#: src/actions/runtime.rs:561
+#: src/actions/runtime.rs:484
 msgid "Perfil da dock aplicado com sucesso."
 msgstr "Perfil de la dock aplicado con éxito."
 
-#: src/actions/runtime.rs:569
+#: src/actions/runtime.rs:492
 msgid "Reinicialização solicitada."
 msgstr "Reinicio solicitado."
 
-#: src/actions/runtime.rs:577
+#: src/actions/runtime.rs:500
 #, rust-format
 msgid "Falha ao abrir o app da câmera: {error}"
 msgstr "No se pudo abrir la app de la cámara: {error}"
 
-#: src/actions/runtime.rs:583
+#: src/actions/runtime.rs:506
 msgid "O Galaxy Book Câmera não foi encontrado no sistema."
 msgstr "No se encontró Galaxy Book Cámara en el sistema."
 
-#: src/actions/runtime.rs:591
+#: src/actions/runtime.rs:514
 #, rust-format
 msgid "Falha ao abrir o painel de som: {error}"
 msgstr "No se pudo abrir el panel de sonido: {error}"
 
-#: src/actions/runtime.rs:597
+#: src/actions/runtime.rs:520
 msgid "O Galaxy Book Sound não foi encontrado no sistema."
 msgstr "No se encontró Galaxy Book Sound en el sistema."
 
-#: src/actions/runtime.rs:684
+#: src/actions/runtime.rs:607
 #, rust-format
 msgid "Executando: {title}…"
 msgstr "Ejecutando: {title}…"
 
-#: src/actions/runtime.rs:747
+#: src/actions/runtime.rs:670
 msgid "Falha ao acompanhar a ação solicitada."
 msgstr "No se pudo seguir la acción solicitada."
 
-#: src/actions/runtime.rs:778
+#: src/actions/runtime.rs:701
 msgid "Senha temporária para o Enroll MOK"
 msgstr "Contraseña temporal para Enroll MOK"
 
-#: src/actions/runtime.rs:797
+#: src/actions/runtime.rs:720
 msgid ""
 "Esta ação prepara a chave do akmods para o Secure Boot e cria o pedido de "
 "importação no MOK. A senha abaixo será pedida na tela azul do boot quando "
@@ -487,15 +491,15 @@ msgstr ""
 "de importación en MOK. La contraseña siguiente se solicitará en la pantalla "
 "azul del arranque cuando elijas 'Enroll MOK'."
 
-#: src/actions/runtime.rs:802
+#: src/actions/runtime.rs:725
 msgid "Senha temporária do MOK"
 msgstr "Contraseña temporal de MOK"
 
-#: src/actions/runtime.rs:811
+#: src/actions/runtime.rs:734
 msgid "Confirmar senha"
 msgstr "Confirmar contraseña"
 
-#: src/actions/runtime.rs:822
+#: src/actions/runtime.rs:745
 msgid ""
 "Depois de importar a chave, será necessário reiniciar e concluir o 'Enroll "
 "MOK' manualmente no boot."
@@ -503,15 +507,15 @@ msgstr ""
 "Después de importar la clave, será necesario reiniciar y completar 'Enroll "
 "MOK' manualmente durante el arranque."
 
-#: src/actions/runtime.rs:840
+#: src/actions/runtime.rs:763
 msgid "Cancelar"
 msgstr "Cancelar"
 
-#: src/actions/runtime.rs:841
+#: src/actions/runtime.rs:764
 msgid "Preparar"
 msgstr "Preparar"
 
-#: src/actions/runtime.rs:920
+#: src/actions/runtime.rs:843
 msgid ""
 "Fluxo do Secure Boot concluído. Se o pedido de importação foi criado agora, "
 "reinicie e conclua o Enroll MOK no boot antes de repetir a ação do driver."
@@ -520,7 +524,7 @@ msgstr ""
 "crear, reinicia y completa Enroll MOK durante el arranque antes de repetir "
 "la acción del controlador."
 
-#: src/actions/runtime.rs:940
+#: src/actions/runtime.rs:863
 msgid "Saída da ação"
 msgstr "Salida de la acción"
 
@@ -605,7 +609,7 @@ msgstr ""
 "En el estado actual de este diagnóstico, setup no necesita sugerir ninguna "
 "acción rápida específica."
 
-#: src/lib.rs:492
+#: src/lib.rs:470
 msgid ""
 "A consulta RPM do akmod OV02C10 não terminou de forma conclusiva. O setup "
 "não afirmou que o driver está ausente nem liberou o reboot específico dos "
@@ -618,7 +622,7 @@ msgstr ""
 "operación de RPM/DNF y actualiza el diagnóstico; si el problema persiste, "
 "comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:502
+#: src/lib.rs:480
 msgid ""
 "Não foi possível enumerar todos os pacotes kernel-core instalados. O setup "
 "não liberou o reboot do driver porque não pode validar os payloads de "
@@ -628,7 +632,7 @@ msgstr ""
 "habilitó el reinicio del controlador porque no puede validar los payloads de "
 "kernels desconocidos."
 
-#: src/lib.rs:511
+#: src/lib.rs:489
 #, rust-format
 msgid ""
 "A consulta RPM dos payloads OV02C10 por kernel não terminou de forma "
@@ -643,7 +647,7 @@ msgstr ""
 "termine cualquier otra operación de RPM/DNF y actualiza el diagnóstico; si "
 "el problema persiste, comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:525
+#: src/lib.rs:503
 #, rust-format
 msgid ""
 "O log registrou falha do OV02C10 e o estado final ainda não possui payload "
@@ -653,7 +657,7 @@ msgstr ""
 "no contiene un payload externo que pertenezca a un RPM y tenga el vermagic "
 "correcto en: {kernels}."
 
-#: src/lib.rs:530
+#: src/lib.rs:508
 #, rust-format
 msgid ""
 "O akmods pode ter terminado, mas falta um payload OV02C10 externo com dono "
@@ -663,7 +667,7 @@ msgstr ""
 "que pertenezca a un RPM y tenga el vermagic correcto para cada kernel en: "
 "{kernels}."
 
-#: src/lib.rs:541
+#: src/lib.rs:519
 #, rust-format
 msgid ""
 "O log deste boot contém uma falha antiga, mas o estado final foi recuperado: "
@@ -674,7 +678,7 @@ msgstr ""
 "estado final: se validó un payload externo de OV02C10 perteneciente a un RPM "
 "y con el vermagic correcto para {kernels}."
 
-#: src/lib.rs:551
+#: src/lib.rs:529
 #, rust-format
 msgid ""
 "Payload OV02C10 externo, indexado, com dono RPM e vermagic correto validado "
@@ -683,14 +687,14 @@ msgstr ""
 "Payload externo de OV02C10 indexado, perteneciente a un RPM y con el "
 "vermagic correcto validado para: {kernels}."
 
-#: src/lib.rs:561
+#: src/lib.rs:539
 msgid ""
 "O driver ainda não foi instalado, então o akmods não executou esse fluxo."
 msgstr ""
 "El controlador todavía no se ha instalado, así que akmods no ejecutó ese "
 "flujo."
 
-#: src/lib.rs:620
+#: src/lib.rs:598
 #, rust-format
 msgid ""
 "O rootfs agora resolve o OV02C10 empacotado em {path}, mas o erro de clock "
@@ -703,7 +707,7 @@ msgstr ""
 "corrección se activara. El módulo en uso no se sustituirá en caliente; "
 "valida los kernels y reinicia."
 
-#: src/lib.rs:629
+#: src/lib.rs:607
 #, rust-format
 msgid ""
 "O módulo corrigido existe em {path}, mas ainda não foi carregado no kernel. "
@@ -714,7 +718,7 @@ msgstr ""
 "el kernel. Valida los payloads de todos los kernels mediante la acción "
 "rápida y reinicia normalmente; un módulo en uso no se sustituirá en caliente."
 
-#: src/lib.rs:638
+#: src/lib.rs:616
 #, rust-format
 msgid ""
 "Usando um override manual em {path}. Como esse arquivo não pertence a um "
@@ -723,7 +727,7 @@ msgstr ""
 "Usando un override manual en {path}. Como ese archivo no pertenece a un RPM, "
 "puede divergir de la pila Intel IPU6 que el resto del sistema espera."
 
-#: src/lib.rs:648
+#: src/lib.rs:626
 #, rust-format
 msgid ""
 "O módulo carregado corresponde ao payload externo em {path}, fornecido por "
@@ -736,12 +740,12 @@ msgstr ""
 "id o, cuando está ausente en ambos lados, mediante srcversion, además del "
 "vermagic y la identidad de firma esperados."
 
-#: src/lib.rs:652
+#: src/lib.rs:630
 #, rust-format
 msgid "O módulo carregado corresponde ao payload externo em {path}."
 msgstr "El módulo cargado coincide con el payload externo en {path}."
 
-#: src/lib.rs:662
+#: src/lib.rs:640
 #, rust-format
 msgid ""
 "O rootfs resolve o payload externo em {path}, mas o setup não conseguiu "
@@ -756,11 +760,11 @@ msgstr ""
 "vermagic y la identidad de firma. Valida los payloads y reinicia "
 "normalmente; un módulo en uso no se sustituirá en caliente."
 
-#: src/lib.rs:670
+#: src/lib.rs:648
 msgid "O sistema indicou um módulo externo, mas o caminho não pôde ser lido."
 msgstr "El sistema indicó un módulo externo, pero no se pudo leer la ruta."
 
-#: src/lib.rs:677
+#: src/lib.rs:655
 #, rust-format
 msgid ""
 "O sistema está usando o módulo in-tree do kernel: {path}. Use a ação rápida "
@@ -769,7 +773,7 @@ msgstr ""
 "El sistema está usando el módulo in-tree del kernel: {path}. Usa la acción "
 "rápida para ajustar la prioridad del controlador corregido."
 
-#: src/lib.rs:690
+#: src/lib.rs:668
 msgid ""
 "O sistema parece ter caído para o módulo in-tree. Use a ação rápida para "
 "ajustar a prioridade do driver corrigido."
@@ -777,26 +781,26 @@ msgstr ""
 "El sistema parece haber caído al módulo in-tree. Usa la acción rápida para "
 "ajustar la prioridad del controlador corregido."
 
-#: src/lib.rs:701
+#: src/lib.rs:679
 msgid "Não foi possível localizar o módulo ov02c10 via modinfo."
 msgstr "No se pudo localizar el módulo ov02c10 mediante modinfo."
 
-#: src/lib.rs:708
+#: src/lib.rs:686
 #, rust-format
 msgid "Módulo localizado, mas sem origem claramente classificada: {path}"
 msgstr "Módulo localizado, pero sin origen claramente clasificado: {path}"
 
-#: src/lib.rs:716
+#: src/lib.rs:694
 msgid "Origem do módulo ov02c10 não pôde ser determinada."
 msgstr "No se pudo determinar el origen del módulo ov02c10."
 
-#: src/lib.rs:733
+#: src/lib.rs:711
 msgid ""
 "A câmera interna apareceu no caminho direto usado pelo Galaxy Book Câmera."
 msgstr ""
 "La cámara interna apareció en la ruta directa usada por Galaxy Book Cámara."
 
-#: src/lib.rs:742
+#: src/lib.rs:720
 msgid ""
 "A ferramenta cam executou, mas o caminho direto usado pelo Galaxy Book "
 "Câmera não listou a câmera interna. Isso não significa, por si só, que "
@@ -806,7 +810,7 @@ msgstr ""
 "Cámara no listó la cámara interna. Eso no significa, por sí solo, que "
 "Snapshot, el navegador o el sistema también hayan fallado."
 
-#: src/lib.rs:750
+#: src/lib.rs:728
 msgid ""
 "O caminho direto do libcamera perdeu acesso aos nós crus do IPU6 porque a "
 "regra UDev administrativa legada /etc/udev/rules.d/90-hide-ipu6-v4l2.rules "
@@ -822,7 +826,7 @@ msgstr ""
 "segura. Revísala y, si corresponde, elimínala manualmente como "
 "administrador; luego vuelve a ejecutar la acción de la cámara para navegador."
 
-#: src/lib.rs:759
+#: src/lib.rs:737
 msgid ""
 "A ferramenta 'cam' não está disponível ou falhou ao executar, então o setup "
 "não conseguiu validar o caminho direto usado pelo Galaxy Book Câmera."
@@ -830,31 +834,31 @@ msgstr ""
 "La herramienta 'cam' no está disponible o falló al ejecutarse, así que setup "
 "no pudo validar la ruta directa usada por Galaxy Book Cámara."
 
-#: src/lib.rs:969
+#: src/lib.rs:947
 msgid "Kernel não pode estar vazio no smoke test."
 msgstr "El kernel no puede estar vacío en la prueba de humo."
 
-#: src/lib.rs:983
+#: src/lib.rs:961
 msgid "Galaxy Book (modelo não identificado)"
 msgstr "Galaxy Book (modelo no identificado)"
 
-#: src/lib.rs:988
+#: src/lib.rs:966
 msgid "Fedora (versão não identificada)"
 msgstr "Fedora (versión no identificada)"
 
-#: src/lib.rs:993
+#: src/lib.rs:971
 msgid "Ativado"
 msgstr "Activado"
 
-#: src/lib.rs:994
+#: src/lib.rs:972
 msgid "Desativado"
 msgstr "Desactivado"
 
-#: src/lib.rs:995
+#: src/lib.rs:973
 msgid "Não foi possível verificar"
 msgstr "No se pudo verificar"
 
-#: src/lib.rs:1013
+#: src/lib.rs:991
 #, rust-format
 msgid ""
 "Não foi possível confirmar o estado RPM de: {packages}. O setup não "
@@ -866,27 +870,27 @@ msgstr ""
 "de RPM/DNF y actualiza el diagnóstico; si el problema persiste, comprueba la "
 "integridad de la rpmdb."
 
-#: src/lib.rs:1023
+#: src/lib.rs:1001
 #, rust-format
 msgid "Instalados: {packages}"
 msgstr "Instalados: {packages}"
 
-#: src/lib.rs:1033
+#: src/lib.rs:1011
 #, rust-format
 msgid "Faltando: {packages}"
 msgstr "Faltan: {packages}"
 
-#: src/lib.rs:1124
+#: src/lib.rs:1102
 #, rust-format
 msgid "Ativa: {extensions}"
 msgstr "Activa: {extensions}"
 
-#: src/lib.rs:1139
+#: src/lib.rs:1117
 #, rust-format
 msgid "Instalada, mas desativada: {extensions}"
 msgstr "Instalada, pero desactivada: {extensions}"
 
-#: src/lib.rs:1176
+#: src/lib.rs:1154
 msgid ""
 "Dash to Dock ativo com dock inferior auto-ocultável, clique ciclando "
 "janelas, ícones em 48 px, lixeira e unidades montadas visíveis."
@@ -894,27 +898,27 @@ msgstr ""
 "Dash to Dock activo con dock inferior auto-ocultable, clic alternando "
 "ventanas, iconos de 48 px, papelera y unidades montadas visibles."
 
-#: src/lib.rs:1187
+#: src/lib.rs:1165
 #, rust-format
 msgid "Dash to Dock ativo, mas fora do perfil recomendado em: {items}"
 msgstr "Dash to Dock activo, pero fuera del perfil recomendado en: {items}"
 
-#: src/lib.rs:1199
+#: src/lib.rs:1177
 #, rust-format
 msgid "Instalada, mas desativada: {extension}"
 msgstr "Instalada, pero desactivada: {extension}"
 
-#: src/lib.rs:1209
+#: src/lib.rs:1187
 msgid "A extensão Dash to Dock não está instalada."
 msgstr "La extensión Dash to Dock no está instalada."
 
-#: src/lib.rs:1378
+#: src/lib.rs:1356
 msgid ""
 "Módulos NVIDIA carregados. O utilitário nvidia-smi também está instalado."
 msgstr ""
 "Módulos NVIDIA cargados. La utilidad nvidia-smi también está instalada."
 
-#: src/lib.rs:1384
+#: src/lib.rs:1362
 msgid ""
 "Módulos NVIDIA carregados. O utilitário nvidia-smi continua opcional e não "
 "está instalado."
@@ -922,7 +926,7 @@ msgstr ""
 "Módulos NVIDIA cargados. La utilidad nvidia-smi sigue siendo opcional y no "
 "está instalada."
 
-#: src/lib.rs:1391
+#: src/lib.rs:1369
 msgid ""
 "Módulos NVIDIA carregados, mas a consulta RPM não confirmou o estado do "
 "utilitário nvidia-smi. Aguarde o fim de outra operação RPM/DNF e atualize o "
@@ -933,7 +937,7 @@ msgstr ""
 "operación de RPM/DNF y actualiza el diagnóstico; si el problema persiste, "
 "comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:1409
+#: src/lib.rs:1387
 msgid ""
 "O pacote akmod-nvidia está instalado, mas os módulos não estão carregados "
 "para o kernel atual."
@@ -941,7 +945,7 @@ msgstr ""
 "El paquete akmod-nvidia está instalado, pero los módulos no están cargados "
 "para el kernel actual."
 
-#: src/lib.rs:1417
+#: src/lib.rs:1395
 msgid ""
 "O suporte NVIDIA ainda não foi instalado. O setup trata o akmod-nvidia como "
 "o pacote principal para esta etapa."
@@ -949,7 +953,7 @@ msgstr ""
 "El soporte NVIDIA todavía no se ha instalado. El asistente trata akmod-"
 "nvidia como el paquete principal para esta etapa."
 
-#: src/lib.rs:1425
+#: src/lib.rs:1403
 msgid ""
 "A consulta RPM não confirmou se o akmod-nvidia está instalado. O setup não "
 "classificou o driver como ausente. Aguarde o fim de outra operação RPM/DNF e "
@@ -960,12 +964,12 @@ msgstr ""
 "otra operación de RPM/DNF y actualiza el diagnóstico; si el problema "
 "persiste, comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:1440
+#: src/lib.rs:1418
 msgid ""
 "O setup não conseguiu consultar o estado do Secure Boot/MOK neste sistema."
 msgstr "Setup no pudo consultar el estado de Secure Boot/MOK en este sistema."
 
-#: src/lib.rs:1451
+#: src/lib.rs:1429
 msgid ""
 "Secure Boot está desativado. O MOK do akmods não é necessário para carregar "
 "módulos externos neste boot."
@@ -973,7 +977,7 @@ msgstr ""
 "Secure Boot está desactivado. El MOK de akmods no es necesario para cargar "
 "módulos externos durante este arranque."
 
-#: src/lib.rs:1462
+#: src/lib.rs:1440
 msgid ""
 "A chave do akmods já foi preparada e o pedido de importação está pendente no "
 "MOK. Reinicie normalmente e conclua 'Enroll MOK' na tela azul do boot."
@@ -982,7 +986,7 @@ msgstr ""
 "pendiente en MOK. Reinicia normalmente y completa 'Enroll MOK' en la "
 "pantalla azul del arranque."
 
-#: src/lib.rs:1473
+#: src/lib.rs:1451
 msgid ""
 "Secure Boot aceitou um módulo externo assinado neste boot. Os diretórios "
 "privados do akmods não precisam ser legíveis pelo aplicativo sem privilégios."
@@ -991,7 +995,7 @@ msgstr ""
 "necesario que la aplicación sin privilegios pueda leer los directorios "
 "privados de akmods."
 
-#: src/lib.rs:1495 src/lib.rs:1532
+#: src/lib.rs:1473 src/lib.rs:1510
 msgid ""
 "A chave pública do akmods já está inscrita no MOK. Os módulos externos podem "
 "ser assinados e aceitos pelo Secure Boot neste host."
@@ -999,7 +1003,7 @@ msgstr ""
 "La clave pública de akmods ya está inscrita en MOK. Los módulos externos se "
 "pueden firmar y Secure Boot puede aceptarlos en este host."
 
-#: src/lib.rs:1506
+#: src/lib.rs:1484
 msgid ""
 "O setup encontrou apenas um marcador legado por nome da chave. Como nomes "
 "podem ser reutilizados após uma rotação, esse marcador não prova a "
@@ -1012,7 +1016,7 @@ msgstr ""
 "administrativa para publicar la identidad v2 antes de autorizar los módulos "
 "o un reinicio de reparación."
 
-#: src/lib.rs:1548
+#: src/lib.rs:1526
 msgid ""
 "Secure Boot está ativo, mas os diretórios da chave do akmods são protegidos "
 "do processo sem privilégios. O setup não tratou essa falta de acesso como "
@@ -1023,7 +1027,7 @@ msgstr ""
 "de acceso como una clave ausente; la acción administrativa realizará la "
 "validación definitiva."
 
-#: src/lib.rs:1561
+#: src/lib.rs:1539
 msgid ""
 "Secure Boot está ativo, mas o akmods ainda não tem a chave local pronta em /"
 "etc/pki/akmods. Prepare a chave do Secure Boot antes de instalar ou carregar "
@@ -1033,7 +1037,7 @@ msgstr ""
 "en /etc/pki/akmods. Prepara la clave de Secure Boot antes de instalar o "
 "cargar módulos externos."
 
-#: src/lib.rs:1572
+#: src/lib.rs:1550
 msgid ""
 "A chave local existe, mas o setup não conseguiu comparar o certificado "
 "público atual com uma identidade v2 root-owned contendo CN, fingerprint "
@@ -1046,7 +1050,7 @@ msgstr ""
 "publicar la identidad antes de autorizar los módulos o un reinicio de "
 "reparación."
 
-#: src/lib.rs:1582
+#: src/lib.rs:1560
 msgid ""
 "Secure Boot está ativo e a chave local do akmods existe, mas ainda não foi "
 "aceita no MOK. Use a ação rápida dedicada antes de tentar carregar módulos "
@@ -1056,7 +1060,7 @@ msgstr ""
 "no la ha aceptado. Usa la acción rápida específica antes de intentar cargar "
 "módulos externos."
 
-#: src/lib.rs:1597
+#: src/lib.rs:1575
 #, rust-format
 msgid ""
 "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ruído da "
@@ -1065,7 +1069,7 @@ msgstr ""
 "Activo: balanced. Perfil recomendado para uso general, equilibrando ruido "
 "del ventilador, temperatura y rendimiento. Opciones disponibles: {choices}"
 
-#: src/lib.rs:1606
+#: src/lib.rs:1584
 #, rust-format
 msgid ""
 "Ativo: {current}. Para uso geral, o perfil balanced costuma ser o ponto mais "
@@ -1076,7 +1080,7 @@ msgstr ""
 "más estable entre ventilador, temperatura y rendimiento. Opciones "
 "disponibles: {choices}"
 
-#: src/lib.rs:1615
+#: src/lib.rs:1593
 msgid ""
 "Ativo: balanced. Perfil recomendado para uso geral, equilibrando ventoinha, "
 "temperatura e desempenho."
@@ -1084,7 +1088,7 @@ msgstr ""
 "Activo: balanced. Perfil recomendado para uso general, equilibrando "
 "ventilador, temperatura y rendimiento."
 
-#: src/lib.rs:1623
+#: src/lib.rs:1601
 #, rust-format
 msgid ""
 "Ativo: {current}. O perfil balanced é o recomendado para uso geral neste "
@@ -1093,11 +1097,11 @@ msgstr ""
 "Activo: {current}. El perfil balanced es el recomendado para uso general en "
 "este portátil."
 
-#: src/lib.rs:1631
+#: src/lib.rs:1609
 msgid "Este sistema não expôs a interface ACPI de platform_profile."
 msgstr "Este sistema no expuso la interfaz ACPI de platform_profile."
 
-#: src/lib.rs:1647
+#: src/lib.rs:1625
 #, rust-format
 msgid ""
 "Não foi possível confirmar o estado RPM de componentes do bridge V4L2: "
@@ -1110,12 +1114,12 @@ msgstr ""
 "termine cualquier otra operación de RPM/DNF y actualiza el diagnóstico; si "
 "el problema persiste, comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:1659
+#: src/lib.rs:1637
 #, rust-format
 msgid "Faltando pacotes do bridge V4L2: {packages}"
 msgstr "Faltan paquetes del bridge V4L2: {packages}"
 
-#: src/lib.rs:1684
+#: src/lib.rs:1662
 #, rust-format
 msgid ""
 "Bridge V4L2 ativo em {device}, com capacidade Video Capture. Isso valida a "
@@ -1126,7 +1130,7 @@ msgstr ""
 "integración y el dispositivo virtual, pero todavía es necesario realizar una "
 "prueba real en la app para confirmar que los frames sean estables."
 
-#: src/lib.rs:1693
+#: src/lib.rs:1671
 #, rust-format
 msgid ""
 "Bridge ativo em {device}, mas só habilitado para a sessão atual. Ative "
@@ -1135,7 +1139,7 @@ msgstr ""
 "Bridge activo en {device}, pero solo está habilitado para la sesión actual. "
 "Actívalo de nuevo con la acción rápida para que persista tras el reinicio."
 
-#: src/lib.rs:1702
+#: src/lib.rs:1680
 #, rust-format
 msgid ""
 "Bridge ativo em {device}, mas o serviço ainda não está habilitado de forma "
@@ -1145,7 +1149,7 @@ msgstr ""
 "persistente. Activa la cámara para navegador desde la sección de acciones "
 "rápidas."
 
-#: src/lib.rs:1711
+#: src/lib.rs:1689
 #, rust-format
 msgid ""
 "A webcam virtual existe em {device}, mas o relay está parado. Ative a câmera "
@@ -1156,7 +1160,7 @@ msgstr ""
 "cámara para navegador para mantener Meet, Discord y otras apps funcionando "
 "de forma previsible."
 
-#: src/lib.rs:1720
+#: src/lib.rs:1698
 #, rust-format
 msgid ""
 "O relay está ativo, mas {device} ainda não expôs um nó de captura "
@@ -1166,7 +1170,7 @@ msgstr ""
 "captura utilizable. Vuelve a aplicar la acción rápida de la cámara para "
 "navegador."
 
-#: src/lib.rs:1729
+#: src/lib.rs:1707
 msgid ""
 "A câmera já aparece nas fontes do sistema, mas a webcam virtual ainda não "
 "foi ativada. Use a ação rápida para expor a câmera como dispositivo V4L2 "
@@ -1176,7 +1180,7 @@ msgstr ""
 "no se ha activado. Usa la acción rápida para exponer la cámara como "
 "dispositivo V4L2 para Meet, Discord, Teams y otras apps WebRTC."
 
-#: src/lib.rs:1737
+#: src/lib.rs:1715
 msgid ""
 "A câmera base foi enumerada pelo libcamera, mas isso não garante captura "
 "estável e o bridge V4L2 para navegador ainda não foi ativado."
@@ -1184,7 +1188,7 @@ msgstr ""
 "La cámara base fue enumerada por libcamera, pero esto no garantiza una "
 "captura estable y el bridge V4L2 para navegador todavía no se ha activado."
 
-#: src/lib.rs:1745
+#: src/lib.rs:1723
 msgid ""
 "O bridge V4L2 para navegador ainda não foi ativado e a câmera também não "
 "apareceu nas fontes do sistema. Use a ação rápida para configurar a webcam "
@@ -1195,7 +1199,7 @@ msgstr ""
 "webcam virtual y vuelve a evaluar el estado de la cámara base si el problema "
 "persiste."
 
-#: src/lib.rs:1757
+#: src/lib.rs:1735
 msgid ""
 "O boot registrou que o ov02c10 rejeitou o clock externo de 26 MHz, então o "
 "sensor não entrou no grafo de mídia usado pelo libcamera. Depois de uma "
@@ -1209,7 +1213,7 @@ msgstr ""
 "estuvo listo después del primer intento de IPU6. Ajusta la prioridad del "
 "controlador corregido y reinicia para recrear el grafo con el sensor."
 
-#: src/lib.rs:1794
+#: src/lib.rs:1772
 msgid ""
 "Este sistema não expôs amplificadores MAX98390 via ACPI ou I2C, então o "
 "setup não aplicou o fluxo específico dos alto-falantes Galaxy Book."
@@ -1217,7 +1221,7 @@ msgstr ""
 "Este sistema no expuso amplificadores MAX98390 por ACPI o I2C, así que setup "
 "no aplicó el flujo específico de los altavoces Galaxy Book."
 
-#: src/lib.rs:1804
+#: src/lib.rs:1782
 msgid ""
 "O setup não conseguiu concluir a leitura do hardware MAX98390 via ACPI e "
 "I2C. O estado dos módulos de alto-falante permaneceu desconhecido e o reboot "
@@ -1227,7 +1231,7 @@ msgstr ""
 "e I2C. El estado de los módulos de los altavoces quedó desconocido y se "
 "bloqueó el reinicio específico de los controladores."
 
-#: src/lib.rs:1858
+#: src/lib.rs:1836
 #, rust-format
 msgid ""
 "O hardware MAX98390 foi detectado, mas a consulta RPM não confirmou o estado "
@@ -1241,7 +1245,7 @@ msgstr ""
 "cualquier otra operación de RPM/DNF y actualiza el diagnóstico; si el "
 "problema persiste, comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:1870
+#: src/lib.rs:1848
 #, rust-format
 msgid ""
 "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de "
@@ -1250,7 +1254,7 @@ msgstr ""
 "Se detectó el hardware MAX98390, pero todavía faltan paquetes del soporte de "
 "altavoces: {packages}"
 
-#: src/lib.rs:1882
+#: src/lib.rs:1860
 #, rust-format
 msgid ""
 "A consulta RPM dos payloads MAX98390 por kernel não terminou de forma "
@@ -1266,7 +1270,7 @@ msgstr ""
 "actualiza el diagnóstico; si el problema persiste, comprueba la integridad "
 "de la rpmdb."
 
-#: src/lib.rs:1894
+#: src/lib.rs:1872
 msgid ""
 "Não foi possível enumerar todos os pacotes kernel-core instalados. O setup "
 "não declarou os payloads MAX98390 prontos porque kernels desconhecidos ainda "
@@ -1276,7 +1280,7 @@ msgstr ""
 "declaró que los payloads MAX98390 estuvieran listos porque todavía no se han "
 "validado los kernels desconocidos."
 
-#: src/lib.rs:1905
+#: src/lib.rs:1883
 #, rust-format
 msgid ""
 "O akmods pode ter terminado com sucesso, mas faltam os dois payloads "
@@ -1286,7 +1290,7 @@ msgstr ""
 "externos de MAX98390 pertenecientes a un RPM y con el vermagic correcto para "
 "cada kernel en: {kernels}."
 
-#: src/lib.rs:1917
+#: src/lib.rs:1895
 msgid ""
 "Os payloads MAX98390 estão prontos, mas o serviço de I2C não está habilitado "
 "de forma persistente para o boot."
@@ -1294,7 +1298,7 @@ msgstr ""
 "Los payloads MAX98390 están listos, pero el servicio I2C no está habilitado "
 "de forma persistente para el arranque."
 
-#: src/lib.rs:1928
+#: src/lib.rs:1906
 #, rust-format
 msgid ""
 "Os payloads MAX98390 estão prontos, mas o serviço de I2C não terminou com "
@@ -1303,7 +1307,7 @@ msgstr ""
 "Los payloads MAX98390 están listos, pero el servicio I2C no terminó con "
 "estado activo y resultado success (resultado: {result})."
 
-#: src/lib.rs:1943
+#: src/lib.rs:1921
 #, rust-format
 msgid ""
 "O serviço terminou, mas somente {count} dos 4 vínculos MAX98390 esperados "
@@ -1314,7 +1318,7 @@ msgstr ""
 "están activos. Un EPROBE_DEFER transitorio solo se ignora cuando los cuatro "
 "enlaces aparecen al final."
 
-#: src/lib.rs:1955
+#: src/lib.rs:1933
 #, rust-format
 msgid ""
 "Payloads RPM validados para {kernels}; módulos carregados, serviço I2C "
@@ -1323,7 +1327,7 @@ msgstr ""
 "Payloads RPM validados para {kernels}; módulos cargados, servicio I2C "
 "completado y 4 enlaces MAX98390 activos."
 
-#: src/lib.rs:1966
+#: src/lib.rs:1944
 msgid ""
 "Os payloads MAX98390 estão prontos para todos os kernels instalados, mas os "
 "módulos do kernel em execução ainda não estão carregados. Reinicie "
@@ -1333,7 +1337,7 @@ msgstr ""
 "los módulos del kernel en ejecución todavía no están cargados. Reinicia "
 "normalmente para usar los payloads empaquetados."
 
-#: src/lib.rs:2029
+#: src/lib.rs:2007
 msgid ""
 "O setup não conseguiu consultar o journal do kernel deste boot dentro do "
 "prazo, então não afirmou que o boot está livre de erros do OV02C10."
@@ -1342,7 +1346,7 @@ msgstr ""
 "arranque, por lo que no afirmó que el arranque estuviera libre de errores de "
 "OV02C10."
 
-#: src/lib.rs:2037
+#: src/lib.rs:2015
 msgid ""
 "O boot registrou que o driver in-tree não suporta o clock externo de 26 MHz "
 "nesta máquina."
@@ -1350,12 +1354,12 @@ msgstr ""
 "El arranque registró que el controlador in-tree no admite el reloj externo "
 "de 26 MHz en esta máquina."
 
-#: src/lib.rs:2044
+#: src/lib.rs:2022
 msgid "Nenhum erro de clock/probe do ov02c10 foi encontrado no boot atual."
 msgstr ""
 "No se encontró ningún error de clock/probe de ov02c10 en el arranque actual."
 
-#: src/lib.rs:2139
+#: src/lib.rs:2117
 msgid ""
 "O painel de som está instalado e pronto para equalizador, perfis e Atmos "
 "compatível via PipeWire."
@@ -1363,7 +1367,7 @@ msgstr ""
 "El panel de sonido está instalado y listo para ecualizador, perfiles y audio "
 "compatible con Atmos mediante PipeWire."
 
-#: src/lib.rs:2147
+#: src/lib.rs:2125
 msgid ""
 "O painel de som ainda não está instalado. Use-o para equalizador, perfis "
 "prontos e Atmos compatível depois que o MAX98390 estiver funcional."
@@ -1372,7 +1376,7 @@ msgstr ""
 "perfiles predefinidos y audio compatible con Atmos cuando MAX98390 esté "
 "funcionando."
 
-#: src/lib.rs:2155
+#: src/lib.rs:2133
 msgid ""
 "A consulta RPM não confirmou se o Galaxy Book Sound está instalado. O setup "
 "não classificou o painel como ausente. Aguarde o fim de outra operação RPM/"
@@ -1383,7 +1387,7 @@ msgstr ""
 "otra operación de RPM/DNF y actualiza el diagnóstico; si el problema "
 "persiste, comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:2190
+#: src/lib.rs:2168
 msgid ""
 "Nenhum leitor de digital compatível foi detectado via lsusb neste boot. Em "
 "modelos sem sensor integrado, esse estado é esperado."
@@ -1391,7 +1395,7 @@ msgstr ""
 "No se detectó ningún lector de huellas dactilares compatible mediante lsusb "
 "en este arranque. En modelos sin sensor integrado, este estado es esperado."
 
-#: src/lib.rs:2201
+#: src/lib.rs:2179
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas a consulta RPM não confirmou o estado de: "
@@ -1405,7 +1409,7 @@ msgstr ""
 "actualiza el diagnóstico; si el problema persiste, comprueba la integridad "
 "de la rpmdb."
 
-#: src/lib.rs:2216
+#: src/lib.rs:2194
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o stack ainda está incompleto. Faltam "
@@ -1414,7 +1418,7 @@ msgstr ""
 "Sensor detectado en {sensor}, pero la pila todavía está incompleta. Faltan "
 "paquetes: {packages}"
 
-#: src/lib.rs:2230
+#: src/lib.rs:2208
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}. O stack fprintd/libfprint respondeu "
@@ -1423,7 +1427,7 @@ msgstr ""
 "Sensor detectado en {sensor}. La pila fprintd/libfprint respondió con "
 "normalidad para el usuario actual."
 
-#: src/lib.rs:2238
+#: src/lib.rs:2216
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o leitor respondeu como ocupado. Reaplique "
@@ -1432,7 +1436,7 @@ msgstr ""
 "Sensor detectado en {sensor}, pero el lector indicó que estaba ocupado. "
 "Reaplica la pila antes de intentar un nuevo registro."
 
-#: src/lib.rs:2246
+#: src/lib.rs:2224
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o fprintd não expôs um dispositivo "
@@ -1441,7 +1445,7 @@ msgstr ""
 "Sensor detectado en {sensor}, pero fprintd no expuso un dispositivo "
 "utilizable en esta sesión."
 
-#: src/lib.rs:2254
+#: src/lib.rs:2232
 #, rust-format
 msgid ""
 "Sensor detectado em {sensor}, mas o setup não conseguiu validar a resposta "
@@ -1450,7 +1454,7 @@ msgstr ""
 "Sensor detectado en {sensor}, pero setup no pudo validar la respuesta de "
 "fprintd en esta sesión."
 
-#: src/lib.rs:2275
+#: src/lib.rs:2253
 msgid ""
 "Sem leitor de digital detectado neste boot, o setup não avaliou cadastro nem "
 "integração com authselect."
@@ -1458,7 +1462,7 @@ msgstr ""
 "Al no detectar ningún lector de huellas dactilares en este arranque, setup "
 "no evaluó el registro ni la integración con authselect."
 
-#: src/lib.rs:2286
+#: src/lib.rs:2264
 msgid ""
 "O leitor foi detectado, mas a consulta RPM do stack de fingerprint não "
 "terminou de forma conclusiva. Aguarde o fim de outra operação RPM/DNF e "
@@ -1469,7 +1473,7 @@ msgstr ""
 "cualquier otra operación de RPM/DNF y actualiza el diagnóstico; si el "
 "problema persiste, comprueba la integridad de la rpmdb."
 
-#: src/lib.rs:2297
+#: src/lib.rs:2275
 msgid ""
 "O leitor foi detectado, mas o stack de fingerprint ainda não está completo. "
 "Reinstale fprintd/libfprint antes de validar cadastro e login."
@@ -1478,7 +1482,7 @@ msgstr ""
 "completa. Reinstala fprintd/libfprint antes de validar el registro y el "
 "inicio de sesión."
 
-#: src/lib.rs:2308
+#: src/lib.rs:2286
 msgid ""
 "Authselect já está com with-fingerprint ativo e o usuário atual tem pelo "
 "menos uma digital cadastrada."
@@ -1486,7 +1490,7 @@ msgstr ""
 "Authselect ya tiene with-fingerprint activo y el usuario actual tiene al "
 "menos una huella dactilar registrada."
 
-#: src/lib.rs:2316
+#: src/lib.rs:2294
 msgid ""
 "O stack já responde e o authselect está pronto, mas o usuário atual ainda "
 "não cadastrou nenhuma digital."
@@ -1494,7 +1498,7 @@ msgstr ""
 "La pila ya responde y authselect está listo, pero el usuario actual todavía "
 "no ha registrado ninguna huella dactilar."
 
-#: src/lib.rs:2324
+#: src/lib.rs:2302
 msgid ""
 "Há digital cadastrada para o usuário atual, mas o authselect ainda não está "
 "com with-fingerprint habilitado."
@@ -1502,7 +1506,7 @@ msgstr ""
 "El usuario actual tiene una huella dactilar registrada, pero authselect "
 "todavía no tiene habilitado with-fingerprint."
 
-#: src/lib.rs:2332
+#: src/lib.rs:2310
 msgid ""
 "O leitor já responde, mas ainda faltam dois passos: habilitar with-"
 "fingerprint no authselect e cadastrar a digital do usuário atual."
@@ -1510,7 +1514,7 @@ msgstr ""
 "El lector ya responde, pero todavía faltan dos pasos: habilitar with-"
 "fingerprint en authselect y registrar la huella dactilar del usuario actual."
 
-#: src/lib.rs:2340
+#: src/lib.rs:2318
 msgid ""
 "O leitor respondeu como ocupado. Reaplique o stack e depois abra o cadastro "
 "de usuários para refazer a digital com o sensor liberado."
@@ -1519,7 +1523,7 @@ msgstr ""
 "gestión de huellas del usuario para volver a registrar la huella cuando el "
 "sensor esté libre."
 
-#: src/lib.rs:2348
+#: src/lib.rs:2326
 msgid ""
 "O sensor apareceu no USB, mas o fprintd não expôs um dispositivo utilizável "
 "para validar cadastro e autenticação nesta sessão."
@@ -1527,7 +1531,7 @@ msgstr ""
 "El sensor apareció en USB, pero fprintd no expuso un dispositivo utilizable "
 "para validar el registro y la autenticación en esta sesión."
 
-#: src/lib.rs:2356
+#: src/lib.rs:2334
 msgid ""
 "O leitor foi detectado, mas o setup não conseguiu validar cadastro e "
 "authselect nesta sessão."
@@ -1535,11 +1539,11 @@ msgstr ""
 "Se detectó el lector, pero setup no pudo validar el registro y authselect en "
 "esta sesión."
 
-#: src/lib.rs:2387
+#: src/lib.rs:2365
 msgid "Verifique a chave do Secure Boot"
 msgstr "Verifica la clave de Secure Boot"
 
-#: src/lib.rs:2389
+#: src/lib.rs:2367
 msgid ""
 "O processo sem privilégios não pode ler os diretórios protegidos do akmods "
 "e, por isso, não afirmou que a chave está ausente. Use a ação administrativa "
@@ -1550,11 +1554,11 @@ msgstr ""
 "administrativa para realizar la validación definitiva antes de cargar "
 "módulos externos."
 
-#: src/lib.rs:2396
+#: src/lib.rs:2374
 msgid "Prepare a chave do Secure Boot"
 msgstr "Prepara la clave de Secure Boot"
 
-#: src/lib.rs:2398
+#: src/lib.rs:2376
 msgid ""
 "O Secure Boot está ativo, mas a chave usada pelo akmods ainda não está "
 "pronta ou inscrita no MOK. Use a ação rápida dedicada antes de instalar ou "
@@ -1564,11 +1568,11 @@ msgstr ""
 "lista o inscrita en MOK. Usa la acción rápida específica antes de instalar o "
 "cargar módulos externos del portátil."
 
-#: src/lib.rs:2405
+#: src/lib.rs:2383
 msgid "Concluir inscrição do MOK"
 msgstr "Completar la inscripción en MOK"
 
-#: src/lib.rs:2407
+#: src/lib.rs:2385
 msgid ""
 "O pedido de importação da chave do akmods já foi criado. Reinicie o notebook "
 "e conclua 'Enroll MOK' na tela azul do boot antes de repetir as ações do "
@@ -1578,11 +1582,11 @@ msgstr ""
 "el portátil y completa 'Enroll MOK' en la pantalla azul del arranque antes "
 "de repetir las acciones del controlador."
 
-#: src/lib.rs:2414
+#: src/lib.rs:2392
 msgid "Consulta de pacotes inconclusiva"
 msgstr "Consulta de paquetes no concluyente"
 
-#: src/lib.rs:2416
+#: src/lib.rs:2394
 msgid ""
 "O RPM não confirmou o estado de todos os pacotes principais. O setup não os "
 "tratou como ausentes e manteve o reboot específico dos drivers bloqueado. "
@@ -1595,11 +1599,11 @@ msgstr ""
 "actualiza el diagnóstico; si el problema persiste, comprueba la integridad "
 "de la rpmdb."
 
-#: src/lib.rs:2423
+#: src/lib.rs:2401
 msgid "Instalação pendente"
 msgstr "Instalación pendiente"
 
-#: src/lib.rs:2425
+#: src/lib.rs:2403
 msgid ""
 "Instale os pacotes principais da câmera pela própria seção de ações rápidas, "
 "reinicie o sistema e atualize o diagnóstico."
@@ -1607,11 +1611,11 @@ msgstr ""
 "Instala los paquetes principales de la cámara desde la propia sección de "
 "acciones rápidas, reinicia el sistema y actualiza el diagnóstico."
 
-#: src/lib.rs:2432
+#: src/lib.rs:2410
 msgid "O driver não foi gerado no boot"
 msgstr "El controlador no se generó en el arranque"
 
-#: src/lib.rs:2434
+#: src/lib.rs:2412
 msgid ""
 "O estado final ainda não possui o payload kmod externo e pertencente ao RPM "
 "para todos os kernels instalados. Reexecute o reparo do driver e só reinicie "
@@ -1622,11 +1626,11 @@ msgstr ""
 "del controlador y reinicia solo después de que la reconciliación termine sin "
 "errores."
 
-#: src/lib.rs:2442 src/lib.rs:2459
+#: src/lib.rs:2420 src/lib.rs:2437
 msgid "O sistema caiu para o driver in-tree"
 msgstr "El sistema ha caído al controlador in-tree"
 
-#: src/lib.rs:2444 src/lib.rs:2461
+#: src/lib.rs:2422 src/lib.rs:2439
 msgid ""
 "O boot registrou que o ov02c10 carregado foi o do kernel, que não suporta o "
 "clock de 26 MHz deste hardware. Ajuste a prioridade do driver corrigido pela "
@@ -1636,11 +1640,11 @@ msgstr ""
 "el reloj de 26 MHz de este hardware. Ajusta la prioridad del controlador "
 "corregido desde la sección de acciones rápidas y reinicia."
 
-#: src/lib.rs:2450
+#: src/lib.rs:2428
 msgid "Reinicie com o driver corrigido priorizado"
 msgstr "Reinicia con el controlador corregido priorizado"
 
-#: src/lib.rs:2452
+#: src/lib.rs:2430
 msgid ""
 "O boot registrou que o ov02c10 rejeitou o clock externo de 26 MHz antes da "
 "câmera entrar no grafo de mídia. Depois de atualização de kernel, isso "
@@ -1654,11 +1658,11 @@ msgstr ""
 "corregido después del primer intento de IPU6. Ajusta la prioridad del "
 "controlador corregido desde la sección de acciones rápidas y reinicia."
 
-#: src/lib.rs:2468
+#: src/lib.rs:2446
 msgid "O driver corrigido não foi carregado"
 msgstr "El controlador corregido no se cargó"
 
-#: src/lib.rs:2470
+#: src/lib.rs:2448
 msgid ""
 "O módulo OV02C10 corrigido está instalado, mas não entrou no kernel em "
 "execução. Valide os payloads e initramfs de todos os kernels pela ação "
@@ -1670,11 +1674,11 @@ msgstr ""
 "la acción rápida y reinicia normalmente para recrear el grafo de medios; "
 "setup no sustituye en caliente un módulo en uso."
 
-#: src/lib.rs:2477
+#: src/lib.rs:2455
 msgid "Confirme o driver carregado após reiniciar"
 msgstr "Confirma el controlador cargado después de reiniciar"
 
-#: src/lib.rs:2479
+#: src/lib.rs:2457
 msgid ""
 "O rootfs resolve o payload OV02C10 externo, mas o setup não conseguiu "
 "correlacioná-lo de forma forte com o binário já carregado. Valide os "
@@ -1686,11 +1690,11 @@ msgstr ""
 "payloads y reinicia normalmente; setup no sustituye en caliente un módulo en "
 "uso."
 
-#: src/lib.rs:2486
+#: src/lib.rs:2464
 msgid "O bridge do navegador bloqueou o libcamera"
 msgstr "El bridge del navegador bloqueó libcamera"
 
-#: src/lib.rs:2488
+#: src/lib.rs:2466
 msgid ""
 "A regra UDev administrativa legada /etc/udev/rules.d/90-hide-ipu6-v4l2.rules "
 "removeu o acesso do usuário aos nós crus do IPU6. O setup preserva essa "
@@ -1704,11 +1708,11 @@ msgstr ""
 "de forma segura. Revísala y, si corresponde, elimínala manualmente como "
 "administrador; luego vuelve a ejecutar la acción de la cámara para navegador."
 
-#: src/lib.rs:2495
+#: src/lib.rs:2473
 msgid "Migre o override manual da câmera"
 msgstr "Migra el override manual de la cámara"
 
-#: src/lib.rs:2497
+#: src/lib.rs:2475
 msgid ""
 "O sistema ainda está usando um ov02c10 manual em /updates. Use a ação de "
 "prioridade do driver para atualizar o pacote OV02C10, remover o override "
@@ -1718,11 +1722,11 @@ msgstr ""
 "prioridad del controlador para actualizar el paquete OV02C10, eliminar el "
 "override huérfano y volver al kmod gestionado por RPM."
 
-#: src/lib.rs:2504
+#: src/lib.rs:2482
 msgid "Compatibilidade com navegador pendente"
 msgstr "Compatibilidad con navegador pendiente"
 
-#: src/lib.rs:2506
+#: src/lib.rs:2484
 msgid ""
 "A câmera base foi enumerada no caminho direto ou nas fontes do sistema, sem "
 "que isso garanta frames estáveis. A webcam virtual para Meet, Discord, Teams "
@@ -1735,11 +1739,11 @@ msgstr ""
 "rápida para exponerla como dispositivo V4L2 y realiza una prueba real en la "
 "app."
 
-#: src/lib.rs:2513
+#: src/lib.rs:2491
 msgid "A câmera ainda não apareceu no caminho direto do app"
 msgstr "La cámara aún no apareció en la ruta directa de la app"
 
-#: src/lib.rs:2515
+#: src/lib.rs:2493
 msgid ""
 "O driver e os pacotes principais parecem presentes, mas a câmera ainda não "
 "foi detectada nem no caminho direto do Galaxy Book Câmera nem nas fontes do "
@@ -1750,11 +1754,11 @@ msgstr ""
 "Cámara ni en las fuentes del sistema. El siguiente paso es revisar los logs "
 "del arranque y la pila IPU6."
 
-#: src/lib.rs:2522
+#: src/lib.rs:2500
 msgid "Driver pronto, app da câmera ausente"
 msgstr "Controlador listo, falta la app de la cámara"
 
-#: src/lib.rs:2524
+#: src/lib.rs:2502
 msgid ""
 "A câmera já aparece no caminho direto do Galaxy Book Câmera. Instale o app "
 "para validar preview, foto e vídeo no fluxo final."
@@ -1762,11 +1766,11 @@ msgstr ""
 "La cámara ya aparece en la ruta directa de Galaxy Book Cámara. Instala la "
 "app para validar la vista previa, la foto y el vídeo en el flujo final."
 
-#: src/lib.rs:2531
+#: src/lib.rs:2509
 msgid "Suporte dos alto-falantes pendente"
 msgstr "Soporte de altavoces pendiente"
 
-#: src/lib.rs:2533
+#: src/lib.rs:2511
 msgid ""
 "A máquina expõe amplificadores MAX98390, mas o pacote de speakers ainda não "
 "está pronto ou os módulos não foram carregados. Ative o suporte dos alto-"
@@ -1778,11 +1782,11 @@ msgstr ""
 "altavoces internos desde la sección de acciones rápidas y vuelve a probar la "
 "salida Speaker."
 
-#: src/lib.rs:2540
+#: src/lib.rs:2518
 msgid "Painel de som opcional ainda não instalado"
 msgstr "Panel de sonido opcional aún no instalado"
 
-#: src/lib.rs:2542
+#: src/lib.rs:2520
 msgid ""
 "O suporte MAX98390 já parece pronto. Se você quiser equalizador, perfis e "
 "Atmos compatível, instale o Galaxy Book Sound pela seção de ações rápidas."
@@ -1791,11 +1795,11 @@ msgstr ""
 "y audio compatible con Atmos, instala Galaxy Book Sound desde la sección de "
 "acciones rápidas."
 
-#: src/lib.rs:2548
+#: src/lib.rs:2526
 msgid "Fluxo principal da câmera parece pronto"
 msgstr "El flujo principal de la cámara parece listo"
 
-#: src/lib.rs:2550
+#: src/lib.rs:2528
 msgid ""
 "O módulo corrigido parece ativo, o caminho direto do Galaxy Book Câmera já "
 "vê a câmera e o app final está instalado. Se os alto-falantes também já "
@@ -2113,7 +2117,7 @@ msgstr "Descargar e instalar las actualizaciones disponibles"
 msgid "Atualizar diagnóstico"
 msgstr "Actualizar diagnóstico"
 
-#: src/updates.rs:93 src/updates.rs:111
+#: src/updates.rs:84 src/updates.rs:102
 msgid ""
 "O RPM falhou ao consultar os pacotes instalados. Verifique o banco de dados "
 "RPM e tente novamente."
@@ -2121,7 +2125,7 @@ msgstr ""
 "RPM no pudo consultar los paquetes instalados. Comprueba la base de datos de "
 "RPM e inténtalo de nuevo."
 
-#: src/updates.rs:97
+#: src/updates.rs:88
 msgid ""
 "O RPM retornou um inventário vazio, truncado ou malformado. A consulta foi "
 "tratada como inconclusiva."
@@ -2129,7 +2133,7 @@ msgstr ""
 "RPM devolvió un inventario vacío, truncado o malformado. La consulta se "
 "consideró no concluyente."
 
-#: src/updates.rs:104
+#: src/updates.rs:95
 msgid ""
 "Tempo esgotado ao consultar os pacotes instalados via RPM. Verifique o "
 "gerenciador de pacotes e tente novamente."
@@ -2137,7 +2141,7 @@ msgstr ""
 "Se agotó el tiempo de espera al consultar mediante RPM los paquetes "
 "instalados. Comprueba el gestor de paquetes e inténtalo de nuevo."
 
-#: src/updates.rs:121
+#: src/updates.rs:112
 msgid ""
 "O DNF falhou ao consultar atualizações. Verifique a conexão e os "
 "repositórios configurados e tente novamente."
@@ -2145,7 +2149,7 @@ msgstr ""
 "DNF no pudo consultar las actualizaciones. Comprueba la conexión y los "
 "repositorios configurados e inténtalo de nuevo."
 
-#: src/updates.rs:127
+#: src/updates.rs:118
 msgid ""
 "Tempo esgotado ao consultar atualizações via DNF. Verifique a conexão e os "
 "repositórios configurados e tente novamente."
@@ -2153,25 +2157,25 @@ msgstr ""
 "Se agotó el tiempo de espera al consultar las actualizaciones mediante DNF. "
 "Comprueba la conexión y los repositorios configurados e inténtalo de nuevo."
 
-#: src/updates.rs:188
+#: src/updates.rs:179
 #, rust-format
 msgid "Falha ao consultar os pacotes instalados via RPM: {error}"
 msgstr "No se pudieron consultar mediante RPM los paquetes instalados: {error}"
 
-#: src/updates.rs:231
+#: src/updates.rs:222
 #, rust-format
 msgid "Falha ao consultar atualizações via DNF: {error}"
 msgstr "No se pudieron consultar las actualizaciones mediante DNF: {error}"
 
-#: src/updates.rs:258
 #, rust-format
-msgid "Falha ao iniciar a atualização com privilégios administrativos: {error}"
-msgstr ""
-"No se pudo iniciar la actualización con privilegios administrativos: {error}"
+#~ msgid ""
+#~ "Falha ao iniciar a atualização com privilégios administrativos: {error}"
+#~ msgstr ""
+#~ "No se pudo iniciar la actualización con privilegios administrativos: "
+#~ "{error}"
 
-#: src/updates.rs:269
-msgid "A atualização falhou, mas não retornou saída textual."
-msgstr "La actualización falló, pero no devolvió salida textual."
+#~ msgid "A atualização falhou, mas não retornou saída textual."
+#~ msgstr "La actualización falló, pero no devolvió salida textual."
 
 #~ msgid ""
 #~ "O caminho direto do libcamera perdeu acesso aos nós crus do IPU6 porque "

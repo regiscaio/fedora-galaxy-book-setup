@@ -166,7 +166,10 @@ Oggi, le azioni disponibili includono:
 - attivare la fotocamera per browser tramite `icamerasrc`, `v4l2-relayd` e
   `v4l2loopback`, preservando symlink e configurazioni amministrative o del
   vendor, mantenendo l'accesso diretto di `libcamera` e richiedendo una webcam
-  virtuale con capacità di acquisizione prima di terminare. Se esiste la regola
+  virtuale con capacità di acquisizione prima di terminare. Se il sensore OV02C10
+  è presente ma privo di driver, il programma indica di consultarne la diagnostica
+  prima di avviare il relay. Riapplicare la configurazione mantiene attivo un relay
+  che offre già la funzione di acquisizione. Se esiste la regola
   amministrativa legacy `/etc/udev/rules.d/90-hide-ipu6-v4l2.rules`, il setup
   la preserva e si interrompe prima di ricaricare UDev o i servizi; esaminala
   e, se opportuno, rimuovila manualmente come amministratore prima di eseguire
@@ -252,11 +255,34 @@ L'azione prepara tutti i kernel, ma non tenta di scaricare un modulo in uso né
 afferma che sia stato sostituito dal vivo. Il riavvio ricrea il grafo
 multimediale con il driver corretto disponibile fin dall'inizio del boot.
 
-Durante l'intera riconciliazione, anche dopo la fine della transazione DNF,
-l'helper mantiene un inhibitor systemd bloccante per arresto, sospensione e
-inattività. Il pulsante di riavvio viene abilitato solo quando non è attiva
-alcuna compilazione; esegue il normale riavvio di systemd e quindi rispetta
-anche tutti gli altri inhibitor del sistema.
+Durante l'intera riconciliazione, inclusa la transazione DNF avviata da Setup,
+il flusso mantiene un mutex globale esclusivo in
+`/run/lock/galaxybook-kmod-lifecycle.lock`. Setup, i worker OV02C10 e MAX98390 e
+la manutenzione NVIDIA ereditano e riconvalidano lo stesso descrittore; così
+`akmods`, pulizia, `depmod`, `dracut` e pubblicazione dello stato non si
+sovrappongono tra driver. L'ordine unico è mutex globale, mutex privato del
+driver e lock RPM in lettura quando applicabile. Il coordinatore apre prima un
+inhibitor systemd bloccante per arresto, sospensione e inattività e solo dopo
+acquisisce il mutex. In questo modo nessun descrittore di lock deve attraversare
+`systemd-inhibit`, che chiude i descrittori aggiuntivi prima di avviare il figlio.
+La stessa shell mantiene il mutex da DNF fino alla riconciliazione finale.
+L'inventario iniziale e le convalide prima e dopo i finalizzatori usano snapshot
+stabili sotto il lock RPM condiviso. Il coordinatore rilascia quel lock prima di
+invocare ogni famiglia affinché il finalizzatore preservi l'ordine
+`globale → privato → RPM`, quindi lo riacquisisce per ripetere proprietà,
+percorso, `vermagic`, firma e risoluzione dei moduli fino alla conferma finale. Il
+pulsante di riavvio viene abilitato solo quando non è attiva alcuna compilazione;
+esegue il normale riavvio di systemd e rispetta tutti gli altri inhibitor.
+
+L'azione NVIDIA usa lo stesso protocollo: identifica e convalida rigorosamente
+il kernel in esecuzione, quindi esegue `depmod -a <kernel>` e
+`dracut --force --kver <kernel>` sotto il mutex globale e il lock RPM condiviso,
+senza dipendere dal kernel implicito dei comandi.
+
+Anche la preparazione della chiave MOK mantiene questo mutex dall'ispezione
+della coppia di chiavi fino alla pubblicazione finale del certificato e del
+marker. In questo modo `akmods` non può firmare un modulo mentre la sua identità
+crittografica viene generata o pubblicata.
 
 ## Altoparlanti dopo aggiornamenti del kernel
 
@@ -266,9 +292,9 @@ per ogni kernel installato e richiede che `snd-hda-scodec-max98390` e
 `extra/galaxybook-max98390` e appartengano al pacchetto kmod specifico di quel
 kernel. Solo dopo aver validato entrambe le sostituzioni su tutti i kernel, il
 setup richiama il finalizzatore sincrono del pacchetto MAX98390 per ogni kernel.
-Il finalizzatore si serializza con il worker RPM, rimuove solo le vecchie copie
-senza proprietario RPM, esegue `depmod` e richiede che `modinfo` risolva entrambi
-i moduli esterni.
+Il finalizzatore conserva le vecchie copie in `/updates` ed esegue `depmod` con
+lo stesso lock del worker RPM. La riconciliazione termina soltanto quando
+`modinfo` seleziona in `/extra` entrambi i moduli integri dell'RPM per quel kernel.
 
 Sul kernel in esecuzione, il servizio pacchettizzato è l'unica autorità di boot
 per il caricamento dei moduli e la creazione dei client I2C. La diagnostica
@@ -431,10 +457,28 @@ più importanti del flusso:
 - `galaxybook-camera >= 1.00.43`
 - `galaxybook-sound >= 1.00.18` (opzionale)
 
-Il ciclo attuale richiede almeno `galaxybook-ov02c10 >= 1.00.23` per la famiglia
-OV02C10, `galaxybook-max98390 >= 1.00.10` per la famiglia MAX98390 e
+Il ciclo attuale richiede almeno `galaxybook-ov02c10 >= 1.00.25` per la famiglia
+OV02C10, `galaxybook-max98390 >= 1.00.12` per la famiglia MAX98390 e
 `galaxybook-camera >= 1.00.43`. L'azione audio opzionale installa
-`galaxybook-sound >= 1.00.18`.
+`galaxybook-sound >= 1.00.18`. Aggiornare Setup e le famiglie complete di driver
+nella stessa transazione evita di mescolare i contratti lifecycle vecchi e
+nuovi.
+
+Durante la migrazione da `galaxybook-setup <= 1.00.47`, non avviare il primo
+aggiornamento dalla vecchia interfaccia: una shell privilegiata già in esecuzione
+non può unirsi retroattivamente al nuovo mutex. Chiudere tutte le finestre di
+Setup, attendere il termine di ogni azione attiva e aggiornare prima soltanto il
+coordinatore, con le dipendenze deboli disabilitate:
+
+```bash
+sudo dnf --setopt=install_weak_deps=False --refresh upgrade galaxybook-setup
+```
+
+I requisiti condizionali aggiornano al contratto compatibile anche ogni pacchetto
+`*-kmod-common` già installato, ma non installano una famiglia di driver assente.
+Quindi riaprire Setup `1.00.48` o successivo e usare l'azione **Aggiorna
+pacchetti**; questa seconda fase mantiene l'inhibitor e il mutex globale dal DNF
+dei membri restanti fino alla riconciliazione finale.
 
 Questo permette che l'app venga installata anche prima del setup completo della
 fotocamera, cosa desiderabile per un assistente di installazione.

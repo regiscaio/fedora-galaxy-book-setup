@@ -4,7 +4,6 @@ use std::process::{Command, Output};
 use crate::{tr, trf};
 
 const DNF_COMMAND: &str = "/usr/bin/dnf";
-const PKEXEC_COMMAND: &str = "/usr/bin/pkexec";
 const RPM_COMMAND: &str = "/usr/bin/rpm";
 const TIMEOUT_COMMAND: &str = "/usr/bin/timeout";
 const TIMEOUT_KILL_AFTER: &str = "5s";
@@ -16,14 +15,6 @@ fn command_output_text(stdout: &[u8], stderr: &[u8]) -> String {
     text.push_str(&String::from_utf8_lossy(stdout));
     text.push_str(&String::from_utf8_lossy(stderr));
     text
-}
-
-fn fallback_command_error(output: String, fallback: &str) -> String {
-    if output.trim().is_empty() {
-        fallback.to_string()
-    } else {
-        output
-    }
 }
 
 fn bounded_probe_arguments(command: &str, duration: &str, args: &[&str]) -> Vec<OsString> {
@@ -234,41 +225,6 @@ pub fn package_update_names(packages: &[&str]) -> Result<Vec<String>, String> {
         },
     )?;
     package_update_names_from_output(&output, &installed_package_refs)
-}
-
-pub fn install_package_updates(packages: &[&str]) -> Result<String, String> {
-    let installed_packages = installed_package_names(packages)?;
-    if installed_packages.is_empty() {
-        return Ok(String::new());
-    }
-    let installed_package_refs = installed_packages
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-
-    let output = Command::new(PKEXEC_COMMAND)
-        .arg(DNF_COMMAND)
-        .arg("--refresh")
-        .arg("upgrade")
-        .arg("-y")
-        .args(&installed_package_refs)
-        .output()
-        .map_err(|error| {
-            trf(
-                "Falha ao iniciar a atualização com privilégios administrativos: {error}",
-                &[("error", error.to_string())],
-            )
-        })?;
-    let output_text = command_output_text(&output.stdout, &output.stderr);
-
-    if output.status.success() {
-        Ok(output_text)
-    } else {
-        Err(fallback_command_error(
-            output_text,
-            &tr("A atualização falhou, mas não retornou saída textual."),
-        ))
-    }
 }
 
 #[cfg(test)]

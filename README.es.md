@@ -163,7 +163,10 @@ Hoy, las acciones disponibles incluyen:
 - activar la cámara para navegador vía `icamerasrc`, `v4l2-relayd` y
   `v4l2loopback`, preservando symlinks y configuraciones administrativas o del
   proveedor, manteniendo el acceso directo de `libcamera` y exigiendo una
-  webcam virtual con capacidad de captura antes de finalizar. Si existe la
+  webcam virtual con capacidad de captura antes de finalizar. Si el OV02C10 está
+  presente pero no tiene un controlador asociado, el configurador indica que se consulte
+  el diagnóstico del sensor antes de activar el relay. Volver a aplicar la configuración
+  deja en marcha un relay que ya ofrece captura. Si existe la
   regla administrativa heredada `/etc/udev/rules.d/90-hide-ipu6-v4l2.rules`,
   el setup la preserva y se detiene antes de recargar UDev o los servicios;
   revísela y, si corresponde, elimínela manualmente como administrador antes
@@ -249,11 +252,34 @@ todos los kernels, pero no intenta descargar un módulo en uso ni afirma que se
 haya sustituido en vivo. El reinicio vuelve a crear el grafo de medios con el
 driver correcto disponible desde el inicio del boot.
 
-Durante toda la reconciliación, incluso después de que termine la transacción
-DNF, el helper mantiene un inhibidor bloqueante de systemd para apagado,
-suspensión e inactividad. El botón de reinicio solo se habilita cuando no hay
-ninguna compilación activa; ejecuta el reinicio normal de systemd y, por lo
-tanto, respeta también los demás inhibidores del sistema.
+Durante toda la reconciliación, incluida la transacción DNF iniciada por Setup,
+el flujo mantiene un mutex global exclusivo en
+`/run/lock/galaxybook-kmod-lifecycle.lock`. Setup, los workers OV02C10 y
+MAX98390 y el mantenimiento NVIDIA heredan y revalidan el mismo descriptor;
+así, `akmods`, limpieza, `depmod`, `dracut` y publicación de estado no se
+superponen entre drivers. El orden único es mutex global, mutex privado del
+driver y lock de lectura RPM cuando corresponde. El coordinador abre primero un
+inhibidor bloqueante de systemd para apagado, suspensión e inactividad y solo
+después adquiere el mutex. Así, ningún descriptor de lock necesita atravesar
+`systemd-inhibit`, que cierra los descriptores adicionales antes de iniciar su
+hijo. El mismo shell mantiene el mutex desde DNF hasta la reconciliación final.
+El inventario inicial y las validaciones antes y después de los finalizadores
+usan snapshots estables bajo el lock RPM compartido. El coordinador libera ese
+lock antes de invocar cada familia para que el finalizador preserve el orden
+`global → privado → RPM`, y luego vuelve a adquirirlo para repetir propietario,
+ruta, `vermagic`, firma y resolución de los módulos hasta la confirmación
+final. El botón de reinicio solo se habilita cuando no hay ninguna compilación activa;
+ejecuta el reinicio normal de systemd y respeta los demás inhibidores.
+
+La acción NVIDIA usa el mismo protocolo: identifica y valida estrictamente el
+kernel en ejecución y ejecuta `depmod -a <kernel>` y
+`dracut --force --kver <kernel>` bajo el mutex global y el lock RPM compartido,
+sin depender del kernel implícito de esos comandos.
+
+La preparación de la clave MOK también mantiene este mutex desde la inspección
+del par de claves hasta la publicación final del certificado y del marcador.
+Así, `akmods` no puede firmar un módulo mientras se genera o publica su identidad
+criptográfica.
 
 ## Altavoces después de actualizar el kernel
 
@@ -263,9 +289,9 @@ para cada kernel instalado y exige que `snd-hda-scodec-max98390` y
 `extra/galaxybook-max98390` y pertenezcan al paquete kmod específico de ese
 kernel. Solo después de validar ambos reemplazos en todos los kernels, el setup
 invoca el finalizador síncrono del propio paquete MAX98390 para cada kernel. El
-finalizador se serializa con el worker RPM, elimina únicamente copias antiguas
-sin dueño RPM, ejecuta `depmod` y exige que `modinfo` resuelva los dos módulos
-externos.
+finalizador conserva las copias antiguas en `/updates` y ejecuta `depmod` bajo
+el mismo bloqueo que el worker RPM. La reconciliación solo termina cuando
+`modinfo` selecciona en `/extra` los dos módulos íntegros del RPM de ese kernel.
 
 En el kernel en ejecución, el servicio empaquetado es la única autoridad de
 arranque para cargar los módulos y crear los clientes I2C. El diagnóstico
@@ -428,10 +454,29 @@ paquetes más importantes del flujo:
 - `galaxybook-camera >= 1.00.43`
 - `galaxybook-sound >= 1.00.18` (opcional)
 
-El ciclo actual requiere como mínimo `galaxybook-ov02c10 >= 1.00.23` para la
-familia OV02C10, `galaxybook-max98390 >= 1.00.10` para la familia MAX98390 y
+El ciclo actual requiere como mínimo `galaxybook-ov02c10 >= 1.00.25` para la
+familia OV02C10, `galaxybook-max98390 >= 1.00.12` para la familia MAX98390 y
 `galaxybook-camera >= 1.00.43`. La acción opcional de sonido instala
-`galaxybook-sound >= 1.00.18`.
+`galaxybook-sound >= 1.00.18`. Actualice Setup y las familias completas de
+drivers en la misma transacción para no mezclar contratos de lifecycle antiguos
+y nuevos.
+
+Al migrar desde `galaxybook-setup <= 1.00.47`, no inicie la primera actualización
+desde la interfaz antigua: un shell privilegiado que ya esté en ejecución no
+puede incorporarse retroactivamente al nuevo mutex. Cierre todas las ventanas
+de Setup, espere a que termine cualquier acción activa y actualice primero solo
+el coordinador, con las dependencias débiles deshabilitadas:
+
+```bash
+sudo dnf --setopt=install_weak_deps=False --refresh upgrade galaxybook-setup
+```
+
+Los requisitos condicionales también actualizan cualquier paquete
+`*-kmod-common` instalado al contrato compatible, pero no instalan una familia
+de drivers ausente. Después, vuelva a abrir Setup `1.00.48` o posterior y use su
+acción **Actualizar paquetes**; esta segunda etapa mantiene el inhibitor y el
+mutex global desde el DNF de los miembros restantes hasta la reconciliación
+final.
 
 Eso permite que la app se instale incluso antes del setup completo de la
 cámara, lo que es deseable para un asistente de instalación.

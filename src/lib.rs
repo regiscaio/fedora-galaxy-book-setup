@@ -15,9 +15,10 @@ use module_build_id::loaded_module_binary_matches_candidate;
 pub const APP_ID: &str = "com.caioregis.GalaxyBookSetup";
 pub const APP_NAME: &str = "Galaxy Book Setup";
 pub use i18n::{init_i18n, tr, tr_mark, trf, trn};
-pub use updates::{install_package_updates, package_update_names};
+pub use updates::package_update_names;
 pub const CAMERA_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookCamera.desktop";
 pub const SOUND_APP_DESKTOP_ID: &str = "com.caioregis.GalaxyBookSound.desktop";
+pub const BROWSER_SENSOR_UNBOUND: &str = "browser-sensor-unbound";
 pub const AKMODS_PUBLIC_KEY_PATH: &str = "/etc/pki/akmods/certs/public_key.der";
 pub const AKMODS_PRIVATE_KEY_PATH: &str = "/etc/pki/akmods/private/private_key.priv";
 pub const AKMODS_KEY_CN_PATH: &str = "/var/lib/galaxybook-setup/akmods-key.cn";
@@ -65,48 +66,26 @@ const RPM_PACKAGE_QUERY_ALLOWLIST: &[&str] = &[
 const RPM_DYNAMIC_KMOD_QUERY_PREFIXES: &[&str] =
     &["kmod-galaxybook-ov02c10-", "kmod-galaxybook-max98390-"];
 pub const KMOD_RECONCILE_HELPER: &str = "/usr/libexec/galaxybook-setup/reconcile-kmods";
-pub const INSTALL_MAIN_SUPPORT_COMMAND: &str = r#"set -euo pipefail
-dnf --refresh install -y \
-  'galaxybook-camera >= 1.00.43' \
-  'galaxybook-ov02c10-kmod-common >= 1.00.23' \
-  'akmod-galaxybook-ov02c10 >= 1.00.23' \
-  'kmod-galaxybook-ov02c10 >= 1.00.23' \
-  'galaxybook-max98390-kmod-common >= 1.00.10' \
-  'akmod-galaxybook-max98390 >= 1.00.10' \
-  'kmod-galaxybook-max98390 >= 1.00.10' \
-  i2c-tools
-exec /usr/libexec/galaxybook-setup/reconcile-kmods all
-"#;
-pub const INSTALL_CAMERA_COMMAND: &str = r#"set -euo pipefail
-dnf --refresh install -y \
-  'galaxybook-ov02c10-kmod-common >= 1.00.23' \
-  'akmod-galaxybook-ov02c10 >= 1.00.23' \
-  'kmod-galaxybook-ov02c10 >= 1.00.23' \
-  'galaxybook-camera >= 1.00.43'
-exec /usr/libexec/galaxybook-setup/reconcile-kmods ov02c10
-"#;
+pub const OV02C10_KMOD_MIN_VERSION: &str = "1.00.25";
+pub const MAX98390_KMOD_MIN_VERSION: &str = "1.00.12";
+pub const INSTALL_MAIN_SUPPORT_COMMAND: &str =
+    "exec /usr/libexec/galaxybook-setup/driver-maintenance install-main";
+pub const INSTALL_CAMERA_COMMAND: &str =
+    "exec /usr/libexec/galaxybook-setup/driver-maintenance install-camera";
 pub const INSTALL_SOUND_APP_COMMAND: &str = "dnf install -y 'galaxybook-sound >= 1.00.18'";
 pub const REPAIR_CAMERA_COMMAND: &str = FORCE_CAMERA_DRIVER_COMMAND;
 pub const ENABLE_CAMERA_MODULE_COMMAND: &str =
     "exec /usr/libexec/galaxybook-setup/reconcile-kmods ov02c10";
 pub const FORCE_CAMERA_DRIVER_COMMAND: &str = INSTALL_CAMERA_COMMAND;
 
-pub const ENABLE_BROWSER_CAMERA_COMMAND: &str = r#"set -euo pipefail
-dnf install -y v4l2-relayd v4l2loopback gstreamer1-plugins-icamerasrc v4l-utils
-exec /usr/libexec/galaxybook-setup/configure-browser-camera
-"#;
-pub const ENABLE_SPEAKER_COMMAND: &str = r#"set -euo pipefail
-dnf --refresh install -y \
-  'galaxybook-max98390-kmod-common >= 1.00.10' \
-  'akmod-galaxybook-max98390 >= 1.00.10' \
-  'kmod-galaxybook-max98390 >= 1.00.10' \
-  i2c-tools
-exec /usr/libexec/galaxybook-setup/reconcile-kmods max98390
-"#;
+pub const ENABLE_BROWSER_CAMERA_COMMAND: &str =
+    "exec /usr/libexec/galaxybook-setup/driver-maintenance enable-browser-camera";
+pub const ENABLE_SPEAKER_COMMAND: &str =
+    "exec /usr/libexec/galaxybook-setup/driver-maintenance enable-speakers";
 
 pub const PREPARE_SECURE_BOOT_KEY_COMMAND: &str =
     "exec /usr/libexec/galaxybook-setup/prepare-secure-boot-key";
-pub const REPAIR_NVIDIA_COMMAND: &str = r#"dnf install -y akmod-nvidia && akmods --force --kernels "$(uname -r)" && depmod -a && dracut --force"#;
+pub const REPAIR_NVIDIA_COMMAND: &str = "exec /usr/libexec/galaxybook-setup/repair-nvidia-kmod";
 pub const SET_BALANCED_PROFILE_COMMAND: &str = r#"if [ -w /sys/firmware/acpi/platform_profile ]; then printf 'balanced' > /sys/firmware/acpi/platform_profile; cat /sys/firmware/acpi/platform_profile; else echo 'O perfil da plataforma não está disponível neste sistema.' >&2; exit 1; fi"#;
 pub const REPAIR_FINGERPRINT_COMMAND: &str = r#"dnf reinstall -y fprintd libfprint && systemctl restart fprintd && rpm -q fprintd libfprint"#;
 pub const ENABLE_FINGERPRINT_AUTH_COMMAND: &str = r#"authselect enable-feature with-fingerprint && authselect apply-changes && authselect current"#;
@@ -427,9 +406,10 @@ pub fn collect_snapshot() -> SetupSnapshot {
         notebook: detect_notebook(),
         fedora: detect_fedora_release(),
         kernel: running_kernel.unwrap_or_else(|| "Desconhecido".into()),
-        secure_boot: detect_secure_boot(),
+        secure_boot: secure_boot_label(secure_boot_state),
     };
-    let secure_boot_key_check = detect_secure_boot_key_check();
+    let secure_boot_key_check =
+        detect_secure_boot_key_check(secure_boot_state, expected_module_identity.as_ref());
 
     let packages = package_presence(&[
         "galaxybook-ov02c10-kmod-common",
@@ -763,15 +743,8 @@ pub fn collect_snapshot() -> SetupSnapshot {
         },
     };
 
-    let browser_packages = package_presence(&[
-        "v4l2-relayd",
-        "v4l2loopback",
-        "gstreamer1-plugins-icamerasrc",
-        "v4l-utils",
-    ]);
-    let camera_source_ready = detect_system_camera_source_ready();
-    let browser_camera =
-        detect_browser_camera_check(&browser_packages, libcamera_detected, camera_source_ready);
+    let (browser_camera, camera_source_ready) =
+        probe_browser_camera(Path::new("/sys/bus/i2c/devices"), libcamera_detected);
     let max_driver_packages = [
         "galaxybook-max98390-kmod-common",
         "akmod-galaxybook-max98390",
@@ -878,7 +851,7 @@ pub fn collect_snapshot() -> SetupSnapshot {
         libcamera_detected,
         libcamera_permission_blocked,
         camera_source_ready,
-        browser_camera.health == Health::Good,
+        browser_camera.code,
         camera_app_installed,
         speakers_check.health != Health::Unknown,
         speakers_check.health == Health::Good,
@@ -988,8 +961,8 @@ fn detect_fedora_release() -> String {
     read_trimmed("/etc/fedora-release").unwrap_or_else(|| tr("Fedora (versão não identificada)"))
 }
 
-fn detect_secure_boot() -> String {
-    match secure_boot_enabled() {
+fn secure_boot_label(state: Option<bool>) -> String {
+    match state {
         Some(true) => tr("Ativado"),
         Some(false) => tr("Desativado"),
         None => tr("Não foi possível verificar"),
@@ -1430,10 +1403,13 @@ fn detect_nvidia_check() -> CheckItem {
     }
 }
 
-fn detect_secure_boot_key_check() -> CheckItem {
+fn detect_secure_boot_key_check(
+    secure_boot_state: Option<bool>,
+    current_key_identity: Option<&AkmodsKeyIdentity>,
+) -> CheckItem {
     let title = "Chave do Secure Boot";
 
-    let Some(secure_boot_enabled) = secure_boot_enabled() else {
+    let Some(secure_boot_enabled) = secure_boot_state else {
         return CheckItem {
             title,
             detail: tr(
@@ -1455,7 +1431,7 @@ fn detect_secure_boot_key_check() -> CheckItem {
         };
     }
 
-    if mok_pending_request_exists() {
+    if current_key_identity.is_some_and(mok_pending_request_exists) {
         return CheckItem {
             title,
             detail: tr(
@@ -1466,7 +1442,7 @@ fn detect_secure_boot_key_check() -> CheckItem {
         };
     }
 
-    if signed_external_module_is_loaded() {
+    if current_key_identity.is_some_and(signed_external_module_is_loaded) {
         return CheckItem {
             title,
             detail: tr(
@@ -1480,15 +1456,11 @@ fn detect_secure_boot_key_check() -> CheckItem {
     // The certificate and private-key directories are normally 0750
     // root:akmods. Only a successful MOK query plus a v2 marker that exactly
     // matches the trusted public DER copy may establish enrollment.
-    let current_key_identity = current_akmods_key_identity();
-    let enrolled_output = probe_output("mokutil", &["--list-enrolled"], true)
-        .ok()
-        .and_then(|output| strict_success_stdout(&output).map(str::to_string));
-    if mok_enrollment_is_proven(
-        current_key_identity.as_ref(),
-        enrolled_output.as_deref(),
-        false,
-    ) {
+    if current_key_identity.is_some_and(|identity| {
+        probe_output("mokutil", &["--list-enrolled"], true).is_ok_and(|output| {
+            mok_enrollment_is_proven(Some(identity), strict_success_stdout(&output), false)
+        })
+    }) {
         return CheckItem {
             title,
             detail: tr(
@@ -1522,7 +1494,7 @@ fn detect_secure_boot_key_check() -> CheckItem {
             .and_then(strict_success_stdout)
             .is_some();
         if mok_enrollment_is_proven(
-            current_key_identity.as_ref(),
+            current_key_identity,
             None,
             public_certificate_test_succeeded,
         ) {
@@ -1633,6 +1605,64 @@ fn detect_platform_profile_check() -> CheckItem {
             code: "platform-unavailable",
         },
     }
+}
+
+// A missing driver on every present OV02C10 blocks the relay. Other sensors and
+// unreadable sysfs state retain the normal browser diagnostics.
+fn all_ov_sensors_unbound(devices: &Path) -> bool {
+    let Ok(entries) = fs::read_dir(devices) else {
+        return false;
+    };
+    let mut found = false;
+    for entry in entries {
+        let Ok(entry) = entry else { return false };
+        if !entry
+            .file_name()
+            .as_encoded_bytes()
+            .starts_with(b"i2c-OVTI02C1:")
+        {
+            continue;
+        }
+        let sensor = entry.path();
+        match fs::symlink_metadata(sensor.join("driver")) {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && sensor.is_dir() => {
+                found = true
+            }
+            _ => return false,
+        }
+    }
+    found
+}
+
+fn probe_browser_camera(devices: &Path, libcamera_detected: bool) -> (CheckItem, bool) {
+    if all_ov_sensors_unbound(devices) {
+        return (
+            CheckItem {
+                title: "Navegador e comunicadores",
+                detail: browser_sensor_unbound_detail(),
+                health: Health::Error,
+                code: BROWSER_SENSOR_UNBOUND,
+            },
+            false,
+        );
+    }
+    let packages = package_presence(&[
+        "v4l2-relayd",
+        "v4l2loopback",
+        "gstreamer1-plugins-icamerasrc",
+        "v4l-utils",
+    ]);
+    let source_ready = detect_system_camera_source_ready();
+    (
+        detect_browser_camera_check(&packages, libcamera_detected, source_ready),
+        source_ready,
+    )
+}
+
+fn browser_sensor_unbound_detail() -> String {
+    tr(
+        "O sensor OV02C10 está presente, mas sem driver neste boot. Repare o driver da câmera e atualize o diagnóstico antes de ativar a webcam virtual.",
+    )
 }
 
 fn detect_browser_camera_check(
@@ -1810,6 +1840,30 @@ fn detect_speakers_check_with_hardware(
         HardwareDiscovery::Present => {}
     }
 
+    if !packages.unknown.is_empty() {
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail: trf(
+                "O hardware MAX98390 foi detectado, mas a consulta RPM não confirmou o estado de: {packages}. O setup não tratou esses pacotes como ausentes e bloqueou o reboot específico dos drivers. Aguarde o fim de outra operação RPM/DNF e atualize o diagnóstico; se persistir, verifique a integridade da rpmdb.",
+                &[("packages", packages.unknown.join(", "))],
+            ),
+            health: Health::Unknown,
+            code: "speakers-packages-query-unknown",
+        };
+    }
+
+    if !packages.missing.is_empty() {
+        return CheckItem {
+            title: "Alto-falantes internos",
+            detail: trf(
+                "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de speakers: {packages}",
+                &[("packages", packages.missing.join(", "))],
+            ),
+            health: Health::Warning,
+            code: "speakers-packages-missing",
+        };
+    }
+
     let core_payload_inventory = module_payload_inventory(
         kernels,
         "kmod-galaxybook-max98390",
@@ -1834,46 +1888,6 @@ fn detect_speakers_check_with_hardware(
     unknown_rpm_kernels.extend(i2c_payload_inventory.unknown_rpm_kernels);
     unknown_rpm_kernels.sort();
     unknown_rpm_kernels.dedup();
-
-    let modules = read_trimmed("/proc/modules").unwrap_or_default();
-    let core_loaded = modules
-        .lines()
-        .any(|line| line.starts_with("snd_hda_scodec_max98390 "));
-    let i2c_loaded = modules
-        .lines()
-        .any(|line| line.starts_with("snd_hda_scodec_max98390_i2c "));
-    let setup_service = "max98390-hda-i2c-setup.service";
-    let setup_active = systemd_unit_is_active(setup_service);
-    let setup_result = systemd_unit_property(setup_service, "Result");
-    let setup_succeeded = setup_result.as_deref() == Some("success");
-    let setup_enabled = systemd_unit_enabled_state(setup_service)
-        .map(|state| state == "enabled")
-        .unwrap_or(false);
-    let binding_count = max98390_binding_count();
-
-    if !packages.unknown.is_empty() {
-        return CheckItem {
-            title: "Alto-falantes internos",
-            detail: trf(
-                "O hardware MAX98390 foi detectado, mas a consulta RPM não confirmou o estado de: {packages}. O setup não tratou esses pacotes como ausentes e bloqueou o reboot específico dos drivers. Aguarde o fim de outra operação RPM/DNF e atualize o diagnóstico; se persistir, verifique a integridade da rpmdb.",
-                &[("packages", packages.unknown.join(", "))],
-            ),
-            health: Health::Unknown,
-            code: "speakers-packages-query-unknown",
-        };
-    }
-
-    if !packages.missing.is_empty() {
-        return CheckItem {
-            title: "Alto-falantes internos",
-            detail: trf(
-                "O hardware MAX98390 foi detectado, mas ainda faltam pacotes do suporte de speakers: {packages}",
-                &[("packages", packages.missing.join(", "))],
-            ),
-            health: Health::Warning,
-            code: "speakers-packages-missing",
-        };
-    }
 
     if !unknown_rpm_kernels.is_empty() {
         return CheckItem {
@@ -1910,7 +1924,8 @@ fn detect_speakers_check_with_hardware(
         };
     }
 
-    if !setup_enabled {
+    let setup_service = "max98390-hda-i2c-setup.service";
+    if systemd_unit_enabled_state(setup_service).as_deref() != Some("enabled") {
         return CheckItem {
             title: "Alto-falantes internos",
             detail: tr(
@@ -1921,7 +1936,8 @@ fn detect_speakers_check_with_hardware(
         };
     }
 
-    if !setup_active || !setup_succeeded {
+    let setup_result = systemd_unit_property(setup_service, "Result");
+    if setup_result.as_deref() != Some("success") || !systemd_unit_is_active(setup_service) {
         return CheckItem {
             title: "Alto-falantes internos",
             detail: trf(
@@ -1936,6 +1952,7 @@ fn detect_speakers_check_with_hardware(
         };
     }
 
+    let binding_count = max98390_binding_count();
     if binding_count < 4 {
         return CheckItem {
             title: "Alto-falantes internos",
@@ -1948,6 +1965,13 @@ fn detect_speakers_check_with_hardware(
         };
     }
 
+    let modules = read_trimmed("/proc/modules").unwrap_or_default();
+    let core_loaded = modules
+        .lines()
+        .any(|line| line.starts_with("snd_hda_scodec_max98390 "));
+    let i2c_loaded = modules
+        .lines()
+        .any(|line| line.starts_with("snd_hda_scodec_max98390_i2c "));
     if core_loaded && i2c_loaded {
         return CheckItem {
             title: "Alto-falantes internos",
@@ -2005,15 +2029,27 @@ fn classify_kernel_journal_probe(
     }
     if detect_clock_error(kernel_log) {
         KernelJournalProbe::ClockError
-    } else {
+    } else if kernel_log
+        .lines()
+        .any(|line| line.starts_with("Linux version "))
+    {
         KernelJournalProbe::Clean
+    } else {
+        // The boot banner proves that the early kernel messages are accessible.
+        KernelJournalProbe::Unknown
     }
 }
 
 fn probe_kernel_journal() -> KernelJournalProbe {
     let Ok(output) = probe_output(
         "journalctl",
-        &["-b", "-k", "--no-pager", "--lines=5000"],
+        &[
+            "-b",
+            "-k",
+            "--no-pager",
+            "--output=cat",
+            "--grep=^Linux version |external clock 26000000 is not supported|probe with driver ov02c10 failed with error -22",
+        ],
         true,
     ) else {
         return KernelJournalProbe::Unknown;
@@ -2373,7 +2409,7 @@ fn recommend_next_step(
     libcamera_detected: bool,
     libcamera_permission_blocked: bool,
     camera_source_ready: bool,
-    browser_camera_ready: bool,
+    browser_camera_code: &str,
     camera_app_installed: bool,
     speaker_supported: bool,
     speaker_ready: bool,
@@ -2481,6 +2517,10 @@ fn recommend_next_step(
         );
     }
 
+    if browser_camera_code == BROWSER_SENSOR_UNBOUND {
+        return (tr("Reparar o driver"), browser_sensor_unbound_detail());
+    }
+
     if libcamera_permission_blocked {
         return (
             tr("O bridge do navegador bloqueou o libcamera"),
@@ -2499,7 +2539,7 @@ fn recommend_next_step(
         );
     }
 
-    if !browser_camera_ready && (libcamera_detected || camera_source_ready) {
+    if browser_camera_code != "browser-ready" && (libcamera_detected || camera_source_ready) {
         return (
             tr("Compatibilidade com navegador pendente"),
             tr(
@@ -3442,10 +3482,7 @@ fn key_file_state(path: &str) -> KeyFileState {
     }
 }
 
-fn signed_external_module_is_loaded() -> bool {
-    let Some(expected_identity) = current_akmods_key_identity() else {
-        return false;
-    };
+fn signed_external_module_is_loaded(expected_identity: &AkmodsKeyIdentity) -> bool {
     let loaded_modules = read_trimmed("/proc/modules").unwrap_or_default();
     let running_kernel = running_kernel_release().unwrap_or_default();
     [
@@ -3483,7 +3520,7 @@ fn signed_external_module_is_loaded() -> bool {
             &running_kernel,
             mok_proof_candidate_module_path(modinfo_name, &path),
             true,
-            Some(&expected_identity),
+            Some(expected_identity),
         )
     })
 }
@@ -3883,22 +3920,19 @@ fn mok_pending_output_matches_current_identity(
     output_success && mok_list_matches_current_identity(output, current_identity)
 }
 
-fn mok_pending_request_exists() -> bool {
+fn mok_pending_request_exists(identity: &AkmodsKeyIdentity) -> bool {
     // The privileged helper publishes both the public DER and its v2 marker.
     // Require those two root-owned artifacts to prove the same current key
     // before matching its SHA-1 fingerprint against mokutil --list-new. This
     // proof is sufficient only to offer the enrollment reboot; it never
     // establishes enrollment, driver readiness or module ownership.
-    let Some(identity) = current_akmods_key_identity() else {
-        return false;
-    };
     let Ok(output) = probe_output("mokutil", &["--list-new"], true) else {
         return false;
     };
     let Some(output_text) = strict_success_stdout(&output) else {
         return false;
     };
-    mok_pending_output_matches_current_identity(true, output_text, Some(&identity))
+    mok_pending_output_matches_current_identity(true, output_text, Some(identity))
 }
 
 fn read_trusted_file(path: &str, require_root_owned: bool) -> Option<String> {
@@ -4200,10 +4234,10 @@ esac
 
     #[test]
     fn force_camera_driver_command_delegates_multi_kernel_reconciliation() {
-        assert!(FORCE_CAMERA_DRIVER_COMMAND.contains("galaxybook-ov02c10-kmod-common >= 1.00.23"));
-        assert!(
-            FORCE_CAMERA_DRIVER_COMMAND
-                .contains("/usr/libexec/galaxybook-setup/reconcile-kmods ov02c10")
+        assert_eq!(OV02C10_KMOD_MIN_VERSION, "1.00.25");
+        assert_eq!(
+            FORCE_CAMERA_DRIVER_COMMAND,
+            "exec /usr/libexec/galaxybook-setup/driver-maintenance install-camera"
         );
         assert!(!FORCE_CAMERA_DRIVER_COMMAND.contains("/updates/ov02c10"));
         assert!(!FORCE_CAMERA_DRIVER_COMMAND.contains("modprobe ov02c10"));
@@ -4212,29 +4246,56 @@ esac
 
     #[test]
     fn max_driver_commands_require_the_packaged_finalizer_release() {
-        for command in [INSTALL_MAIN_SUPPORT_COMMAND, ENABLE_SPEAKER_COMMAND] {
-            assert!(command.contains("galaxybook-max98390-kmod-common >= 1.00.10"));
-            assert!(command.contains("akmod-galaxybook-max98390 >= 1.00.10"));
-            assert!(command.contains("kmod-galaxybook-max98390 >= 1.00.10"));
-        }
+        let helper = include_str!("../scripts/driver-maintenance.sh");
+
+        assert_eq!(MAX98390_KMOD_MIN_VERSION, "1.00.12");
+        assert!(helper.contains("galaxybook-max98390-kmod-common >= 1.00.12"));
+        assert!(helper.contains("akmod-galaxybook-max98390 >= 1.00.12"));
+        assert!(helper.contains("kmod-galaxybook-max98390 >= 1.00.12"));
+    }
+
+    #[test]
+    fn nvidia_command_delegates_locked_kernel_maintenance() {
+        assert_eq!(
+            REPAIR_NVIDIA_COMMAND,
+            "exec /usr/libexec/galaxybook-setup/repair-nvidia-kmod"
+        );
+        assert!(!REPAIR_NVIDIA_COMMAND.contains("depmod"));
+        assert!(!REPAIR_NVIDIA_COMMAND.contains("dracut"));
     }
 
     #[test]
     fn camera_and_sound_commands_require_the_current_application_contracts() {
-        for command in [INSTALL_MAIN_SUPPORT_COMMAND, INSTALL_CAMERA_COMMAND] {
-            assert!(command.contains("galaxybook-camera >= 1.00.43"));
-        }
+        let helper = include_str!("../scripts/driver-maintenance.sh");
+
+        assert!(helper.contains("galaxybook-camera >= 1.00.43"));
         assert!(INSTALL_SOUND_APP_COMMAND.contains("galaxybook-sound >= 1.00.18"));
     }
 
     #[test]
     fn browser_camera_command_delegates_safe_packaged_helper() {
-        assert!(
-            ENABLE_BROWSER_CAMERA_COMMAND
-                .contains("/usr/libexec/galaxybook-setup/configure-browser-camera")
+        assert_eq!(
+            ENABLE_BROWSER_CAMERA_COMMAND,
+            "exec /usr/libexec/galaxybook-setup/driver-maintenance enable-browser-camera"
         );
         assert!(!ENABLE_BROWSER_CAMERA_COMMAND.contains("cat > /etc"));
         assert!(!ENABLE_BROWSER_CAMERA_COMMAND.contains("rm -f /etc/udev"));
+    }
+
+    #[test]
+    fn module_install_commands_delegate_to_the_inhibited_coordinator() {
+        assert_eq!(
+            INSTALL_MAIN_SUPPORT_COMMAND,
+            "exec /usr/libexec/galaxybook-setup/driver-maintenance install-main"
+        );
+        assert_eq!(
+            INSTALL_CAMERA_COMMAND,
+            "exec /usr/libexec/galaxybook-setup/driver-maintenance install-camera"
+        );
+        assert_eq!(
+            ENABLE_SPEAKER_COMMAND,
+            "exec /usr/libexec/galaxybook-setup/driver-maintenance enable-speakers"
+        );
     }
 
     #[test]
@@ -4256,7 +4317,7 @@ esac
 
     #[test]
     fn kernel_journal_probe_is_strict_and_never_turns_partial_evidence_green() {
-        let clean_log = b"kernel: ordinary boot line\n";
+        let clean_log = b"Linux version 7.3.4 (test kernel)\n";
         let clock_log = b"ov02c10: external clock 26000000 is not supported\n";
         assert_eq!(
             classify_kernel_journal_probe(Some(0), clean_log, b""),
@@ -4273,6 +4334,18 @@ esac
 
         for (label, exit_code, stdout, stderr) in [
             ("empty", Some(0), &b""[..], &b""[..]),
+            (
+                "no-accessible-entries",
+                Some(0),
+                &b"-- No entries --\n"[..],
+                &b""[..],
+            ),
+            (
+                "early-boot-missing",
+                Some(0),
+                &b"kernel: ordinary line\n"[..],
+                &b""[..],
+            ),
             ("warning", Some(0), &clean_log[..], &b"warning\n"[..]),
             ("query-failure", Some(1), &clean_log[..], &b""[..]),
             ("timeout", Some(124), &clean_log[..], &b""[..]),
@@ -4651,6 +4724,17 @@ esac
                 .detail
                 .contains("não classificou esses pacotes como ausentes")
         );
+    }
+
+    #[test]
+    fn secure_boot_summary_and_mok_share_the_snapshot_state() {
+        for (state, label, code) in [
+            (None, "Não foi possível verificar", "mok-unavailable"),
+            (Some(false), "Desativado", "mok-not-needed"),
+        ] {
+            assert_eq!(secure_boot_label(state), tr(label));
+            assert_eq!(detect_secure_boot_key_check(state, None).code, code);
+        }
     }
 
     #[test]
@@ -5517,7 +5601,7 @@ esac
             false,
             false,
             false,
-            false,
+            "browser-missing",
             false,
             false,
             false,
@@ -5545,7 +5629,7 @@ esac
             false,
             false,
             false,
-            true,
+            "browser-ready",
             false,
             false,
             false,
@@ -5595,6 +5679,31 @@ esac
         assert_eq!(item.code, "dash-to-dock-mismatch");
         assert!(item.detail.contains("auto-ocultação"));
         assert!(item.detail.contains("lixeira visível"));
+    }
+
+    #[test]
+    fn browser_sensor_uses_live_driver_links_for_all_present_ov_devices() {
+        let root =
+            std::env::temp_dir().join(format!("galaxybook-browser-sensor-{}", std::process::id()));
+        fs::create_dir(&root).unwrap();
+        assert!(!all_ov_sensors_unbound(
+            &root.join("unreadable-or-absent-bus")
+        ));
+        fs::create_dir(root.join("i2c-OTHER:00")).unwrap();
+        assert!(!all_ov_sensors_unbound(&root));
+        let sensor = root.join("i2c-OVTI02C1:00");
+        let other_ov = root.join("i2c-OVTI02C1:01");
+        fs::create_dir(&sensor).unwrap();
+        fs::create_dir(&other_ov).unwrap();
+        let (check, source_ready) = probe_browser_camera(&root, true);
+        assert_eq!(check.code, BROWSER_SENSOR_UNBOUND);
+        assert_eq!(check.health, Health::Error);
+        assert!(!source_ready);
+        std::os::unix::fs::symlink(&root, other_ov.join("driver")).unwrap();
+        assert!(!all_ov_sensors_unbound(&root));
+        fs::remove_file(other_ov.join("driver")).unwrap();
+        assert!(all_ov_sensors_unbound(&root));
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[test]
@@ -5653,7 +5762,7 @@ esac
             false,
             false,
             false,
-            false,
+            "browser-missing",
             false,
             false,
             false,
@@ -5682,13 +5791,33 @@ esac
             true,
             false,
             true,
-            false,
+            "browser-missing",
             true,
             false,
             false,
             false,
         );
         assert_eq!(title, "Compatibilidade com navegador pendente");
+        let (title, detail) = recommend_next_step(
+            &ok_secure_boot_key_item(),
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            true,
+            true,
+            true,
+            false,
+            true,
+            BROWSER_SENSOR_UNBOUND,
+            true,
+            false,
+            false,
+            false,
+        );
+        assert_eq!(title, "Reparar o driver");
+        assert_eq!(detail, browser_sensor_unbound_detail());
     }
 
     #[test]
@@ -5710,7 +5839,7 @@ esac
             true,
             false,
             true,
-            true,
+            "browser-ready",
             true,
             true,
             false,
@@ -5738,7 +5867,7 @@ esac
             true,
             false,
             true,
-            true,
+            "browser-ready",
             true,
             true,
             true,
@@ -5772,7 +5901,7 @@ esac
             false,
             false,
             false,
-            false,
+            "browser-missing",
             false,
             false,
             false,
@@ -5800,7 +5929,7 @@ esac
             false,
             true,
             true,
-            true,
+            "browser-ready",
             true,
             false,
             false,
@@ -5831,7 +5960,7 @@ esac
             false,
             false,
             false,
-            true,
+            "browser-ready",
             true,
             true,
             true,

@@ -2,7 +2,9 @@ pub(crate) mod runtime;
 
 use crate::actions::{ActionKey, dedupe_action_keys};
 use crate::ui::DiagnosticKey;
-use galaxybook_setup::{APP_NAME, CheckItem, Health, SetupSnapshot, tr, trf, trn};
+use galaxybook_setup::{
+    APP_NAME, BROWSER_SENSOR_UNBOUND, CheckItem, Health, SetupSnapshot, tr, trf, trn,
+};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct DiagnosticAlertCounts {
@@ -200,6 +202,11 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
                 vec![]
             } else {
                 match item.code {
+                    "libcamera-permission-blocked"
+                        if snapshot.browser_camera.code == BROWSER_SENSOR_UNBOUND =>
+                    {
+                        vec![ActionKey::ForceDriverPriority]
+                    }
                     "libcamera-permission-blocked" => {
                         vec![ActionKey::EnableBrowserCamera]
                     }
@@ -230,7 +237,9 @@ pub(crate) fn suggested_actions(snapshot: &SetupSnapshot, key: DiagnosticKey) ->
             with_secure_boot_actions(snapshot, actions)
         }
         DiagnosticKey::BrowserCamera => {
-            if item.health == Health::Good {
+            if item.code == BROWSER_SENSOR_UNBOUND {
+                with_secure_boot_actions(snapshot, vec![ActionKey::ForceDriverPriority])
+            } else if item.health == Health::Good {
                 vec![]
             } else {
                 vec![ActionKey::EnableBrowserCamera]
@@ -422,6 +431,28 @@ mod tests {
             camera_app_installed: true,
             sound_app_installed: false,
         }
+    }
+
+    #[test]
+    fn unbound_sensor_offers_driver_repair_and_blocks_virtual_camera_actions() {
+        let mut snapshot = test_snapshot();
+        snapshot.browser_camera = item(Health::Error, BROWSER_SENSOR_UNBOUND);
+        snapshot.libcamera = item(Health::Error, "libcamera-permission-blocked");
+        for key in [DiagnosticKey::Libcamera, DiagnosticKey::BrowserCamera] {
+            assert_eq!(
+                suggested_actions(&snapshot, key),
+                vec![ActionKey::ForceDriverPriority]
+            );
+        }
+        assert!(!crate::actions::action_is_snapshot_eligible(
+            ActionKey::EnableBrowserCamera,
+            &snapshot
+        ));
+        snapshot.browser_camera = item(Health::Warning, "browser-missing");
+        assert!(crate::actions::action_is_snapshot_eligible(
+            ActionKey::EnableBrowserCamera,
+            &snapshot
+        ));
     }
 
     #[test]

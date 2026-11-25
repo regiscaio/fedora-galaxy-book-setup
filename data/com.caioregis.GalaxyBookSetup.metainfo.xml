@@ -19,5 +19,15 @@
       extending to MAX98390 audio support and the Galaxy Book Sound panel.
     </p>
   </description>
+  <releases>
+    <release version="1.00.48" date="2026-11-25" type="stable">
+      <description>
+        <p>Setup now detects an unbound OV02C10 sensor before activating the browser webcam, checks speaker modules for the installed kernels, and coordinates driver maintenance across the camera and audio packages.</p>
+        <p xml:lang="pt-BR">O Setup detecta um sensor OV02C10 sem driver antes de ativar a webcam para o navegador, verifica os módulos dos alto-falantes para os kernels instalados e coordena a manutenção dos drivers de câmera e áudio.</p>
+        <p xml:lang="es">Setup detecta un sensor OV02C10 sin controlador antes de activar la cámara para el navegador, comprueba los módulos de los altavoces para los kernels instalados y coordina el mantenimiento de los controladores de cámara y audio.</p>
+        <p xml:lang="it">Setup rileva un sensore OV02C10 senza driver prima di attivare la webcam per il browser, verifica i moduli degli altoparlanti per i kernel installati e coordina la manutenzione dei driver di fotocamera e audio.</p>
+      </description>
+    </release>
+  </releases>
   <content_rating type="oars-1.1"/>
 </component>

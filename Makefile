@@ -60,7 +60,10 @@ build:
 test:
 	@set -euo pipefail; \
 	find scripts tests -type f -name '*.sh' -exec bash -n '{}' ';'; \
+	bash tests/kmod-lifecycle-lock.sh; \
+	bash tests/driver-maintenance.sh; \
 	bash tests/reconcile-kmods.sh; \
+	bash tests/repair-nvidia-kmod.sh; \
 	bash tests/configure-browser-camera.sh; \
 	bash tests/prepare-secure-boot-key.sh; \
 	if command -v cargo >/dev/null 2>&1 && command -v pkg-config >/dev/null 2>&1 && pkg-config --exists gtk4 libadwaita-1; then \
