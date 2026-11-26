@@ -211,6 +211,41 @@ if ( main --publish-enrolled unexpected ) >/dev/null 2>&1; then
   fail_test 'unexpected arguments were accepted'
 fi
 
+test_import_requires_verified_absence() (
+  local trace="$TEST_ROOT/prepare-membership.trace" membership pending status
+  lifecycle_helper=/dev/null
+  caller_is_root() { return 0; }
+  require_command() { :; }
+  acquire_kmod_lifecycle_lock() { :; }
+  validate_kmod_lifecycle_lock() { :; }
+  root_owned_directory_is_trusted() { return 0; }
+  ensure_key_directory() { :; }
+  key_pair_presence_state() { printf 'complete\n'; }
+  key_pair_matches() { return 0; }
+  certificate_identity() {
+    printf -v "$2" '%s' fixture; printf -v "$3" '%s' fixture; printf -v "$4" '%s' fixture
+  }
+  mok_key_is_enrolled() { return "$membership"; }
+  mok_request_is_pending() { return "$pending"; }
+  publish_key_identity_marker() { printf 'pending\n' >> "$trace"; }
+  generate_mok_password_hash_file() { printf 'prompt\n' >> "$trace"; }
+  mokutil() { [[ "$1" == --import ]] || exit 90; printf 'import\n' >> "$trace"; }
+  for membership in 1 2 3; do
+    for pending in 0 1; do
+      : > "$trace"
+      status=0
+      ( main ) >/dev/null 2>&1 || status=$?
+      case "$membership:$pending" in
+        1:0) [[ "$status" == 0 && "$(<"$trace")" == $'prompt\nimport\npending' ]] ;;
+        1:1) [[ "$status" != 0 && "$(<"$trace")" == $'prompt\nimport' ]] ;;
+        3:0) [[ "$status" == 0 && "$(<"$trace")" == pending ]] ;;
+        *)   [[ "$status" != 0 && ! -s "$trace" ]] ;;
+      esac || fail_test "unsafe default import dispatch for classification $membership:$pending"
+    done
+  done
+)
+test_import_requires_verified_absence
+
 expect_state() {
   local expected_state="$1"
   local public_key="$2"
@@ -575,10 +610,11 @@ if printf 'SHA1 Fingerprint: %s\n' "$different_fingerprint" \
   fail_test 'a different MOK fingerprint was accepted'
 fi
 
-mok_test_key_status=0
-mok_test_key_output=""
+mok_test_key_status=1
+mok_test_key_output="$PUBLIC_DEFAULT is already enrolled"$'\n'
 mok_test_key_stderr=""
-mok_list_enrolled_output=""
+mok_list_enrolled_status=0
+mok_list_enrolled_output="SHA1 Fingerprint: $certificate_fingerprint"$'\n'
 mok_list_enrolled_stderr=""
 mok_list_new_output=""
 mok_list_new_stderr=""
@@ -587,7 +623,8 @@ mok_generate_hash_stderr=""
 mok_generate_hash_status=0
 mokutil() {
   case "$1" in
-    --test-key)
+    --ignore-keyring)
+      [[ "$#" == 3 && "$2" == --test-key && "$3" == "$PUBLIC_DEFAULT" && "${LC_ALL:-}" == C ]] || return 255
       printf '%s' "$mok_test_key_output"
       printf '%s' "$mok_test_key_stderr" >&2
       return "$mok_test_key_status"
@@ -595,6 +632,7 @@ mokutil() {
     --list-enrolled)
       printf '%s' "$mok_list_enrolled_output"
       printf '%s' "$mok_list_enrolled_stderr" >&2
+      return "$mok_list_enrolled_status"
       ;;
     --list-new)
       printf '%s' "$mok_list_new_output"
@@ -610,43 +648,52 @@ mokutil() {
       ;;
   esac
 }
-mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"
-mok_test_key_output=$'trusted-looking output\377'
-if mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"; then
-  fail_test 'a successful --test-key containing invalid UTF-8 was accepted'
-fi
-mok_test_key_output=""
-mok_test_key_stderr="warning\n"
-if mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"; then
-  fail_test 'a successful --test-key accompanied by stderr was accepted'
-fi
-mok_test_key_stderr="already enrolled\n"
+expect_membership() {
+  local actual=0
+  mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint" || actual=$?
+  [[ "$actual" == "$1" ]] || fail_test "unexpected membership classification: expected $1 got $actual: $2"
+}
+for mok_test_key_status in 1 0; do
+  expect_membership 0 "confirmed enrollment with compatible predicate status"
+done
+mok_test_key_status=255
+expect_membership 2 "error status despite positive text"
 mok_test_key_status=1
-mok_list_enrolled_output="$(
-  printf 'SHA1 Fingerprint: %s\n' "$certificate_fingerprint"
-)"
-mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"
-mok_list_enrolled_stderr="warning\n"
-if mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"; then
-  fail_test 'an enrolled fingerprint accompanied by stderr was accepted'
-fi
+for mok_test_key_output in "" "is already enrolled" "/another.der is already enrolled" \
+    "$PUBLIC_DEFAULT is not enrolled" "$PUBLIC_DEFAULT is already in the enrollment request" \
+    "$PUBLIC_DEFAULT is in db" "$PUBLIC_DEFAULT is in MokListX" \
+    "$PUBLIC_DEFAULT is already enrolled"$'\nwarning' "$PUBLIC_DEFAULT is already enrolled"$'\377'; do
+  expect_membership 2 "missing, unsafe or contradictory observation"
+done
+mok_test_key_output="$PUBLIC_DEFAULT is already enrolled"
+mok_test_key_stderr=$'warning\n'
+expect_membership 2 "contaminated direct probe"
+mok_test_key_stderr=""
+mok_list_enrolled_stderr=$'warning\n'
+expect_membership 2 "contaminated enrollment list"
 mok_list_enrolled_stderr=""
-mok_list_enrolled_output="$(
-  printf 'SHA1 Fingerprint: %s' "$certificate_fingerprint"
-)"$'\377'
-if mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"; then
-  fail_test 'an enrolled fingerprint containing invalid UTF-8 was accepted'
-fi
-mok_list_enrolled_output="$(
-  printf 'SHA1 Fingerprint: %s\n' "$different_fingerprint"
-)"
-if mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"; then
-  fail_test 'a failed --test-key with a different enrolled fingerprint passed'
-fi
-mok_list_enrolled_output=""
-if mok_key_is_enrolled "$PUBLIC_DEFAULT" "$certificate_fingerprint"; then
-  fail_test 'locale-dependent --test-key failure text was accepted'
-fi
+mok_list_enrolled_status=1
+expect_membership 2 "failed enrollment list"
+mok_list_enrolled_status=0
+for mok_list_enrolled_output in "SHA1 Fingerprint: $certificate_fingerprint"$'\377' \
+    "Diagnostic: SHA1 Fingerprint: $certificate_fingerprint" \
+    $'warning\n'"SHA1 Fingerprint: $certificate_fingerprint" \
+    "SHA1 Fingerprint: $certificate_fingerprint"$'\nerror' \
+    $'[key 1]\nCertificate:\n    SHA1 Fingerprint: '"$certificate_fingerprint" \
+    "SHA1 Fingerprint: $certificate_fingerprint:00" \
+    "SHA1 Fingerprint: $different_fingerprint" "" ; do
+  expect_membership 2 "missing or invalid enrolled-list proof"
+done
+mok_test_key_output="$PUBLIC_DEFAULT is not enrolled"
+for mok_test_key_status in 0 1; do
+  expect_membership 1 "explicit absence with valid empty list"
+done
+mok_list_enrolled_output="SHA1 Fingerprint: $different_fingerprint"
+expect_membership 1 "explicit absence with other enrolled certificate"
+mok_test_key_output="$PUBLIC_DEFAULT is already in the enrollment request"
+expect_membership 3 "pending enrollment is not enrolled"
+mok_list_enrolled_output="warning"
+expect_membership 2 "a warning is not an empty enrollment list"
 mok_list_new_output="$(printf 'SHA1 Fingerprint: %s\n' "$certificate_fingerprint")"
 mok_request_is_pending "$certificate_fingerprint"
 mok_list_new_stderr="warning\n"

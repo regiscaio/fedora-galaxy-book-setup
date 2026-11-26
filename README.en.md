@@ -290,6 +290,8 @@ failure when all four bindings are present at the end.
 
 The administrative `reconcile-kmods prepare-all` mode prepares both drivers on disk for all kernels. It requires Secure Boot, an enrolled key, and empty pending MOK operation lists. It does not reboot, start the audio service, or certify physical operation.
 
+A successful build does not prove that DNF installed the RPM. If `akmods` records a new failure for the driver and kernel being serviced, Setup stops before finalizing the modules, even if the command returns zero. An old failure log alone does not block a new attempt.
+
 Since 1.00.49, reconciliation publishes a diagnostic copy of the public certificate and its identity marker only after confirming enrollment. This does not change the MOK or the permissions of the original key. To refresh only the diagnostic state, run `sudo /usr/libexec/galaxybook-setup/prepare-secure-boot-key --publish-enrolled`. If enrollment cannot be verified, the command fails without requesting import. Publishing an already enrolled identity requires neither a MOK password nor a reboot.
 
 If a quick action fails with something like:
@@ -299,37 +301,39 @@ modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service
 modprobe: ERROR: could not insert 'snd_hda_scodec_max98390': Key was rejected by service
 ```
 
-the problem is not the module build itself. This means the kernel is still
-running with `Secure Boot` enabled, but the key used to sign the module has
-not yet been accepted by `MOK`.
-
-The expected path is:
+the kernel rejected the module signature. That does not prove the local MOK
+is missing: check which module was selected and whether its signing
+certificate is the expected one. To check enrollment without changing it:
 
 ```bash
-mokutil --test-key /etc/pki/akmods/certs/public_key.der
-sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+sudo env LC_ALL=C mokutil --ignore-keyring --test-key /etc/pki/akmods/certs/public_key.der
+sudo openssl x509 -inform DER -in /etc/pki/akmods/certs/public_key.der -noout -fingerprint -sha1
+sudo env LC_ALL=C mokutil --list-enrolled
 ```
 
-Setup considers the key enrolled when `mokutil --test-key` exits with status
-zero or when the current certificate's exact SHA-1 fingerprint appears in
-`mokutil --list-enrolled`. Text alone is not accepted as proof because it can
-come from an error, locale, or version mismatch.
+Starting with 1.00.49-2, Setup requires both checks to agree. The test must
+return exactly `<DER path> is already enrolled`, with no error output and
+status 0 or 1 (the convention varies by version). The listing must succeed
+without errors and contain the full SHA-1 fingerprint of that same certificate.
+`is not enrolled` is not proof of enrollment, even with status 0. If the
+checks disagree, enrollment is unknown: do not re-import the key or set a
+password. If enrollment is confirmed, there is nothing to import.
 
 `Galaxy Book Setup` itself now exposes the `Prepare Secure Boot key` quick
 action, which:
 
 - generates the local `akmods` key with `kmodgenca` when needed;
-- asks for a temporary `MOK` password in the interface;
-- creates the import request through `mokutil`;
+- allows an import request when the key is confirmed absent; a temporary
+  `MOK` password is needed only for that enrollment flow;
 - updates diagnostics to show whether the key is ready, pending reboot, or
   still needs attention.
 
 The graphical process does not need to read the private key, which is normally
 protected for `root:akmods`. When that read is denied, diagnostics report an
-unknown state instead of incorrectly claiming that the key is missing. They
-use the public certificate, an already accepted signed external module, or the
-exact request listed by `mokutil --list-new` to recognize states that can be
-proven.
+unknown state instead of incorrectly claiming that the key is missing. A
+loaded signed external module shows that it was accepted during this boot; an
+exact request in `mokutil --list-new` indicates a pending operation. Neither
+substitutes for confirmation that the public certificate is enrolled.
 The privileged helper keeps the certificate and private-key directories as
 `root:akmods` mode `0750`. It accepts the internal symlinks created by
 `kmodgenca` only when the link, hierarchy, and target pass confinement,
@@ -348,7 +352,7 @@ module, diagnostics first compare the GNU build-id section byte for byte.
 `srcversion` is used only as a strict fallback when neither the kernel nor the
 module exposes a build-id.
 
-After that:
+Only if absence was confirmed and you requested a new import:
 
 1. reboot the notebook;
 2. enter `Enroll MOK` on the blue boot screen;
@@ -408,8 +412,9 @@ rootless `podman` container; `make` and `podman` are also required to generate
 the reproducible RPM artifacts.
 
 In a full-history checkout, Cargo and RPM use `scripts/package-version.sh`.
-It records packaging-only commits: `1.00.48-2` keeps the app at `1.00.48`.
-The next regular commit produces `1.00.49-1` without environment overrides.
+Fixes that keep the application version advance only the RPM release.
+Thus `1.00.49-2` upgrades `1.00.49-1`; the next regular commit produces
+`1.00.50-1` without environment overrides.
 
 Main commands:
 

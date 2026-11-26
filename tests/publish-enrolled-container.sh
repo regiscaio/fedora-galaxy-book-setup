@@ -31,8 +31,16 @@ chown -h root:akmods "$certs/public_key.der"
 cat >/usr/bin/mokutil <<'SH'
 #!/usr/bin/bash
 case "$1" in
-  --test-key) [[ $# == 2 ]] && cmp -s /tmp/enrolled.der "$2";;
-  --list-enrolled) [[ $# == 1 ]];; # No other certificates in the fixture.
+  --ignore-keyring)
+    [[ $# == 3 && $2 == --test-key ]] || { touch /tmp/forbidden; exit 99; }
+    if cmp -s /tmp/enrolled.der "$3"; then
+      printf '%s is already enrolled\n' "$3"; exit 1
+    fi
+    printf '%s is not enrolled\n' "$3"; exit 0;;
+  --list-enrolled)
+    [[ $# == 1 ]] || { touch /tmp/forbidden; exit 99; }
+    fingerprint=$(openssl x509 -inform DER -in /tmp/enrolled.der -noout -sha1 -fingerprint) || exit 2
+    printf '[key 1]\nSHA1 Fingerprint: %s\nCertificate:\n' "${fingerprint#*=}";;
   *) touch /tmp/forbidden; exit 99;;
 esac
 SH
@@ -51,7 +59,8 @@ setpriv --reuid=1000 --regid=1000 --clear-groups /usr/bin/bash -ec \
   "$certs/public_key.der" "$state/akmods-public-key.der" "$state/akmods-key.cn"
 
 cp -- "$state/akmods-key.cn" /tmp/previous-marker
-make_cert fixture-not-enrolled
+# A rotated key can reuse the same CN. Only its cryptographic identity matters.
+make_cert fixture-enrolled
 if bash scripts/prepare-secure-boot-key.sh --publish-enrolled </dev/null >/dev/null 2>&1; then
   echo 'An unregistered certificate was incorrectly accepted' >&2; exit 1
 fi

@@ -26,6 +26,10 @@
         <p xml:lang="pt-BR">A manutenção publica o certificado MOK já inscrito para o diagnóstico sem privilégios, sem importar chaves. O novo modo de preparação em disco valida os drivers de todos os kernels instalados sem reiniciar o serviço de áudio.</p>
         <p xml:lang="es">El mantenimiento publica el certificado MOK ya inscrito para el diagnóstico sin privilegios, sin importar claves. El nuevo modo de preparación en disco valida los controladores de todos los kernels instalados sin reiniciar el servicio de audio.</p>
         <p xml:lang="it">La manutenzione pubblica il certificato MOK già registrato per la diagnostica senza privilegi, senza importare chiavi. La nuova modalità di preparazione su disco verifica i driver di tutti i kernel installati senza riavviare il servizio audio.</p>
+        <p>RPM revision 2 fixes detection of enrolled MOK certificates on Fedora 44 and stops maintenance if akmods builds a driver but DNF cannot install its RPMs.</p>
+        <p xml:lang="pt-BR">A revisão 2 do RPM corrige a detecção de certificados MOK inscritos no Fedora 44 e interrompe a manutenção se o akmods compilar o driver, mas o DNF não conseguir instalar os RPMs.</p>
+        <p xml:lang="es">La revisión 2 del RPM corrige la detección de certificados MOK inscritos en Fedora 44 y detiene el mantenimiento si akmods compila el controlador pero DNF no logra instalar sus RPM.</p>
+        <p xml:lang="it">La revisione 2 dell’RPM corregge il rilevamento dei certificati MOK registrati su Fedora 44 e interrompe la manutenzione se akmods compila il driver ma DNF non riesce a installarne i pacchetti.</p>
       </description>
     </release>
     <release version="1.00.48" date="2026-11-25" type="stable">

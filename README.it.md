@@ -307,6 +307,8 @@ alla fine sono presenti tutti e quattro i collegamenti.
 
 La modalità amministrativa `reconcile-kmods prepare-all` prepara su disco entrambi i driver per tutti i kernel. Richiede Secure Boot attivo, una chiave registrata e nessuna operazione MOK in attesa. Non riavvia il sistema, non avvia il servizio audio e non verifica il funzionamento fisico.
 
+Una compilazione riuscita non garantisce che DNF abbia installato il pacchetto RPM. Se `akmods` registra un nuovo errore per il driver e il kernel in questione, Setup si ferma prima di finalizzare i moduli, anche se il comando restituisce zero. Un vecchio registro di errore non impedisce da solo un nuovo tentativo.
+
 Dalla versione 1.00.49 la riconciliazione pubblica una copia del certificato pubblico e il suo marcatore di identità per la diagnostica solo dopo aver verificato la registrazione. Non modifica il MOK né i permessi della chiave originale. Per aggiornare solo la diagnostica eseguire `sudo /usr/libexec/galaxybook-setup/prepare-secure-boot-key --publish-enrolled`. Se la registrazione non è confermata, il comando termina senza richiedere l'importazione. Pubblicare un'identità già registrata non richiede password MOK né riavvio.
 
 Se un'azione rapida fallisce con qualcosa del tipo:
@@ -316,37 +318,41 @@ modprobe: ERROR: could not insert 'ov02c10': Key was rejected by service
 modprobe: ERROR: could not insert 'snd_hda_scodec_max98390': Key was rejected by service
 ```
 
-il problema non è la compilazione del modulo in sé. Questo errore significa
-che il kernel continua a girare con `Secure Boot` attivo, ma la chiave usata
-per firmare il modulo non è stata ancora accettata in `MOK`.
-
-Il percorso atteso è:
+il kernel ha rifiutato la firma del modulo. Ciò non dimostra che manchi la MOK
+locale: verifica quale modulo è stato selezionato e se il certificato con cui
+è stato firmato è quello previsto. Per verificare la registrazione senza modificarla:
 
 ```bash
-mokutil --test-key /etc/pki/akmods/certs/public_key.der
-sudo mokutil --import /etc/pki/akmods/certs/public_key.der
+sudo env LC_ALL=C mokutil --ignore-keyring --test-key /etc/pki/akmods/certs/public_key.der
+sudo openssl x509 -inform DER -in /etc/pki/akmods/certs/public_key.der -noout -fingerprint -sha1
+sudo env LC_ALL=C mokutil --list-enrolled
 ```
 
-Il setup considera la chiave iscritta quando `mokutil --test-key` termina con
-stato zero oppure quando l'impronta SHA-1 esatta del certificato corrente
-compare in `mokutil --list-enrolled`. Il solo testo non viene accettato come
-prova perché può provenire da un errore, locale o versione diversa.
+Dalla versione 1.00.49-2, Setup richiede due verifiche concordanti. Il test
+deve restituire esattamente `<percorso del DER> is already enrolled`, senza
+errori in uscita e con stato 0 o 1 (la convenzione dipende dalla versione).
+L’elenco deve essere letto senza errori e contenere l’impronta SHA-1 completa
+dello stesso certificato. `is not enrolled` non dimostra la registrazione,
+nemmeno con stato 0. Se i risultati non concordano, lo stato è sconosciuto:
+non importare di nuovo la chiave né impostare una password. Se la chiave è già
+registrata, non occorre importarla.
 
 Lo stesso `Galaxy Book Setup` ora espone l'azione rapida
 `Preparare la chiave di Secure Boot`, che:
 
 - genera la chiave locale di `akmods` con `kmodgenca` quando serve;
-- chiede una password temporanea di `MOK` nell'interfaccia;
-- crea la richiesta di importazione tramite `mokutil`;
+- permette di richiedere l’importazione se la chiave risulta assente; solo
+  in questo caso occorre impostare una password temporanea per `MOK`;
 - aggiorna la diagnostica per mostrare se la chiave è pronta, in attesa di
   riavvio o se richiede ancora attenzione.
 
 Il processo grafico non deve leggere la chiave privata, che normalmente è
 protetta per `root:akmods`. Quando la lettura è vietata, la diagnostica
 restituisce uno stato sconosciuto invece di dichiarare erroneamente che la
-chiave è assente. Usa il certificato pubblico, un modulo esterno firmato già
-accettato oppure la richiesta esatta elencata da `mokutil --list-new` per
-riconoscere gli stati dimostrabili.
+chiave è assente. Un modulo esterno firmato già caricato indica che è stato
+accettato in questo avvio; una richiesta esatta in `mokutil --list-new`
+indica un’operazione in sospeso. Nessuno dei due segnali sostituisce la
+conferma della registrazione del certificato pubblico.
 L'helper privilegiato mantiene le directory del certificato e della chiave
 privata come `root:akmods` con modalità `0750`. Accetta i link simbolici interni
 creati da `kmodgenca` soltanto quando link, gerarchia e destinazione superano le
@@ -365,7 +371,7 @@ vecchio già caricato, la diagnostica confronta prima la sezione GNU build-id,
 byte per byte. `srcversion` viene usato solo come fallback rigoroso quando né il
 kernel né il modulo espongono un build-id.
 
-Dopo di questo:
+Solo se l’assenza è stata confermata e hai richiesto una nuova importazione:
 
 1. riavvia il notebook;
 2. entra in `Enroll MOK` nella schermata blu di boot;
@@ -426,9 +432,9 @@ rootless con `podman`; `make` e `podman` sono necessari anche per generare gli
 artefatti RPM riproducibili.
 
 In un repository con la cronologia completa, Cargo e RPM usano `scripts/package-version.sh`.
-Lo script registra i commit che aggiornano solo il pacchetto RPM: `1.00.48-2` mantiene
-l'app alla versione `1.00.48`. Il commit normale successivo genera `1.00.49-1` senza
-modificare le variabili d'ambiente.
+Se una correzione mantiene la versione dell'applicazione, aumenta solo la revisione RPM.
+In questo modo `1.00.49-2` aggiorna `1.00.49-1`; il commit ordinario successivo
+genera `1.00.50-1` senza modificare le variabili d'ambiente.
 
 Comandi principali:
 

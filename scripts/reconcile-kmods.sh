@@ -16,6 +16,8 @@ readonly AKMODS_PRIVATE_KEY="/etc/pki/akmods/private/private_key.priv"
 lifecycle_helper="${BASH_SOURCE[0]%/*}/kmod-lifecycle-lock.sh"
 reconcile_script="/usr/libexec/galaxybook-setup/reconcile-kmods"
 module_tree_root="/lib/modules"
+akmods_cache_parent="/var/cache"
+akmods_cache_owner=0
 systemd_inhibit_command="/usr/bin/systemd-inhibit"
 systemd_inhibit_stat_command="/usr/bin/stat"
 reconcile_inhibitor_parent_fixture=""
@@ -412,20 +414,57 @@ certificate_serial() {
   printf '%s\n' "$serial"
 }
 
+# Keep the public MOK probe identical in the two independently installed helpers.
+# 0 = exact DER enrolled, 1 = explicitly absent, 2 = indeterminate or denied,
+# 3 = enrollment request reported (the caller must independently verify MokNew).
 mok_output_contains_fingerprint() {
-  local expected_fingerprint="$1"
-
-  awk -v expected="$expected_fingerprint" '
-    tolower($0) ~ /sha1 fingerprint:/ {
-      value = $0
-      sub(/^.*[Ff]ingerprint:[[:space:]]*/, "", value)
-      gsub(/:|[[:space:]]/, "", value)
-      if (tolower(value) == expected) {
-        found = 1
-      }
+  local expected="$1"
+  [[ "$expected" =~ ^([[:xdigit:]]{2}:){19}[[:xdigit:]]{2}$ || "$expected" =~ ^[[:xdigit:]]{40}$ ]] || return 2
+  LC_ALL=C awk -v expected="${expected//:/}" '
+    /[^[:print:]\t]/ { invalid=1 }
+    /[^[:space:]]/ { nonempty=1 }
+    /^[ \t]*$/ { next }
+    /^\[key [0-9]+\]$/ { if (in_record && !has_fp) invalid=1; in_record=1; has_fp=0; body=0; next }
+    /^Owner: / { if (!in_record || has_fp || body) invalid=1; next }
+    /^Certificate:$/ { if (!has_fp || body) invalid=1; body=1; next }
+    /^SHA1 Fingerprint:/ {
+      value=$0
+      if (has_fp || body) { invalid=1; next }
+      sub(/^SHA1 Fingerprint:[ \t]*/, "", value)
+      sub(/[ \t]*$/, "", value)
+      if (split(value, bytes, ":") != 20) { invalid=1; next }
+      for (i=1; i<=20; i++) if (bytes[i] !~ /^[[:xdigit:]][[:xdigit:]]$/) invalid=1
+      gsub(/:/, "", value); records++; has_fp=1
+      if (tolower(value)==tolower(expected)) found=1
+      next
     }
-    END { exit found ? 0 : 1 }
+    /^[ \t]/ && body { next }
+    { invalid=1 }
+    END { exit (invalid || (nonempty && !records) || (in_record && !has_fp)) ? 2 : (found ? 0 : 1) }
   '
+}
+
+mok_test_key_observation() {
+  local status=0
+  LC_ALL=C mokutil --ignore-keyring --test-key "$1" || status=$?
+  # mokutil 0.7.2 reports "already enrolled" with status 1 and "not
+  # enrolled" with status 0; allow compatible callers using success status.
+  # Only keep a 0/1 observation; never interpret its exit code as enrollment.
+  (( status == 0 || status == 1 ))
+}
+
+mok_membership() {
+  local certificate="$1" expected="$2" observation list_status=0
+  capture_clean_output mok_test_key_observation "$certificate" || return 2
+  observation="$PROBE_STDOUT"
+  LC_ALL=C capture_clean_output mokutil --list-enrolled || return 2
+  mok_output_contains_fingerprint "$expected" <<< "$PROBE_STDOUT" || list_status=$?
+  case "$observation" in
+    "$certificate is already enrolled") [[ "$list_status" == 0 ]] || return 2; return 0 ;;
+    "$certificate is not enrolled") [[ "$list_status" == 1 ]] || return 2; return 1 ;;
+    "$certificate is already in the enrollment request") [[ "$list_status" == 1 ]] || return 2; return 3 ;;
+    *) return 2 ;;
+  esac
 }
 
 ensure_signing_key_available() {
@@ -455,33 +494,27 @@ detect_akmods_signing_identity() {
 }
 
 akmods_key_enrolled() {
-  local enrolled_output
-
-  if capture_clean_output mokutil --test-key "$AKMODS_PUBLIC_KEY"; then
-    return 0
-  fi
-  [[ "$AKMODS_CERT_FINGERPRINT" =~ ^[0-9a-f]{40}$ ]] || return 1
-  capture_clean_output mokutil --list-enrolled || return 1
-  enrolled_output="$PROBE_STDOUT"
-  mok_output_contains_fingerprint "$AKMODS_CERT_FINGERPRINT" <<< "$enrolled_output"
+  mok_membership "$AKMODS_PUBLIC_KEY" "$AKMODS_CERT_FINGERPRINT"
 }
 
 mok_enrollment_pending() {
   local pending_output
 
   [[ "$AKMODS_CERT_FINGERPRINT" =~ ^[0-9a-f]{40}$ ]] || return 1
-  capture_clean_output mokutil --list-new || return 1
+  LC_ALL=C capture_clean_output mokutil --list-new || return 1
   pending_output="$PROBE_STDOUT"
   mok_output_contains_fingerprint "$AKMODS_CERT_FINGERPRINT" <<< "$pending_output"
 }
 
 mok_reboot_required() {
+  local enrollment_status=0
   secure_boot_is_enabled || return 1
-  akmods_key_enrolled && return 1
-  if mok_enrollment_pending; then
+  akmods_key_enrolled || enrollment_status=$?
+  [[ "$enrollment_status" != 0 ]] || return 1
+  if [[ "$enrollment_status" == 3 ]] && mok_enrollment_pending; then
     return 0
   fi
-  fail "Os payloads estão prontos, mas a chave do akmods não está inscrita nem possui pedido pendente no MOK. Use 'Preparar chave do Secure Boot' antes de reiniciar."
+  fail "Não foi possível comprovar a inscrição ou um pedido válido para a chave atual. Verifique o MOK antes de reiniciar."
 }
 
 publish_enrolled_identity_if_needed() {
@@ -503,6 +536,41 @@ publish_enrolled_identity_if_needed() {
   require_reconciliation_locks
 }
 
+akmods_failure_snapshot() {
+  local family="$1" kernel="$2" base="$akmods_cache_parent/akmods" service_uid records
+  [[ "$family" == "$OV_AKMOD" || "$family" == "$MAX_AKMOD" ]] && kernel_name_is_safe "$kernel" || return 1
+  # On Fedora the cache top level may belong to the akmods service account.
+  # Only descend into trusted, non-writable directories; -P never follows
+  # symlinks. Inspect metadata, not log bytes, and never touch old markers.
+  service_uid="$(id -u akmods 2>/dev/null)" || service_uid="$akmods_cache_owner"
+  records="$(find -P "$akmods_cache_parent" -maxdepth 3 \
+    \( -path "$akmods_cache_parent" -o -path "$base" -o -path "$base/$family" \) \
+      \( \( -type d ! -perm /022 \( -uid "$akmods_cache_owner" -o \( -path "$base" -uid "$service_uid" \) \) \) \
+         -o \( -printf '!\n' -prune \) \) \
+    -o \( -path "$base/$family/*" -name "*-for-$kernel.failed.log" \
+      \( \( -type f -uid "$akmods_cache_owner" ! -perm /022 ! -name '*[!a-zA-Z0-9.~^_+-]*' \
+        -printf '%f %D:%i:%s:%T@\n' \) -o -printf '!\n' \) \) \
+    -o -prune)" || return 1
+  [[ "$records" != *'!'* ]] || return 1
+  printf '%s' "$records"
+}
+
+run_checked_akmods() {
+  local family="$1" kernel="$2" before after marker
+  shift 2
+  before="$(akmods_failure_snapshot "$family" "$kernel")" || fail "Cache do akmods inseguro ou ilegível para $family em $kernel."
+  akmods --force "$@" --akmod "$family" --kernels "$kernel" || fail "O akmods falhou para $family em $kernel."
+  # akmods 0.6.2 can return zero after an RPM transaction failed. It links
+  # the fresh build log over *.failed.log, even when its bytes are identical.
+  # Do not use ctime/nlink: rotating .last.log unlinks an old hardlink and
+  # changes both on an unchanged historical failure.
+  after="$(akmods_failure_snapshot "$family" "$kernel")" || fail "Não foi possível revalidar o cache de $family em $kernel."
+  while IFS= read -r marker; do
+    [[ -z "$marker" || $'\n'"$before"$'\n' == *$'\n'"$marker"$'\n'* ]] \
+      || fail "O akmods registrou uma falha para $family em $kernel. Consulte $akmods_cache_parent/akmods/$family/${marker%% *}. Não prossiga com a finalização."
+  done <<< "$after"
+}
+
 build_driver_for_kernel() {
   local akmod="$1"
   local kernel="$2"
@@ -514,9 +582,9 @@ build_driver_for_kernel() {
   ensure_kernel_build_tree "$kernel"
 
   log "Instalando ou atualizando $akmod para $kernel"
-  akmods --force --akmod "$akmod" --kernels "$kernel"
+  run_checked_akmods "$akmod" "$kernel"
   log "Reconstruindo $akmod para $kernel com a chave atual"
-  akmods --force --rebuild --akmod "$akmod" --kernels "$kernel"
+  run_checked_akmods "$akmod" "$kernel" --rebuild
   validate_kmod_lifecycle_lock \
     || fail "O lock global de manutenção de módulos deixou de ser válido após o akmods."
 }
@@ -826,7 +894,7 @@ require_enrolled_mok_for_preparation() {
   # A currently trusted key can still be scheduled for deletion. Do not
   # certify the next boot while any MOK change is pending or unobservable.
   for queue in --list-new --list-delete; do
-    capture_clean_output_preserving_newlines mokutil "$queue" \
+    LC_ALL=C capture_clean_output_preserving_newlines mokutil "$queue" \
       || fail "Não foi possível confirmar o estado dos pedidos pendentes do MOK."
     [[ -z "$PROBE_STDOUT" ]] \
       || fail "Há uma alteração pendente no MOK. A preparação em disco não foi confirmada."

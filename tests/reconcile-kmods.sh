@@ -853,114 +853,80 @@ test_certificate_queries_reject_warnings_and_unexpected_grammar() {
 }
 
 test_pending_mok_requires_reboot_without_live_validation() (
+  local membership=3 pending=0
   SECURE_BOOT_STATE=enabled
-  akmods_key_enrolled() {
-    return 1
-  }
-  mok_enrollment_pending() {
-    return 0
-  }
-
+  akmods_key_enrolled() { return "$membership"; }
+  mok_enrollment_pending() { return "$pending"; }
   mok_reboot_required
+  # A stale queue entry must not authorize a reboot after a denial or an
+  # indeterminate test, nor may a pending direct result stand in for MokNew.
+  for membership in 1 2 3; do
+    pending=0
+    if [[ "$membership" == 3 ]]; then pending=1; fi
+    if ( if mok_reboot_required; then :; fi; exit 0 ) >/dev/null 2>&1; then
+      printf 'expected conflicting MOK evidence to stop reconciliation\n' >&2; return 1
+    fi
+  done
 )
 
-test_mok_enrollment_requires_a_successful_test_key_status() {
+test_mok_enrollment_requires_a_successful_test_key_status() (
+  local fingerprint='00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33'
+  local direct_text direct_status list_text='' fixture_list_rc=0 direct_warning='' list_warning=''
+  local pending_text='' pending_status=0 pending_warning=''
   AKMODS_CERT_FINGERPRINT="00112233445566778899aabbccddeeff00112233"
-  if (
-    mokutil() {
-      [[ "$1" == --test-key ]] || return 1
-      printf '%s\n' 'already enrolled'
-      printf '%s\n' 'mokutil warning' >&2
-    }
-    akmods_key_enrolled
-  ); then
-    printf 'expected test-key stderr to reject a trusted-looking success\n' >&2
-    return 1
-  fi
-  if (
-    mokutil() {
-      case "$1" in
-        --test-key) printf '%s\n' 'already enrolled'; return 1 ;;
-        --list-enrolled) return 1 ;;
-      esac
-      return 1
-    }
-    akmods_key_enrolled
-  ); then
-    printf 'expected a failed mokutil status to override untrusted text\n' >&2
-    return 1
-  fi
-  if (
-    mokutil() {
-      case "$1" in
-        --test-key) return 1 ;;
-        --list-enrolled)
-          printf '%s\n' 'SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33'
-          printf '%s\n' 'warning' >&2
-          ;;
-      esac
-    }
-    akmods_key_enrolled
-  ); then
-    printf 'expected list-enrolled stderr to reject matching output\n' >&2
-    return 1
-  fi
-  (
-    mokutil() {
-      [[ "$1" == --test-key ]]
-    }
-    akmods_key_enrolled
-  )
-  (
-    mokutil() {
-      case "$1" in
-        --test-key) return 1 ;;
-        --list-enrolled)
-          printf '%s\n' 'SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33'
-          ;;
-      esac
-    }
-    akmods_key_enrolled
-  )
-  if (
-    mokutil() {
-      case "$1" in
-        --test-key) return 1 ;;
-        --list-enrolled)
-          printf '%s\n' 'SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33'
-          return 1
-          ;;
-      esac
-    }
-    akmods_key_enrolled
-  ); then
-    printf 'expected a failed list-enrolled status to reject matching output\n' >&2
-    return 1
-  fi
-  if (
-    mokutil() {
-      [[ "$1" == --list-new ]] || return 1
-      printf '%s\n' 'SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33'
-      printf '%s\n' 'warning' >&2
-    }
-    mok_enrollment_pending
-  ); then
-    printf 'expected list-new stderr to reject matching output\n' >&2
-    return 1
-  fi
-  if (
-    mokutil() {
-      [[ "$1" == --list-new ]] || return 1
-      printf '%s\n' 'SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33'
-      return 1
-    }
-    mok_enrollment_pending
-  ); then
-    printf 'expected a failed list-new status to reject matching output\n' >&2
-    return 1
-  fi
-  AKMODS_CERT_FINGERPRINT=""
-}
+  mokutil() {
+    case "$*" in
+      "--ignore-keyring --test-key $AKMODS_PUBLIC_KEY")
+        printf '%s' "$direct_text"; printf '%s' "$direct_warning" >&2; return "$direct_status" ;;
+      --list-enrolled)
+        printf '%s' "$list_text"; printf '%s' "$list_warning" >&2; return "$fixture_list_rc" ;;
+      --list-new)
+        printf '%s' "$pending_text"; printf '%s' "$pending_warning" >&2; return "$pending_status" ;;
+      *) return 99 ;;
+    esac
+  }
+  expect_not_enrolled() {
+    if akmods_key_enrolled; then
+      printf 'unexpected enrollment proof (%s)\n' "$1" >&2; return 1
+    fi
+  }
+
+  # mokutil 0.7.2 returns 1 for the affirmative and 0 for the negative.
+  # Also accept the traditional success status, but only for the exact positive line.
+  list_text=$(printf '[key 1]\nSHA1 Fingerprint: %s\nCertificate:\n' "$fingerprint")
+  direct_text="$AKMODS_PUBLIC_KEY is already enrolled"$'\n'
+  for direct_status in 1 0; do akmods_key_enrolled; done
+  direct_status=2; expect_not_enrolled 'unexpected status'
+  direct_status=1; direct_warning='warning'; expect_not_enrolled 'stderr'
+  direct_warning=''
+  for direct_status in 0 1; do
+    for direct_text in '' "$AKMODS_PUBLIC_KEY is not enrolled" \
+      "$AKMODS_PUBLIC_KEY is already in the enrollment request" \
+      "$AKMODS_PUBLIC_KEY is blocked" 'another.der is already enrolled' \
+      'error'; do
+      expect_not_enrolled 'nonaffirmative output'
+    done
+  done
+
+  # Even the affirmative DER result requires a match in a successful, clean MokList.
+  direct_text="$AKMODS_PUBLIC_KEY is already enrolled"$'\n'; direct_status=1
+  akmods_key_enrolled
+  list_warning='warning'; expect_not_enrolled 'list stderr'
+  list_warning=''; fixture_list_rc=1; expect_not_enrolled 'list exit status'
+  fixture_list_rc=0; list_text="${list_text/00:11/FF:11}"; expect_not_enrolled 'unrelated certificate'
+  list_text=''
+  for direct_status in 0 1; do
+    direct_text="$AKMODS_PUBLIC_KEY is not enrolled"$'\n'
+    expect_not_enrolled 'explicit absence'
+  done
+  pending_text=$(printf '[key 1]\nSHA1 Fingerprint: %s\nCertificate:\n' "$fingerprint")
+  mok_enrollment_pending
+  expect_not_enrolled 'pending is not enrolled'
+  pending_warning='warning'
+  if mok_enrollment_pending; then echo 'expected list-new stderr to be rejected' >&2; return 1; fi
+  pending_warning=''; pending_status=1
+  if mok_enrollment_pending; then echo 'expected a failed list-new to be rejected' >&2; return 1; fi
+)
 
 test_secure_boot_state_is_explicit_and_fails_closed() {
   [[ "$(parse_secure_boot_state 'SecureBoot enabled')" == enabled ]]
@@ -1089,12 +1055,61 @@ test_explicit_reconciliation_forces_a_complete_rebuild() {
       ensure_kernel_build_tree() { :; }
       log() { :; }
       akmods() { printf '%s\n' "$*"; }
-      build_driver_for_kernel galaxybook-ov02c10 test-kernel
+      build_driver_for_kernel galaxybook-ov02c10 7.3.5-test
     )"
     [[ "$arguments" == \
-      $'--force --akmod galaxybook-ov02c10 --kernels test-kernel\n--force --rebuild --akmod galaxybook-ov02c10 --kernels test-kernel' ]]
+      $'--force --akmod galaxybook-ov02c10 --kernels 7.3.5-test\n--force --rebuild --akmod galaxybook-ov02c10 --kernels 7.3.5-test' ]]
   done
 }
+
+test_akmods_zero_after_partial_transaction() (
+  local root phase kind trace mock_marker cache other kernel=7.3.5-200.fc44.x86_64
+  root="$(mktemp -d)"; trap 'rm -rf -- "$root"' EXIT
+  trace="$root/trace"
+  akmods_cache_parent="$root/cache"; akmods_cache_owner="$EUID"
+  cache="$akmods_cache_parent/akmods/$MAX_AKMOD"; other="$akmods_cache_parent/akmods/$OV_AKMOD"
+  mkdir -p -- "$cache" "$other"
+  mock_marker="$cache/1.00.14-1-for-$kernel.failed.log"
+  wait_for_akmods_unit() { :; }
+  ensure_kernel_build_tree() { :; }
+  log() { :; }
+  akmods() {
+    printf '%s\n' "$*" >> "$trace"
+    [[ ( "$phase" == rebuild && "$2" == --rebuild ) || ( "$phase" == first && "$2" != --rebuild ) ]] || return 0
+    case "$kind" in
+      new) printf 'same\n' > "$mock_marker" ;;
+      replace) cp -p -- "$mock_marker" "$cache/fresh"; mv -f -- "$cache/fresh" "$mock_marker" ;;
+      append) printf X >> "$mock_marker" ;;
+      rotate-old) rm -- "$cache/.last.log" ;;
+      unrelated)
+        printf x >> "$other/1.00.14-1-for-$kernel.failed.log"
+        printf x >> "$cache/1.00.14-1-for-7.3.4-200.fc44.x86_64.failed.log" ;;
+    esac
+    return 0
+  }
+  for phase in first rebuild; do
+    for kind in new replace append; do
+      rm -f -- "$trace" "$mock_marker"
+      [[ "$kind" == new ]] || printf 'same\n' > "$mock_marker"
+      if (build_driver_for_kernel "$MAX_AKMOD" "$kernel"; echo finalizer >> "$trace") >"$root/result" 2>&1; then
+        echo "akmods success masked a $kind failure at $phase" >&2; return 1
+      fi
+      grep -Fq -- "${mock_marker##*/}" "$root/result"
+      [[ -f "$mock_marker" && "$(wc -l < "$trace")" == "$([[ "$phase" == first ]] && echo 1 || echo 2)" ]]
+    done
+  done
+  phase=first; kind=rotate-old
+  ln -- "$mock_marker" "$cache/.last.log"
+  build_driver_for_kernel "$MAX_AKMOD" "$kernel"
+  kind=unrelated; build_driver_for_kernel "$MAX_AKMOD" "$kernel"
+  # Unsafe parents/markers are neither opened nor followed. Fail before akmods.
+  chmod 0777 -- "$cache"; : > "$trace"
+  if (build_driver_for_kernel "$MAX_AKMOD" "$kernel") >/dev/null 2>&1; then return 1; fi
+  chmod 0755 -- "$cache"
+  rm -- "$mock_marker"; ln -s -- "$trace" "$mock_marker"
+  if (build_driver_for_kernel "$MAX_AKMOD" "$kernel") >/dev/null 2>&1; then return 1; fi
+  [[ ! -s "$trace" ]]
+)
 
 test_mok_fingerprint_matching_is_exact() {
   printf '%s\n' 'SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33' \
@@ -1409,6 +1424,7 @@ test_secure_boot_rejects_a_payload_signed_by_another_key
 test_secure_boot_rejects_a_same_cn_signature_from_another_key
 test_secure_boot_accepts_the_exact_current_signing_identity
 test_explicit_reconciliation_forces_a_complete_rebuild
+test_akmods_zero_after_partial_transaction
 test_mok_fingerprint_matching_is_exact
 test_certificate_identity_is_cryptographic_and_well_formed
 test_certificate_serial_canonicalizes_der_integer_padding

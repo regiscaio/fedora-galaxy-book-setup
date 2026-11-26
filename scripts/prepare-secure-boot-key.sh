@@ -163,37 +163,61 @@ cleanup() {
   fi
 }
 
+# Keep the public MOK probe identical in the two independently installed helpers.
+# 0 = exact DER enrolled, 1 = explicitly absent, 2 = indeterminate or denied,
+# 3 = enrollment request reported (the caller must independently verify MokNew).
 mok_output_contains_fingerprint() {
-  local expected_fingerprint="$1"
-
-  normalized_sha1_identifier_is_valid "$expected_fingerprint" || return 1
-  awk -v expected="$expected_fingerprint" '
-    index($0, "SHA1 Fingerprint:") {
-      fingerprint = $0
-      sub(/^.*SHA1 Fingerprint:[[:space:]]*/, "", fingerprint)
-      sub(/[[:space:]]*$/, "", fingerprint)
-      if (toupper(fingerprint) == expected) {
-        found = 1
-      }
+  local expected="$1"
+  [[ "$expected" =~ ^([[:xdigit:]]{2}:){19}[[:xdigit:]]{2}$ || "$expected" =~ ^[[:xdigit:]]{40}$ ]] || return 2
+  LC_ALL=C awk -v expected="${expected//:/}" '
+    /[^[:print:]\t]/ { invalid=1 }
+    /[^[:space:]]/ { nonempty=1 }
+    /^[ \t]*$/ { next }
+    /^\[key [0-9]+\]$/ { if (in_record && !has_fp) invalid=1; in_record=1; has_fp=0; body=0; next }
+    /^Owner: / { if (!in_record || has_fp || body) invalid=1; next }
+    /^Certificate:$/ { if (!has_fp || body) invalid=1; body=1; next }
+    /^SHA1 Fingerprint:/ {
+      value=$0
+      if (has_fp || body) { invalid=1; next }
+      sub(/^SHA1 Fingerprint:[ \t]*/, "", value)
+      sub(/[ \t]*$/, "", value)
+      if (split(value, bytes, ":") != 20) { invalid=1; next }
+      for (i=1; i<=20; i++) if (bytes[i] !~ /^[[:xdigit:]][[:xdigit:]]$/) invalid=1
+      gsub(/:/, "", value); records++; has_fp=1
+      if (tolower(value)==tolower(expected)) found=1
+      next
     }
-    END { exit found ? 0 : 1 }
+    /^[ \t]/ && body { next }
+    { invalid=1 }
+    END { exit (invalid || (nonempty && !records) || (in_record && !has_fp)) ? 2 : (found ? 0 : 1) }
   '
 }
 
-mok_key_is_enrolled() {
-  local certificate="$1"
-  local expected_fingerprint="$2"
-  local enrolled_output
+mok_test_key_observation() {
+  local status=0
+  LC_ALL=C mokutil --ignore-keyring --test-key "$1" || status=$?
+  # mokutil 0.7.2 reports "already enrolled" with status 1 and "not
+  # enrolled" with status 0; allow compatible callers using success status.
+  # Only keep a 0/1 observation; never interpret its exit code as enrollment.
+  (( status == 0 || status == 1 ))
+}
 
-  normalized_sha1_identifier_is_valid "$expected_fingerprint" || return 1
-  if capture_clean_output mokutil --test-key "$certificate"; then
-    return 0
-  fi
-  if ! capture_clean_output mokutil --list-enrolled; then
-    return 1
-  fi
-  enrolled_output="$PROBE_STDOUT"
-  mok_output_contains_fingerprint "$expected_fingerprint" <<< "$enrolled_output"
+mok_membership() {
+  local certificate="$1" expected="$2" observation list_status=0
+  capture_clean_output mok_test_key_observation "$certificate" || return 2
+  observation="$PROBE_STDOUT"
+  LC_ALL=C capture_clean_output mokutil --list-enrolled || return 2
+  mok_output_contains_fingerprint "$expected" <<< "$PROBE_STDOUT" || list_status=$?
+  case "$observation" in
+    "$certificate is already enrolled") [[ "$list_status" == 0 ]] || return 2; return 0 ;;
+    "$certificate is not enrolled") [[ "$list_status" == 1 ]] || return 2; return 1 ;;
+    "$certificate is already in the enrollment request") [[ "$list_status" == 1 ]] || return 2; return 3 ;;
+    *) return 2 ;;
+  esac
+}
+
+mok_key_is_enrolled() {
+  mok_membership "$1" "$2"
 }
 
 mok_request_is_pending() {
@@ -201,7 +225,7 @@ mok_request_is_pending() {
   local pending_output
 
   normalized_sha1_identifier_is_valid "$expected_fingerprint" || return 1
-  capture_clean_output mokutil --list-new || return 1
+  LC_ALL=C capture_clean_output mokutil --list-new || return 1
   pending_output="$PROBE_STDOUT"
   mok_output_contains_fingerprint "$expected_fingerprint" <<< "$pending_output"
 }
@@ -761,7 +785,7 @@ publish_existing_enrollment() {
 }
 
 main() {
-  local key_cn key_fingerprint key_serial key_state
+  local key_cn key_fingerprint key_serial key_state enrollment_status
 
   caller_is_root || fail "Este helper precisa ser executado como root."
   if (( $# != 0 )) && ! { (( $# == 1 )) && [[ "$1" == --publish-enrolled ]]; }; then
@@ -839,7 +863,21 @@ main() {
     finish_enrolled_key "$key_cn" "$key_fingerprint" "$key_serial"
     require_kmod_lifecycle_lock
     return 0
+  else
+    enrollment_status=$?
   fi
+  case "$enrollment_status" in
+    1) ;; # Both probes confirm absence; only this branch may request import.
+    3)
+      mok_request_is_pending "$key_fingerprint" \
+        || fail "Não foi possível confirmar o pedido de inscrição pendente. Nenhuma nova importação foi feita."
+      require_kmod_lifecycle_lock
+      publish_key_identity_marker "$key_cn" "$key_fingerprint" "$key_serial"
+      require_kmod_lifecycle_lock
+      printf '%s\n' "Já existe um pedido de inscrição desta chave no MOK. Nenhuma nova importação foi feita."
+      return 0 ;;
+    *) fail "O mokutil não confirmou a inscrição nem a ausência da chave atual. Nenhuma nova importação foi feita." ;;
+  esac
 
   HASH_FILE="$(mktemp)"
   chmod 0600 -- "$HASH_FILE"

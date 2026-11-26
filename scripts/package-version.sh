@@ -16,9 +16,9 @@ if [[ -z "$commit_count" ]]; then
   fi
 fi
 
-# Packaging-only commits: full-history commit count => RPM release.
+# Stable-version revisions: full-history commit count => RPM release.
 # Normal commits need no entry and advance the application version as before.
-declare -Ar rpm_rebuilds=([49]=2)
+declare -Ar rpm_rebuilds=([49]=2 [51]=2)
 [[ "$commit_count" =~ ^(0|[1-9][0-9]*)$ ]] || { echo 'Invalid commit count' >&2; exit 1; }
 app_count=$commit_count
 for rebuild in "${!rpm_rebuilds[@]}"; do

@@ -1,5 +1,6 @@
 mod i18n;
 mod module_build_id;
+mod mok;
 mod updates;
 
 use std::env;
@@ -1431,43 +1432,49 @@ fn detect_secure_boot_key_check(
         };
     }
 
-    if current_key_identity.is_some_and(mok_pending_request_exists) {
-        return CheckItem {
-            title,
-            detail: tr(
-                "A chave do akmods já foi preparada e o pedido de importação está pendente no MOK. Reinicie normalmente e conclua 'Enroll MOK' na tela azul do boot.",
+    if let Some(identity) = current_key_identity {
+        use mok::Enrollment;
+        // Loaded-driver evidence is informative, never a substitute for MOK enrollment.
+        let (detail, health, code) = match mok::query(identity) {
+            Enrollment::Enrolled if signed_external_module_is_loaded(identity) => (
+                tr(
+                    "Secure Boot aceitou um módulo externo assinado neste boot. Os diretórios privados do akmods não precisam ser legíveis pelo aplicativo sem privilégios.",
+                ),
+                Health::Good,
+                "mok-module-accepted",
             ),
-            health: Health::Warning,
-            code: "mok-pending-enrollment",
+            Enrollment::Enrolled => (
+                tr(
+                    "A chave pública do akmods já está inscrita no MOK. Os módulos externos podem ser assinados e aceitos pelo Secure Boot neste host.",
+                ),
+                Health::Good,
+                "mok-enrolled",
+            ),
+            Enrollment::AwaitingEnrollment => (
+                tr(
+                    "A chave do akmods já foi preparada e o pedido de importação está pendente no MOK. Reinicie normalmente e conclua 'Enroll MOK' na tela azul do boot.",
+                ),
+                Health::Warning,
+                "mok-pending-enrollment",
+            ),
+            Enrollment::NotEnrolled => (
+                tr(
+                    "Secure Boot está ativo e a chave local do akmods existe, mas ainda não foi aceita no MOK. Use a ação rápida dedicada antes de tentar carregar módulos externos.",
+                ),
+                Health::Error,
+                "mok-not-enrolled",
+            ),
+            Enrollment::Unknown => (
+                tr("O setup não conseguiu consultar o estado do Secure Boot/MOK neste sistema."),
+                Health::Unknown,
+                "mok-unavailable",
+            ),
         };
-    }
-
-    if current_key_identity.is_some_and(signed_external_module_is_loaded) {
         return CheckItem {
             title,
-            detail: tr(
-                "Secure Boot aceitou um módulo externo assinado neste boot. Os diretórios privados do akmods não precisam ser legíveis pelo aplicativo sem privilégios.",
-            ),
-            health: Health::Good,
-            code: "mok-module-accepted",
-        };
-    }
-
-    // The certificate and private-key directories are normally 0750
-    // root:akmods. Only a successful MOK query plus a v2 marker that exactly
-    // matches the trusted public DER copy may establish enrollment.
-    if current_key_identity.is_some_and(|identity| {
-        probe_output("mokutil", &["--list-enrolled"], true).is_ok_and(|output| {
-            mok_enrollment_is_proven(Some(identity), strict_success_stdout(&output), false)
-        })
-    }) {
-        return CheckItem {
-            title,
-            detail: tr(
-                "A chave pública do akmods já está inscrita no MOK. Os módulos externos podem ser assinados e aceitos pelo Secure Boot neste host.",
-            ),
-            health: Health::Good,
-            code: "mok-enrolled",
+            detail,
+            health,
+            code,
         };
     }
 
@@ -1480,33 +1487,6 @@ fn detect_secure_boot_key_check(
             health: Health::Unknown,
             code: "mok-legacy-identity",
         };
-    }
-
-    if current_key_identity.is_some() {
-        let test_output = probe_output(
-            "mokutil",
-            &["--test-key", AKMODS_PUBLIC_CERTIFICATE_STATE_PATH],
-            true,
-        )
-        .ok();
-        let public_certificate_test_succeeded = test_output
-            .as_ref()
-            .and_then(strict_success_stdout)
-            .is_some();
-        if mok_enrollment_is_proven(
-            current_key_identity,
-            None,
-            public_certificate_test_succeeded,
-        ) {
-            return CheckItem {
-                title,
-                detail: tr(
-                    "A chave pública do akmods já está inscrita no MOK. Os módulos externos podem ser assinados e aceitos pelo Secure Boot neste host.",
-                ),
-                health: Health::Good,
-                code: "mok-enrolled",
-            };
-        }
     }
 
     let public_key_state = key_file_state(AKMODS_PUBLIC_KEY_PATH);
@@ -1537,24 +1517,13 @@ fn detect_secure_boot_key_check(
         };
     }
 
-    if current_key_identity.is_none() {
-        return CheckItem {
-            title,
-            detail: tr(
-                "A chave local existe, mas o setup não conseguiu comparar o certificado público atual com uma identidade v2 root-owned contendo CN, fingerprint SHA-1 e serial. Execute a ação administrativa para republicar a identidade antes de liberar módulos ou reboot de reparo.",
-            ),
-            health: Health::Unknown,
-            code: "mok-key-identity-unverified",
-        };
-    }
-
     CheckItem {
         title,
         detail: tr(
-            "Secure Boot está ativo e a chave local do akmods existe, mas ainda não foi aceita no MOK. Use a ação rápida dedicada antes de tentar carregar módulos externos.",
+            "A chave local existe, mas o setup não conseguiu comparar o certificado público atual com uma identidade v2 root-owned contendo CN, fingerprint SHA-1 e serial. Execute a ação administrativa para republicar a identidade antes de liberar módulos ou reboot de reparo.",
         ),
-        health: Health::Error,
-        code: "mok-not-enrolled",
+        health: Health::Unknown,
+        code: "mok-key-identity-unverified",
     }
 }
 
@@ -2415,6 +2384,13 @@ fn recommend_next_step(
     speaker_ready: bool,
     sound_app_installed: bool,
 ) -> (String, String) {
+    if secure_boot_key.code == "mok-unavailable" {
+        // Do not recommend an import or a driver reboot on inconclusive evidence.
+        return (
+            tr("Verifique a chave do Secure Boot"),
+            secure_boot_key.detail.clone(),
+        );
+    }
     if matches!(
         secure_boot_key.code,
         "mok-key-protected" | "mok-legacy-identity" | "mok-key-identity-unverified"
@@ -3886,55 +3862,6 @@ fn legacy_akmods_marker_cn() -> Option<String> {
         })
 }
 
-fn mok_list_contains_identity(output: &str, identity: &AkmodsKeyIdentity) -> bool {
-    output.lines().any(|line| {
-        line.trim()
-            .strip_prefix("SHA1 Fingerprint:")
-            .and_then(|value| normalize_colonized_sha1(value.trim()))
-            .as_deref()
-            == Some(identity.fingerprint_sha1.as_str())
-    })
-}
-
-fn mok_list_matches_current_identity(output: &str, identity: Option<&AkmodsKeyIdentity>) -> bool {
-    identity.is_some_and(|identity| mok_list_contains_identity(output, identity))
-}
-
-fn mok_enrollment_is_proven(
-    identity: Option<&AkmodsKeyIdentity>,
-    enrolled_list_output: Option<&str>,
-    public_certificate_test_succeeded: bool,
-) -> bool {
-    identity.is_some_and(|identity| {
-        public_certificate_test_succeeded
-            || enrolled_list_output
-                .is_some_and(|output| mok_list_contains_identity(output, identity))
-    })
-}
-
-fn mok_pending_output_matches_current_identity(
-    output_success: bool,
-    output: &str,
-    current_identity: Option<&AkmodsKeyIdentity>,
-) -> bool {
-    output_success && mok_list_matches_current_identity(output, current_identity)
-}
-
-fn mok_pending_request_exists(identity: &AkmodsKeyIdentity) -> bool {
-    // The privileged helper publishes both the public DER and its v2 marker.
-    // Require those two root-owned artifacts to prove the same current key
-    // before matching its SHA-1 fingerprint against mokutil --list-new. This
-    // proof is sufficient only to offer the enrollment reboot; it never
-    // establishes enrollment, driver readiness or module ownership.
-    let Ok(output) = probe_output("mokutil", &["--list-new"], true) else {
-        return false;
-    };
-    let Some(output_text) = strict_success_stdout(&output) else {
-        return false;
-    };
-    mok_pending_output_matches_current_identity(true, output_text, Some(identity))
-}
-
 fn read_trusted_file(path: &str, require_root_owned: bool) -> Option<String> {
     let metadata = fs::symlink_metadata(path).ok()?;
     if !metadata.is_file()
@@ -5021,93 +4948,6 @@ esac
     }
 
     #[test]
-    fn published_identity_proves_enrollment_with_protected_original_paths() {
-        let published_certificate = AkmodsKeyIdentity {
-            cn: "galaxybook-akmods".into(),
-            fingerprint_sha1: "00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33".into(),
-            certificate_serial: "112233445566778899AABBCCDDEEFF0011223344".into(),
-        };
-        let published_marker = published_certificate.clone();
-        let identity =
-            validated_key_identity(Some(published_certificate.clone()), Some(published_marker));
-        let enrolled =
-            "SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33\n";
-
-        assert_eq!(identity, Some(published_certificate));
-        // Enrollment is proven from the trusted public DER plus its v2 marker;
-        // the protected original certificate/private-key paths are deliberately
-        // not inputs to this decision.
-        assert!(mok_enrollment_is_proven(
-            identity.as_ref(),
-            Some(enrolled),
-            false,
-        ));
-        assert!(mok_enrollment_is_proven(identity.as_ref(), None, true));
-        assert!(!mok_enrollment_is_proven(None, Some(enrolled), true));
-    }
-
-    #[test]
-    fn v2_mok_matching_uses_fingerprint_not_a_reused_cn() {
-        let identity = AkmodsKeyIdentity {
-            cn: "same-cn".into(),
-            fingerprint_sha1: "00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33".into(),
-            certificate_serial: "112233445566778899AABBCCDDEEFF0011223344".into(),
-        };
-        let wrong_certificate = "[key 1]\nSHA1 Fingerprint: FF:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33\nSubject: CN=same-cn,O=fedora";
-        assert!(!mok_list_contains_identity(wrong_certificate, &identity));
-        let matching_certificate = "[key 2]\nSHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33\nSubject: CN=another-cn,O=fedora";
-        assert!(mok_list_contains_identity(matching_certificate, &identity));
-        assert!(!mok_list_matches_current_identity(
-            "SHA1 Fingerprint: 00:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33\nSubject: CN=same-cn",
-            None,
-        ));
-        assert!(mok_pending_output_matches_current_identity(
-            true,
-            matching_certificate,
-            Some(&identity),
-        ));
-        assert!(!mok_pending_output_matches_current_identity(
-            false,
-            matching_certificate,
-            Some(&identity),
-        ));
-        assert!(!mok_pending_output_matches_current_identity(
-            true,
-            wrong_certificate,
-            Some(&identity),
-        ));
-        assert!(!mok_pending_output_matches_current_identity(
-            true,
-            "",
-            Some(&identity),
-        ));
-        assert!(!mok_pending_output_matches_current_identity(
-            true,
-            matching_certificate,
-            None,
-        ));
-        let legacy_marker = v2_marker_identity(Some(AkmodsKeyMarker::LegacyCn("same-cn".into())));
-        assert!(!mok_pending_output_matches_current_identity(
-            true,
-            matching_certificate,
-            legacy_marker.as_ref(),
-        ));
-
-        let rotated_marker = AkmodsKeyIdentity {
-            cn: identity.cn.clone(),
-            fingerprint_sha1: "FF:11:22:33:44:55:66:77:88:99:AA:BB:CC:DD:EE:FF:00:11:22:33".into(),
-            certificate_serial: "AA2233445566778899AABBCCDDEEFF0011223344".into(),
-        };
-        let stale_identity = validated_key_identity(Some(identity), Some(rotated_marker));
-        assert_eq!(stale_identity, None);
-        assert!(!mok_pending_output_matches_current_identity(
-            true,
-            matching_certificate,
-            stale_identity.as_ref(),
-        ));
-    }
-
-    #[test]
     fn trusted_state_hierarchy_requires_root_root_and_exact_modes() {
         assert!(root_directory_metadata_is_trusted(
             true, 0, 0, 0o40755, 0o755,
@@ -5908,6 +5748,39 @@ esac
             false,
         );
         assert_eq!(title, "Prepare a chave do Secure Boot");
+    }
+
+    #[test]
+    fn recommendation_stops_when_mok_is_unknown() {
+        let mut key = ok_secure_boot_key_item();
+        key.code = "mok-unavailable";
+        key.health = Health::Unknown;
+        key.detail = "Consulta inconclusiva".into();
+        let packages = PackagePresence {
+            installed: vec![],
+            missing: vec![],
+            unknown: vec![],
+        };
+        let (title, detail) = recommend_next_step(
+            &key,
+            &packages,
+            false,
+            ModuleOrigin::Patched,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            false,
+            "browser-ready",
+            false,
+            false,
+            false,
+            false,
+        );
+        assert_eq!(title, "Verifique a chave do Secure Boot");
+        assert_eq!(detail, key.detail);
     }
 
     #[test]
