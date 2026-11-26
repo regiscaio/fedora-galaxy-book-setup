@@ -388,6 +388,85 @@ test_reconciliation_uses_safe_rpm_snapshots_around_private_finalizers() {
   rm -rf -- "$test_root"
 }
 
+test_prepare_all_disk_only() (
+  local dir trace scenario output
+  dir=$(mktemp -d)
+  trap 'rm -rf -- "$dir"' EXIT
+  module_tree_root="$dir/modules"
+  mkdir -p "$module_tree_root/7.3.4-test" "$module_tree_root/7.3.5-test"
+  prepare_reconcile_rpm_lock_fixture "$dir"
+  trace="$dir/trace"
+
+  caller_is_root() { return 0; }
+  if ( caller_is_root() { return 1; }; enter_systemd_inhibitor() { exit 0; }; main prepare-all ) >/dev/null 2>&1; then
+    fail 'prepare-all accepted an unprivileged caller'
+  fi
+  [[ "$(enter_systemd_inhibitor() { echo "$1"; exit 0; }; main prepare-all)" == prepare-all ]]
+  if ( reconcile_inhibitor_parent_fixture=0; main --inhibited prepare-all ) >/dev/null 2>&1; then
+    fail 'prepare-all accepted an untrusted inhibitor parent'
+  fi
+  reconcile_inhibitor_parent_fixture=1
+  lifecycle_helper=/dev/null
+  require_command() { :; }
+  acquire_kmod_lifecycle_lock() { :; }
+  detect_secure_boot_state() {
+    SECURE_BOOT_STATE=enabled
+    if [[ "$scenario" == disabled ]]; then SECURE_BOOT_STATE=disabled; fi
+  }
+  installed_kernels() { printf '7.3.4-test\n7.3.5-test\n'; }
+  ensure_signing_key_available() { :; }
+  detect_akmods_signing_identity() { :; }
+  akmods_key_enrolled() { [[ "$scenario" != unenrolled ]]; }
+  mokutil() {
+    case "$1" in
+      --list-new)
+        if [[ "$scenario" == pending ]]; then echo pending; fi ;;
+      --list-delete)
+        if [[ "$scenario" == deletion ]]; then echo deletion; fi
+        if [[ "$scenario" == warning ]]; then echo unavailable >&2; fi
+        if [[ "$scenario" == late && -s "$trace" ]]; then return 1; fi ;;
+      *) return 1 ;;
+    esac
+  }
+  build_driver_for_kernel() { echo "build $*" >> "$trace"; }
+  validate_packaged_module() {
+    require_reconciliation_locks
+    echo "package $1 $3" >> "$trace"
+    [[ "$scenario" != invalid ]] || fail 'invalid signed payload'
+  }
+  finalize_max_kernel() { echo "max $1" >> "$trace"; }
+  finalize_ov_kernel() { echo "ov $1" >> "$trace"; }
+  validate_resolved_module() { require_reconciliation_locks; echo "resolved $1 $3" >> "$trace"; }
+  publish_enrolled_identity_if_needed() { require_reconciliation_locks; echo publish >> "$trace"; }
+  enable_max_services() { fail 'prepare-all attempted to enable live service'; }
+  validate_max_service() { fail 'prepare-all attempted to restart live audio'; }
+
+  for scenario in disabled unenrolled pending deletion warning late invalid pass; do
+    : > "$trace"
+    if output="$(main --inhibited prepare-all 2>&1)"; then
+      [[ "$scenario" == pass ]] || fail "unexpected prepare-all success: $scenario"
+      [[ "$output" == *"A câmera e o áudio ainda precisam de validação após um novo boot"* ]] || fail 'missing deferred validation notice'
+      for kernel in 7.3.4-test 7.3.5-test; do
+        for family in galaxybook-max98390 galaxybook-ov02c10; do grep -Fxq "build $family $kernel" "$trace"; done
+        for family in max ov; do grep -Fxq "$family $kernel" "$trace"; done
+        for module in ov02c10 snd-hda-scodec-max98390 snd-hda-scodec-max98390-i2c; do
+          [[ "$(grep -Fxc "package $kernel $module" "$trace")" -eq 2 ]]
+          grep -Fxq "resolved $kernel $module" "$trace"
+        done
+      done
+      grep -Fxq publish "$trace"
+    else
+      [[ "$scenario" != pass ]] || fail "unexpected prepare-all failure: $output"
+      [[ "$output" != *"Preparação em disco validada"* ]]
+      case "$scenario" in
+        late) grep -Fq 'resolved 7.3.5-test' "$trace" ;;
+        invalid) ! grep -Fq resolved "$trace" ;;
+        *) [[ ! -s "$trace" ]] ;;
+      esac
+    fi
+  done
+)
+
 test_rpm_read_lock_releases_on_failure_and_signal() {
   local test_root ready block_fifo child_pid
 
@@ -1310,6 +1389,7 @@ test_reconciliation_acquires_global_before_driver_work
 test_production_rpm_lock_contract_ignores_environment
 test_inhibitor_wraps_the_entire_reconciliation
 test_inhibitor_failure_stops_reconciliation
+test_prepare_all_disk_only
 test_coordinated_reconciliation_requires_inhibitor_parent_and_inherited_global
 test_rpm_read_lock_rejects_unsafe_state
 test_rpm_read_lock_detects_post_acquisition_tampering
@@ -1338,3 +1418,33 @@ test_max_service_state_queries_fail_closed
 test_max_finalizer_is_synchronous_and_kernel_scoped
 test_packaging_constraints_match_the_public_helper_contracts
 test_documented_legacy_upgrade_is_two_stage_and_translated
+
+# Exercise the packaged sibling invocation without requiring root or touching MOK.
+(
+  fixture="$(mktemp -d)"
+  trap 'rm -rf -- "$fixture"' EXIT
+  cp -- "$REPO_ROOT/scripts/reconcile-kmods.sh" "$fixture/reconcile-kmods"
+  bash --noprofile --norc -s -- "$fixture" <<'TEST'
+  fixture="$1"
+  source "$fixture/reconcile-kmods"
+  trace="$fixture/trace"
+  export GALAXYBOOK_QA_PUBLISH_TRACE="$trace"
+  require_reconciliation_locks() { printf 'locked\n' >> "$trace"; }
+  AKMODS_CERT_FINGERPRINT=00112233445566778899aabbccddeeff00112233
+  certificate_sha1_fingerprint() { printf '%s\n' "$AKMODS_CERT_FINGERPRINT"; }
+  SECURE_BOOT_STATE=disabled
+  publish_enrolled_identity_if_needed
+  [[ ! -e "$trace" ]]
+  printf '%s\n' '#!/usr/bin/bash' '[[ "$#" == 1 && "$1" == --publish-enrolled ]] || exit 1' \
+    'printf "%s\n" public-only >> "$GALAXYBOOK_QA_PUBLISH_TRACE"' > "$fixture/prepare-secure-boot-key"
+  chmod 0755 "$fixture/prepare-secure-boot-key"
+  SECURE_BOOT_STATE=enabled
+  publish_enrolled_identity_if_needed
+  [[ "$(<"$trace")" == $'locked\npublic-only\nlocked' ]]
+  if (certificate_sha1_fingerprint() { printf '%040d\n' 0; }; publish_enrolled_identity_if_needed) >/dev/null 2>&1; then
+    exit 1
+  fi
+  chmod 0644 "$fixture/prepare-secure-boot-key"
+  if (publish_enrolled_identity_if_needed) >/dev/null 2>&1; then exit 1; fi
+TEST
+)

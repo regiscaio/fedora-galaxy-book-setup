@@ -288,6 +288,10 @@ failure when all four bindings are present at the end.
 
 ## Secure Boot and MOK
 
+The administrative `reconcile-kmods prepare-all` mode prepares both drivers on disk for all kernels. It requires Secure Boot, an enrolled key, and empty pending MOK operation lists. It does not reboot, start the audio service, or certify physical operation.
+
+Since 1.00.49, reconciliation publishes a diagnostic copy of the public certificate and its identity marker only after confirming enrollment. This does not change the MOK or the permissions of the original key. To refresh only the diagnostic state, run `sudo /usr/libexec/galaxybook-setup/prepare-secure-boot-key --publish-enrolled`. If enrollment cannot be verified, the command fails without requesting import. Publishing an already enrolled identity requires neither a MOK password nor a reboot.
+
 If a quick action fails with something like:
 
 ```text

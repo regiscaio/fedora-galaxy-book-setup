@@ -287,6 +287,10 @@ tratado como falha quando os quatro vínculos aparecem ao final.
 
 ## Secure Boot e MOK
 
+O modo administrativo `reconcile-kmods prepare-all` prepara os drivers em disco para todos os kernels. Exige Secure Boot ativo, chave inscrita e filas de operações MOK vazias. Não reinicia, não ativa o serviço de áudio e não comprova o funcionamento físico.
+
+A partir da 1.00.49, a reconciliação publica uma cópia de diagnóstico do certificado público e um marcador de identidade somente depois de comprovar que a chave já está inscrita. Isso não altera o MOK nem as permissões da chave original. Para atualizar só o diagnóstico, use `sudo /usr/libexec/galaxybook-setup/prepare-secure-boot-key --publish-enrolled`. Se a inscrição não for confirmada, o comando falha sem iniciar uma importação; não é preciso definir senha ou reiniciar para publicar uma identidade já inscrita.
+
 Se alguma ação rápida falhar com algo como:
 
 ```text

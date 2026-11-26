@@ -191,6 +191,26 @@ test_global_failure_stops_before_signing_key_work
 test_external_global_holder_blocks_key_work_with_a_timeout
 test_inherited_global_is_reused_through_final_key_validation
 
+test_publish_only_dispatch() (
+  local trace="$TEST_ROOT/public-mode.trace"
+  caller_is_root() { return 0; }
+  require_command() { [[ "$1" != kmodgenca && "$1" != sg ]] || exit 96; }
+  lifecycle_helper=/dev/null
+  acquire_kmod_lifecycle_lock() { printf 'locked\n' >> "$trace"; }
+  validate_kmod_lifecycle_lock() { grep -Fxq locked "$trace"; }
+  root_owned_directory_is_trusted() { return 0; }
+  publish_existing_enrollment() { require_kmod_lifecycle_lock; printf 'published\n' >> "$trace"; }
+  ensure_key_directory() { exit 93; }
+  key_pair_presence_state() { exit 94; }
+  mokutil() { exit 95; }
+  main --publish-enrolled
+  [[ "$(<"$trace")" == $'locked\npublished' ]]
+)
+test_publish_only_dispatch
+if ( main --publish-enrolled unexpected ) >/dev/null 2>&1; then
+  fail_test 'unexpected arguments were accepted'
+fi
+
 expect_state() {
   local expected_state="$1"
   local public_key="$2"

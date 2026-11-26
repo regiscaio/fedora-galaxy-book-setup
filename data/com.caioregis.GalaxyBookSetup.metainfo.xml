@@ -20,6 +20,14 @@
     </p>
   </description>
   <releases>
+    <release version="1.00.49" date="2026-11-26" type="stable">
+      <description>
+        <p>Driver maintenance can now publish an already enrolled MOK certificate for unprivileged diagnostics without importing a key. The new disk-only preparation mode validates drivers for all installed kernels without restarting the audio service.</p>
+        <p xml:lang="pt-BR">A manutenção publica o certificado MOK já inscrito para o diagnóstico sem privilégios, sem importar chaves. O novo modo de preparação em disco valida os drivers de todos os kernels instalados sem reiniciar o serviço de áudio.</p>
+        <p xml:lang="es">El mantenimiento publica el certificado MOK ya inscrito para el diagnóstico sin privilegios, sin importar claves. El nuevo modo de preparación en disco valida los controladores de todos los kernels instalados sin reiniciar el servicio de audio.</p>
+        <p xml:lang="it">La manutenzione pubblica il certificato MOK già registrato per la diagnostica senza privilegi, senza importare chiavi. La nuova modalità di preparazione su disco verifica i driver di tutti i kernel installati senza riavviare il servizio audio.</p>
+      </description>
+    </release>
     <release version="1.00.48" date="2026-11-25" type="stable">
       <description>
         <p>Setup now detects an unbound OV02C10 sensor before activating the browser webcam, checks speaker modules for the installed kernels, and coordinates driver maintenance across the camera and audio packages.</p>

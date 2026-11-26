@@ -41,7 +41,7 @@ fail() {
 }
 
 usage() {
-  printf 'Uso: %s {all|ov02c10|max98390}\n' "$0" >&2
+  printf 'Uso: %s {all|ov02c10|max98390|prepare-all}\n' "$0" >&2
   exit 2
 }
 
@@ -484,6 +484,25 @@ mok_reboot_required() {
   fail "Os payloads estão prontos, mas a chave do akmods não está inscrita nem possui pedido pendente no MOK. Use 'Preparar chave do Secure Boot' antes de reiniciar."
 }
 
+publish_enrolled_identity_if_needed() {
+  local identity_helper="${BASH_SOURCE[0]%/*}/prepare-secure-boot-key"
+  local current_fingerprint
+
+  secure_boot_is_enabled || return 0
+  require_reconciliation_locks
+  [[ -x "$identity_helper" && "$AKMODS_CERT_FINGERPRINT" =~ ^[0-9a-f]{40}$ ]] \
+    || fail "A identidade pública do akmods não está pronta para publicação."
+  # The child reuses GLOBAL and takes only the directory lock for publishing.
+  # Never generate a key, request enrollment or prompt for a password here.
+  "$identity_helper" --publish-enrolled \
+    || fail "Falha ao publicar a identidade já inscrita do akmods para o diagnóstico sem privilégios."
+  current_fingerprint="$(certificate_sha1_fingerprint)" \
+    || fail "Não foi possível revalidar o certificado do akmods após a publicação."
+  [[ "$current_fingerprint" == "$AKMODS_CERT_FINGERPRINT" ]] \
+    || fail "O certificado do akmods mudou durante a reconciliação."
+  require_reconciliation_locks
+}
+
 build_driver_for_kernel() {
   local akmod="$1"
   local kernel="$2"
@@ -797,12 +816,33 @@ validate_all_resolved_modules() {
   done
 }
 
+require_enrolled_mok_for_preparation() {
+  local queue
+
+  secure_boot_is_enabled \
+    || fail "A preparação em disco exige o Secure Boot ativo."
+  akmods_key_enrolled \
+    || fail "A preparação em disco exige que a chave atual do akmods já esteja inscrita no MOK."
+  # A currently trusted key can still be scheduled for deletion. Do not
+  # certify the next boot while any MOK change is pending or unobservable.
+  for queue in --list-new --list-delete; do
+    capture_clean_output_preserving_newlines mokutil "$queue" \
+      || fail "Não foi possível confirmar o estado dos pedidos pendentes do MOK."
+    [[ -z "$PROBE_STDOUT" ]] \
+      || fail "Há uma alteração pendente no MOK. A preparação em disco não foi confirmada."
+  done
+}
+
 complete_reconciliation() {
   local mode="$1"
   local expected_kernel_output="$2"
-  local mok_requires_reboot=false
+  local mok_requires_reboot=false prepare_only=false
   local -a kernels=("${@:3}")
 
+  if [[ "$mode" == prepare-all ]]; then
+    mode=all
+    prepare_only=true
+  fi
   [[ -n "$expected_kernel_output" ]] && (( ${#kernels[@]} > 0 )) \
     || fail "A finalização não recebeu nenhum kernel validado."
 
@@ -829,12 +869,17 @@ complete_reconciliation() {
   validate_all_packaged_modules "$mode" "${kernels[@]}"
   validate_all_resolved_modules "$mode" "${kernels[@]}"
 
-  if mok_reboot_required; then
+  if "$prepare_only"; then
+    require_enrolled_mok_for_preparation
+  elif mok_reboot_required; then
     mok_requires_reboot=true
   fi
   require_reconciliation_locks
+  if ! "$mok_requires_reboot"; then
+    publish_enrolled_identity_if_needed
+  fi
 
-  if [[ "$mode" == all || "$mode" == max98390 ]]; then
+  if ! "$prepare_only" && [[ "$mode" == all || "$mode" == max98390 ]]; then
     enable_max_services
     require_reconciliation_locks
     if ! "$mok_requires_reboot"; then
@@ -851,14 +896,18 @@ complete_reconciliation() {
   fi
 
   require_reconciliation_locks
-  log "Payloads RPM e finalização por kernel validados para: ${kernels[*]}. Reinicie normalmente; módulos já ocupados não foram trocados ao vivo."
+  if "$prepare_only"; then
+    log "Preparação em disco validada para: ${kernels[*]}. A chave do akmods está inscrita no MOK. A câmera e o áudio ainda precisam de validação após um novo boot; nenhum reinício foi solicitado."
+  else
+    log "Payloads RPM e finalização por kernel validados para: ${kernels[*]}. Reinicie normalmente; módulos já ocupados não foram trocados ao vivo."
+  fi
   require_reconciliation_locks
   release_rpm_read_lock \
     || fail "Não foi possível liberar corretamente o lock compartilhado do RPM."
 }
 
 main() {
-  local invocation mode
+  local invocation mode build_scope
   local kernel kernel_output
   local -a kernels
 
@@ -876,7 +925,11 @@ main() {
     *) usage ;;
   esac
   case "$mode" in
-    all|ov02c10|max98390) ;;
+    all|ov02c10|max98390) build_scope="$mode" ;;
+    prepare-all)
+      [[ "$invocation" != --coordinated ]] || usage
+      build_scope=all
+      ;;
     *) usage ;;
   esac
   caller_is_root || fail "Este helper precisa ser executado como root."
@@ -935,16 +988,19 @@ main() {
   (( ${#kernels[@]} > 0 )) || fail "Nenhum kernel instalado foi encontrado."
   ensure_signing_key_available
   detect_akmods_signing_identity
+  if [[ "$mode" == prepare-all ]]; then
+    require_enrolled_mok_for_preparation
+  fi
 
   for kernel in "${kernels[@]}"; do
     kernel_name_is_safe "$kernel" \
       || fail "A versão de kernel '$kernel' contém caracteres inseguros."
     [[ -d "$module_tree_root/$kernel" ]] \
       || fail "A árvore $module_tree_root/$kernel está ausente."
-    if [[ "$mode" == all || "$mode" == ov02c10 ]]; then
+    if [[ "$build_scope" == all || "$build_scope" == ov02c10 ]]; then
       build_driver_for_kernel "$OV_AKMOD" "$kernel"
     fi
-    if [[ "$mode" == all || "$mode" == max98390 ]]; then
+    if [[ "$build_scope" == all || "$build_scope" == max98390 ]]; then
       build_driver_for_kernel "$MAX_AKMOD" "$kernel"
     fi
   done

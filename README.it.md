@@ -305,6 +305,10 @@ alla fine sono presenti tutti e quattro i collegamenti.
 
 ## Secure Boot e MOK
 
+La modalità amministrativa `reconcile-kmods prepare-all` prepara su disco entrambi i driver per tutti i kernel. Richiede Secure Boot attivo, una chiave registrata e nessuna operazione MOK in attesa. Non riavvia il sistema, non avvia il servizio audio e non verifica il funzionamento fisico.
+
+Dalla versione 1.00.49 la riconciliazione pubblica una copia del certificato pubblico e il suo marcatore di identità per la diagnostica solo dopo aver verificato la registrazione. Non modifica il MOK né i permessi della chiave originale. Per aggiornare solo la diagnostica eseguire `sudo /usr/libexec/galaxybook-setup/prepare-secure-boot-key --publish-enrolled`. Se la registrazione non è confermata, il comando termina senza richiedere l'importazione. Pubblicare un'identità già registrata non richiede password MOK né riavvio.
+
 Se un'azione rapida fallisce con qualcosa del tipo:
 
 ```text

@@ -728,10 +728,45 @@ finish_enrolled_key() {
   printf '%s\n' "A chave do akmods já está inscrita no MOK."
 }
 
+publish_existing_enrollment() {
+  local public_target directory_metadata key_cn key_fingerprint key_serial
+
+  # Fedora installations may make the *public* certificate directory searchable
+  # (0755) while the DER is still 0640 root:akmods. Neither directory nor DER
+  # may be writable by the group. Never inspect or change the private-key tree.
+  [[ -d "$CERTIFICATE_DIRECTORY" && ! -L "$CERTIFICATE_DIRECTORY" ]] \
+    || fail "O diretório do certificado público do akmods não é seguro."
+  directory_metadata="$(stat -Lc '%U:%G:%a' -- "$CERTIFICATE_DIRECTORY")"
+  [[ "$directory_metadata" == root:akmods:750 || "$directory_metadata" == root:akmods:755 ]] \
+    || fail "O diretório do certificado público do akmods tem permissões inesperadas."
+  if [[ -L "$PUBLIC_KEY" ]]; then
+    fedora_key_link_target "$PUBLIC_KEY" "$CERTIFICATE_DIRECTORY" der root akmods public_target \
+      || fail "O link do certificado público do akmods não aponta para um DER protegido."
+  else
+    public_target="$PUBLIC_KEY"
+    regular_key_file_is_safe "$public_target" root akmods \
+      || fail "O certificado público do akmods não é um DER protegido."
+  fi
+  open_validated_public_certificate "$public_target" \
+    || fail "Não foi possível abrir o certificado público do akmods com segurança."
+  certificate_identity "$PUBLIC_CERTIFICATE_FD_PATH" key_cn key_fingerprint key_serial \
+    || fail "O certificado público do akmods é inválido."
+  mok_key_is_enrolled "$PUBLIC_CERTIFICATE_FD_PATH" "$key_fingerprint" \
+    || fail "Não foi possível confirmar a inscrição do certificado atual. Nenhum pedido de importação MOK foi feito."
+  public_certificate_source_is_unchanged "$PUBLIC_KEY" \
+    || fail "O certificado público do akmods mudou durante a consulta."
+  require_kmod_lifecycle_lock
+  finish_enrolled_key "$key_cn" "$key_fingerprint" "$key_serial"
+  require_kmod_lifecycle_lock
+}
+
 main() {
   local key_cn key_fingerprint key_serial key_state
 
   caller_is_root || fail "Este helper precisa ser executado como root."
+  if (( $# != 0 )) && ! { (( $# == 1 )) && [[ "$1" == --publish-enrolled ]]; }; then
+    fail "Uso: prepare-secure-boot-key [--publish-enrolled]"
+  fi
   require_command awk
   require_command cat
   require_command chmod
@@ -740,14 +775,12 @@ main() {
   require_command dd
   require_command flock
   require_command install
-  require_command kmodgenca
   require_command mktemp
   require_command mokutil
   require_command mv
   require_command openssl
   require_command readlink
   require_command rm
-  require_command sg
   require_command stat
   require_command sync
   require_command tr
@@ -766,6 +799,12 @@ main() {
     || ! root_owned_directory_is_trusted /etc/pki/akmods; then
     fail "A hierarquia /etc/pki/akmods não é um diretório root seguro."
   fi
+  if (( $# == 1 )); then
+    publish_existing_enrollment
+    return 0
+  fi
+  require_command kmodgenca
+  require_command sg
   ensure_key_directory "$CERTIFICATE_DIRECTORY"
   ensure_key_directory "$PRIVATE_KEY_DIRECTORY"
   key_state="$(key_pair_presence_state)"
